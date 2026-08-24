@@ -187,6 +187,173 @@ export function createPartnerRoutes({
     }
   });
 
+  // ============================================================
+  // QUADRO DE VIAGENS
+  //
+  // O parceiro vê as viagens por atribuir dos aeroportos que serve, e
+  // pega a que quiser. A corrida entre dois parceiros é resolvida
+  // dentro do claim_ride, no Postgres — não aqui.
+  // ============================================================
+  router.get('/api/partner/rides', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const [available, mine, partner] = await Promise.all([
+        // A vista já filtra por aeroporto e esconde os dados do
+        // passageiro: só aparecem depois de a viagem ser pegada.
+        supabase.from('available_rides').select('*')
+          .order('booking_date', { ascending: true }).limit(120),
+        supabase.from('bookings')
+          .select('id, booking_id, booking_reference, pickup, dropoff, booking_date, booking_time, passengers, flight_number, notes, driver_payout, currency, status, passenger_name, passenger_phone, full_name, phone, preferred_languages, claimed_at')
+          .eq('assigned_partner_id', user.id)
+          .order('booking_date', { ascending: true }),
+        supabase.from('driver_partners')
+          .select('status, operating_airports, payout_iban').eq('id', user.id).maybeSingle()
+      ]);
+
+      if (available.error) throw available.error;
+      if (mine.error) throw mine.error;
+
+      return res.json({
+        available: available.data || [],
+        mine: mine.data || [],
+        airports: partner.data?.operating_airports || [],
+        ready: partner.data?.status === 'approved' && Boolean(partner.data?.payout_iban)
+      });
+    } catch (error) {
+      console.error('partner/rides error:', error);
+      return res.status(500).json({ error: 'Could not load the ride board.' });
+    }
+  });
+
+  router.post('/api/partner/rides/claim', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { ride_id } = req.body || {};
+      if (!ride_id) return res.status(400).json({ error: 'Missing ride_id' });
+
+      // A função claim_ride existe no Postgres para quem chamar com o
+      // JWT do parceiro. Aqui o cliente usa a service_role e não tem
+      // auth.uid(), por isso fazemos as mesmas verificações e o mesmo
+      // update condicional.
+      const partnerRes = await supabase.from('driver_partners')
+        .select('*').eq('id', user.id).maybeSingle();
+      const partner = partnerRes.data;
+
+      if (!partner || partner.status !== 'approved') {
+        return res.status(403).json({ error: 'Your partner account is not active yet.' });
+      }
+      if (!partner.payout_iban) {
+        return res.status(400).json({ error: 'Add your payout details before taking rides.' });
+      }
+
+      const [driversRes, vehiclesRes, rideRes] = await Promise.all([
+        supabase.from('drivers').select('id').eq('partner_id', user.id).eq('status', 'active'),
+        supabase.from('partner_vehicles').select('id, seats').eq('partner_id', user.id).eq('status', 'active'),
+        supabase.from('bookings').select('*').eq('id', ride_id).maybeSingle()
+      ]);
+
+      const ride = rideRes.data;
+      if (!ride) return res.status(404).json({ error: 'That ride no longer exists.' });
+
+      if (!(driversRes.data || []).length) {
+        return res.status(400).json({ error: 'Add at least one active driver first.' });
+      }
+
+      const seats = Math.max(0, ...(vehiclesRes.data || []).map((v) => v.seats || 0));
+      if (seats < (ride.passengers || 1)) {
+        return res.status(400).json({ error: 'None of your vehicles seats that many passengers.' });
+      }
+
+      const airports = partner.operating_airports || [];
+      if (!ride.pickup_airport || airports.indexOf(ride.pickup_airport) === -1) {
+        return res.status(400).json({ error: 'That ride is outside your service airports.' });
+      }
+
+      // A condição is null dentro do update é o que impede dois
+      // parceiros de ficarem com a mesma viagem. Um IF antes do
+      // update não chegava: entre o IF e o update cabe outro pedido.
+      const { data: claimed, error: claimError } = await supabase
+        .from('bookings')
+        .update({
+          assigned_partner_id: user.id,
+          assigned_at: new Date().toISOString(),
+          claimed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', ride_id)
+        .is('assigned_partner_id', null)
+        .select('id')
+        .maybeSingle();
+
+      if (claimError) throw claimError;
+
+      if (!claimed) {
+        return res.status(409).json({ error: 'Another partner took that ride first.' });
+      }
+
+      console.log('Ride claimed:', { partner: partner.email, ride: ride.booking_id || ride.id });
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('rides/claim error:', error);
+      return res.status(500).json({ error: 'Could not take that ride.' });
+    }
+  });
+
+  router.post('/api/partner/rides/release', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { ride_id, reason } = req.body || {};
+      if (!ride_id) return res.status(400).json({ error: 'Missing ride_id' });
+
+      const { data: ride } = await supabase.from('bookings')
+        .select('*').eq('id', ride_id).maybeSingle();
+
+      if (!ride || ride.assigned_partner_id !== user.id) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      const pickupAt = new Date(`${ride.booking_date}T${ride.booking_time || '00:00'}`);
+      const hoursLeft = (pickupAt.getTime() - Date.now()) / 36e5;
+
+      if (!Number.isFinite(hoursLeft) || hoursLeft < 24) {
+        return res.status(400).json({
+          error: 'Less than 24 hours to pick-up. Contact support — do not leave the passenger waiting.'
+        });
+      }
+
+      const { error } = await supabase.from('bookings').update({
+        assigned_partner_id: null,
+        assigned_driver_id: null,
+        assigned_vehicle_id: null,
+        assigned_at: null,
+        claimed_at: null,
+        released_count: (ride.released_count || 0) + 1,
+        notes: (ride.notes || '') + (reason ? `\n[released] ${reason}` : ''),
+        updated_at: new Date().toISOString()
+      }).eq('id', ride_id);
+
+      if (error) throw error;
+
+      console.warn('Ride released:', {
+        partner: user.email,
+        ride: ride.booking_id || ride.id,
+        times: (ride.released_count || 0) + 1
+      });
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('rides/release error:', error);
+      return res.status(500).json({ error: 'Could not release that ride.' });
+    }
+  });
+
   router.get('/api/partner/me', async (req, res) => {
     try {
       const user = await getUserFromRequest(req);
