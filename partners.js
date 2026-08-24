@@ -54,7 +54,7 @@ export function createPartnerRoutes({
   const PARTNER_EDITABLE_STATUSES = ['draft', 'rejected', 'verified', 'approved'];
 
   async function loadPartnerState(userId) {
-    const [partner, zones, drivers, vehicles, documents, requirements, allZones, compliance] =
+    const [partner, zones, drivers, vehicles, documents, requirements, allZones, compliance, airports] =
       await Promise.all([
         supabase.from('driver_partners').select('*').eq('id', userId).maybeSingle(),
         supabase.from('partner_zones').select('zone_code').eq('partner_id', userId),
@@ -63,7 +63,8 @@ export function createPartnerRoutes({
         supabase.from('compliance_documents').select('*').eq('partner_id', userId).order('uploaded_at', { ascending: false }),
         supabase.from('document_requirements').select('*').eq('active', true).order('sort_order'),
         supabase.from('service_zones').select('*').eq('active', true).order('sort_order'),
-        supabase.from('partner_compliance').select('*').eq('partner_id', userId).maybeSingle()
+        supabase.from('partner_compliance').select('*').eq('partner_id', userId).maybeSingle(),
+        supabase.from('airports').select('*').eq('active', true).order('city')
       ]);
 
     const country = partner.data?.country || DEFAULT_COUNTRY;
@@ -77,6 +78,7 @@ export function createPartnerRoutes({
       documents: documents.data || [],
       requirements: requirementsFor(allRequirements, country),
       serviceZones: allZones.data || [],
+      airports: airports.data || [],
       compliance: compliance.data || null
     };
   }
@@ -150,6 +152,9 @@ export function createPartnerRoutes({
         contact_phone: b.contact_phone,
         emergency_phone: b.emergency_phone || null,
         operating_cities: cities && cities.length ? cities : null,
+        operating_airports: Array.isArray(b.operating_airports) && b.operating_airports.length
+          ? b.operating_airports.map((a) => String(a).toUpperCase()).slice(0, 120)
+          : null,
         fleet_size: Number.isFinite(fleetSize) ? fleetSize : null,
         owner_drives: typeof b.owner_drives === 'boolean' ? b.owner_drives : null,
         heard_from: b.heard_from || null,
@@ -225,6 +230,19 @@ export function createPartnerRoutes({
         });
       }
 
+      // Só gravamos estas listas quando vêm no pedido. Sem isto, um
+      // ecrã que não as recolhe apagava-as ao gravar o resto.
+      const cities = Array.isArray(b.operating_cities)
+        ? b.operating_cities.map((c) => String(c).trim()).filter(Boolean).slice(0, 60)
+        : undefined;
+
+      const airports = Array.isArray(b.operating_airports)
+        ? b.operating_airports
+            .map((a) => String(a).trim().toUpperCase())
+            .filter((a) => /^[A-Z]{3}$/.test(a))
+            .slice(0, 120)
+        : undefined;
+
       const { error } = await supabase.from('driver_partners').upsert({
         id: user.id,
         email: user.email,
@@ -242,6 +260,8 @@ export function createPartnerRoutes({
         payout_iban: b.payout_iban || null,
         payout_holder: b.payout_holder || null,
         bank_details_at: b.payout_iban ? new Date().toISOString() : null,
+        ...(cities !== undefined ? { operating_cities: cities.length ? cities : null } : {}),
+        ...(airports !== undefined ? { operating_airports: airports.length ? airports : null } : {}),
         updated_at: new Date().toISOString()
       }, { onConflict: 'id' });
 
