@@ -160,6 +160,17 @@ html[data-theme="dark"] .wiz-fill{background:var(--amber)}
 .opt span{color:var(--muted);font-size:12.5px;line-height:1.5}
 
 .tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.ap-results{position:relative;margin-top:8px}
+.ap-hit{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--rule);
+  border-radius:12px;margin-bottom:6px;cursor:pointer;background:var(--field)}
+.ap-hit:hover{border-color:var(--teal);background:var(--teal-soft)}
+.ap-code{font-family:var(--mono);font-size:13px;font-weight:600;background:var(--ink);color:#fff;
+  border-radius:7px;padding:5px 8px;letter-spacing:.04em;flex:0 0 auto}
+html[data-theme="dark"] .ap-code{background:var(--amber);color:#141A28}
+.ap-name{font-size:14px;font-weight:600;line-height:1.35}
+.ap-where{font-size:12px;color:var(--muted)}
+.tagchip .code{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--teal)}
+html[data-theme="dark"] .tagchip .code{color:var(--amber)}
 .tagchip{display:inline-flex;align-items:center;gap:8px;background:var(--teal-soft);border:1px solid var(--teal);
   border-radius:999px;padding:7px 12px;font-size:13px}
 .tagchip button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0}
@@ -641,11 +652,24 @@ html[data-theme="dark"] .metric.good .v{color:var(--amber)}
       <div class="page" id="pgAreas">
         <div class="page-head"><h1>Work areas</h1><p>Where you can realistically pick up. You only receive offers for these areas, and you can change them whenever you like.</p></div>
         <div class="card">
-          <h2>Cities you cover</h2>
-          <p class="note">Type a city and press Enter.</p>
-          <div class="field"><input id="arCity" type="text" placeholder="Lisbon"></div>
+          <h2>Airports you serve</h2>
+          <p class="note">Search by airport name, city or IATA code &mdash; the three letters on a boarding pass. This is what decides which offers reach you, so add every airport you can realistically cover.</p>
+          <div class="field">
+            <input id="apSearch" type="text" placeholder="Lisbon, LIS, Heathrow..." autocomplete="off">
+            <div class="ap-results" id="apResults"></div>
+          </div>
+          <div class="tags" id="apTags"></div>
+          <button class="btn teal" id="apSave" type="button" style="margin-top:18px">Save airports</button>
+          <div id="apMsg" class="msg err"></div>
+          <div id="apOk" class="msg ok"></div>
+        </div>
+
+        <div class="card">
+          <h2>Other cities</h2>
+          <p class="note">Anywhere else you can pick up that is not an airport &mdash; hotels, stations, ports. Type and press Enter.</p>
+          <div class="field"><input id="arCity" type="text" placeholder="Cascais"></div>
           <div class="tags" id="arTags"></div>
-          <button class="btn teal" id="arSave" type="button" style="margin-top:18px">Save areas</button>
+          <button class="btn line" id="arSave" type="button" style="margin-top:18px">Save cities</button>
           <div id="arMsg" class="msg err"></div>
           <div id="arOk" class="msg ok"></div>
         </div>
@@ -721,7 +745,7 @@ var $ = function (id) { return document.getElementById(id); };
 var qsa = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
 
 var user = null, S = null, avail = {}, rides = [], calCursor = new Date();
-var wizStep = 1, wizCities = [], wizOwner = null, areaCities = [];
+var wizStep = 1, wizCities = [], wizOwner = null, areaCities = [], areaAirports = [];
 
 var COUNTRIES = [
   ['PT','Portugal'],['ES','Spain'],['FR','France'],['IT','Italy'],['GB','United Kingdom'],
@@ -1075,10 +1099,12 @@ async function boot() {
   var p = S.partner || {};
   $('tbCompany').textContent = p.trading_name || p.legal_name || 'Your company';
   $('tbAvatar').textContent = initials(p.trading_name || p.legal_name || S.email);
+  var stepsLeft = checklist().filter(function (i) { return !i.done; }).length;
   $('tbStatus').textContent = ({
     draft: 'Not submitted', submitted: 'Under review', in_review: 'Under review',
-    verified: 'Verified', approved: 'Live', suspended: 'Suspended', rejected: 'Not approved'
-  })[p.status] || 'Account';
+    verified: 'Verified', suspended: 'Suspended', rejected: 'Not approved',
+    approved: stepsLeft ? (stepsLeft + ' step' + (stepsLeft === 1 ? '' : 's') + ' left') : 'Live'
+  })[p.status] || 'Setting up';
   $('stEmail').value = S.email || '';
   $('stCountry').value = p.country || '';
 
@@ -1098,7 +1124,7 @@ async function boot() {
 async function refresh(newState) {
   if (newState) S = Object.assign(S, newState);
   else S = await api('/api/partner/me');
-  renderDocs(); renderDrivers(); renderFleet(); renderOverview();
+  renderDocs(); renderDrivers(); renderFleet(); renderAreas(); renderOverview();
 }
 
 // ---------- panorama ----------
@@ -1117,7 +1143,7 @@ function checklist() {
     { id: 'pgDocs',    title: 'Upload 3 documents', sub: 'Registration, insurance, licence', done: docsDone },
     { id: 'pgDrivers', title: 'Add a driver',       sub: 'At least one, with a phone number', done: S.drivers.length > 0 },
     { id: 'pgFleet',   title: 'Add a vehicle',      sub: 'Seats decide which rides you get',  done: S.vehicles.length > 0 },
-    { id: 'pgAreas',   title: 'Set your work areas',sub: 'Where you can pick up',             done: (p.operating_cities || []).length > 0 || S.zones.length > 0 },
+    { id: 'pgAreas',   title: 'Set your work areas',sub: 'Airports you can serve',            done: (p.operating_airports || []).length > 0 },
     { id: 'pgPayouts', title: 'Add payout details', sub: 'Where we send your money',          done: Boolean(p.payout_iban) }
   ];
 }
@@ -1126,6 +1152,7 @@ function renderOverview() {
   var p = S.partner || {};
   var items = checklist();
   var done = items.filter(function (i) { return i.done; }).length;
+  var setupComplete = done === items.length;
   var expired = S.documents.filter(function (d) {
     return d.expires_on && new Date(d.expires_on) < new Date();
   });
@@ -1171,18 +1198,28 @@ function renderOverview() {
       '<strong>' + expired.length + ' document' + (expired.length === 1 ? '' : 's') + ' expired</strong>' +
       'You are not receiving offers until they are replaced.' +
       '<br><button class="btn danger sm" data-go="pgDocs" type="button">Replace now</button></span></div>';
-  } else {
+  } else if (p.status === 'approved' && setupComplete) {
     b = '<div class="banner ok"><span class="mk">&#10003;</span><span>' +
       '<strong>You are live</strong>' +
       'Offers arrive by email and appear under Rides. Block days you cannot work under Schedule.' +
       (soon.length ? '<br><br>' + soon.length + ' document' + (soon.length === 1 ? '' : 's') +
         ' expire within 30 days — replace them to stay in the dispatch list.' : '') +
       '</span></div>';
+  } else {
+    // Aprovado mas com passos por fazer. Dizer "you are live" aqui
+    // seria mentira: sem veículo ou sem área de trabalho, nenhuma
+    // oferta consegue chegar a este parceiro.
+    b = '<div class="banner draft"><span class="mk">&#9679;</span><span>' +
+      '<strong>' + (items.length - done) + ' step' + (items.length - done === 1 ? '' : 's') +
+      ' left before your first ride</strong>' +
+      'Your account is approved, but offers can only reach you once your setup is complete. ' +
+      'Finish the steps below and you go live automatically.' +
+      '</span></div>';
   }
   $('statusBanner').innerHTML = b;
 
   // lista de ativação
-  $('activation').innerHTML = (done === items.length && p.status === 'approved') ? '' :
+  $('activation').innerHTML = (setupComplete && p.status === 'approved') ? '' :
     '<div class="progress-line"><span class="n">' + done + ' of ' + items.length + ' done</span>' +
     '<span class="bar"><i style="width:' + Math.round(done / items.length * 100) + '%"></i></span></div>' +
     '<div class="steps-grid">' + items.map(function (i) {
@@ -1221,8 +1258,8 @@ function renderOverview() {
     card('', 'Largest vehicle',
       S.vehicles.length ? Math.max.apply(null, S.vehicles.map(function (v) { return v.seats || 0; })) : '—',
       'passenger seats') +
-    card('', 'Work areas',
-      ((S.partner && S.partner.operating_cities) || []).length + S.zones.length, 'cities and zones');
+    card('', 'Airports',
+      ((S.partner && S.partner.operating_airports) || []).length, 'you can serve');
 
   // próximas viagens
   $('nextRides').innerHTML = upcoming.length
@@ -1447,11 +1484,99 @@ $('vhAdd').addEventListener('click', async function () {
 });
 
 // ---------- áreas ----------
+function airportByCode(code) {
+  return (S.airports || []).find(function (a) { return a.iata === code; });
+}
+
+function renderAirportTags() {
+  $('apTags').innerHTML = areaAirports.map(function (code, i) {
+    var a = airportByCode(code);
+    return '<span class="tagchip"><span class="code">' + esc(code) + '</span>' +
+      esc(a ? a.city : '') +
+      '<button type="button" data-rmap="' + i + '" aria-label="Remove">&times;</button></span>';
+  }).join('');
+
+  qsa('#apTags [data-rmap]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      areaAirports.splice(Number(b.getAttribute('data-rmap')), 1);
+      renderAirportTags();
+    });
+  });
+}
+
+/**
+ * Procura por nome, cidade, país ou código IATA. Um parceiro em
+ * Lisboa escreve "Lisboa"; um que trabalhe com companhias escreve
+ * "LIS". Os dois têm de funcionar.
+ */
+$('apSearch').addEventListener('input', function () {
+  var q = $('apSearch').value.trim().toLowerCase();
+  var box = $('apResults');
+
+  if (q.length < 2) { box.innerHTML = ''; return; }
+
+  var hits = (S.airports || []).filter(function (a) {
+    if (areaAirports.indexOf(a.iata) !== -1) return false;
+    return a.iata.toLowerCase().indexOf(q) === 0 ||
+           a.city.toLowerCase().indexOf(q) !== -1 ||
+           a.name.toLowerCase().indexOf(q) !== -1;
+  }).slice(0, 6);
+
+  box.innerHTML = hits.length
+    ? hits.map(function (a) {
+        return '<div class="ap-hit" data-add="' + esc(a.iata) + '">' +
+          '<span class="ap-code">' + esc(a.iata) + '</span>' +
+          '<span><span class="ap-name">' + esc(a.name) + '</span><br>' +
+          '<span class="ap-where">' + esc(a.city) + ', ' + esc(a.country) + '</span></span></div>';
+      }).join('')
+    : '<div class="ap-hit" style="cursor:default;color:var(--muted);font-size:13.5px">' +
+      'No airport matches that. Add it as a city below instead.</div>';
+
+  qsa('#apResults [data-add]').forEach(function (h) {
+    h.addEventListener('click', function () {
+      var code = h.getAttribute('data-add');
+      if (areaAirports.indexOf(code) === -1) areaAirports.push(code);
+      $('apSearch').value = '';
+      box.innerHTML = '';
+      renderAirportTags();
+    });
+  });
+});
+
+$('apSave').addEventListener('click', async function () {
+  hideMsgs();
+  if (!areaAirports.length) {
+    return show($('apMsg'), $('apOk'), 'Add at least one airport — without it no offer can reach you.');
+  }
+  $('apSave').disabled = true;
+  try {
+    var p = S.partner || {};
+    var r = await api('/api/partner/company', {
+      legal_name: p.legal_name, trading_name: p.trading_name, vat_number: p.vat_number,
+      registered_address: p.registered_address, city: p.city, postal_code: p.postal_code,
+      contact_name: p.contact_name, contact_role: p.contact_role,
+      contact_phone: p.contact_phone, emergency_phone: p.emergency_phone,
+      operating_airports: areaAirports
+    });
+    await refresh(r.state);
+    show($('apOk'), $('apMsg'), areaAirports.length + ' airport' +
+      (areaAirports.length === 1 ? '' : 's') + ' saved.');
+  } catch (e) {
+    show($('apMsg'), $('apOk'), esc(e.message));
+  } finally {
+    $('apSave').disabled = false;
+  }
+});
+
 function renderAreas() {
   var p = S.partner || {};
   areaCities.length = 0;
   (p.operating_cities || []).forEach(function (c) { areaCities.push(c); });
   renderAreaTags();
+
+  areaAirports.length = 0;
+  (p.operating_airports || []).forEach(function (c) { areaAirports.push(c); });
+  renderAirportTags();
 
   // As zonas formais só existem onde já operamos.
   var live = LIVE_COUNTRIES.indexOf(p.country) !== -1 && S.serviceZones.length;
