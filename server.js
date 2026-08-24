@@ -15,6 +15,12 @@ import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import { createPartnerRoutes } from './partners.js';
+import {
+  initEmail,
+  sendPartnerApplicationReceived,
+  sendPartnerDecision,
+  sendRideConfirmedToPartner
+} from './emailService.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -116,10 +122,17 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'drivers', time: new Date().toISOString() });
 });
 
+initEmail(supabase);
+
 app.use(createPartnerRoutes({
   supabase,
   getUserFromRequest,
   requireAdmin,
+  email: {
+    sendPartnerApplicationReceived,
+    sendPartnerDecision,
+    sendRideConfirmedToPartner
+  },
   config: {
     defaultCountry: process.env.DEFAULT_PARTNER_COUNTRY || 'PT'
   }
