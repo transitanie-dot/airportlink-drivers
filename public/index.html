@@ -1351,16 +1351,19 @@ async function boot() {
   renderFleet();
   renderAreas();
 
-  // O chat aparece ANTES do resto carregar. Estava depois do
-  // Promise.all, e por isso uma falha ao carregar as viagens deixava
-  // o parceiro sem forma de pedir ajuda — exatamente quando mais
-  // precisava dela.
-  $('chatFab').classList.remove('hidden');
-  loadChat();
-
+  // O painel primeiro. O chat é um extra — se falhar, não pode
+  // deixar o parceiro sem dashboard.
   await Promise.all([loadBoard(), loadRides()]);
   renderOverview();
   renderRides();
+
+  $('chatFab').classList.remove('hidden');
+
+  // Sem await e com o erro apanhado: nada do que aconteça ao chat
+  // pode travar o que já está desenhado.
+  loadChat().catch(function (e) {
+    console.error('chat:', e.message);
+  });
 }
 
 async function refresh(newState) {
@@ -2296,6 +2299,7 @@ function startWaitTimer(alreadyWaited) {
 async function loadChat() {
   try {
     var data = await api('/api/partner/chat');
+    if (!data || !data.chat) throw new Error('The server did not return a conversation.');
 
     chat.id = data.chat.id;
     chat.messages = data.messages || [];
@@ -2307,7 +2311,16 @@ async function loadChat() {
     subscribeChat();
     paintChatBadge(0);
   } catch (e) {
-    $('chatBody').innerHTML = '<div class="chat-empty">' + esc(e.message) + '</div>';
+    // A mensagem real, não uma genérica. "Could not open your chat"
+    // não diz a ninguém o que fazer a seguir.
+    $('chatBody').innerHTML = '<div class="chat-empty">' +
+      '<strong style="display:block;color:var(--err-text);margin-bottom:8px">' +
+      'Chat is not available right now</strong>' + esc(e.message) + '</div>';
+
+    $('chatPresence').textContent = 'Unavailable';
+    $('chatPresence').className = '';
+    $('chatSend').disabled = true;
+    throw e;
   }
 }
 
