@@ -620,7 +620,27 @@ export function createPartnerRoutes({
 
       if (error) throw error;
 
-      return res.json({ success: true, state: await loadPartnerState(user.id) });
+      // O documento antigo foi apagado acima, e com ele o motivo da
+      // recusa — que se referia ao ficheiro antigo. Se a conta estava
+      // à espera de correção, volta à fila de revisão assim que
+      // deixar de haver documentos recusados.
+      const state = await loadPartnerState(user.id);
+
+      if (state.partner?.status === 'action_required') {
+        const stillRejected = state.documents.some((d) => d.status === 'rejected');
+
+        if (!stillRejected) {
+          await supabase.from('driver_partners').update({
+            status: 'in_review',
+            submitted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }).eq('id', user.id);
+
+          return res.json({ success: true, state: await loadPartnerState(user.id) });
+        }
+      }
+
+      return res.json({ success: true, state });
     } catch (error) {
       console.error('partner/document error:', error);
       return res.status(500).json({ error: 'Could not register the document.' });
@@ -648,29 +668,49 @@ export function createPartnerRoutes({
         return res.status(400).json({ error: 'Fill in your company details first.' });
       }
       if (!state.partner.legal_name) missing.push('your registered company name');
-      if (!state.partner.vat_number) missing.push('your VAT number');
       if (!state.partner.contact_phone) missing.push('a contact phone number');
       if (!req.body?.contract_accepted && !state.partner.contract_accepted_at) {
         missing.push('the partner agreement');
       }
 
+      // Os cinco passos, não só os documentos. Uma só revisão no fim
+      // é melhor para os dois lados: o parceiro não fica meio
+      // aprovado sem poder trabalhar, e tu decides uma vez em vez de
+      // duas.
       state.requirements
         .filter((r) => r.mandatory && r.scope === 'company' && r.stage === 'signup')
         .forEach((r) => {
-          const has = state.documents.some((d) =>
+          const doc = state.documents.find((d) =>
             d.requirement_code === r.code && !d.driver_id && !d.vehicle_id);
-          if (!has) missing.push(r.label);
+
+          if (!doc) missing.push(r.label);
+          else if (doc.status === 'rejected') {
+            missing.push(`${r.label} — ${doc.rejection_reason || 'needs replacing'}`);
+          }
         });
+
+      if (!state.drivers.some((d) => d.status === 'active')) {
+        missing.push('at least one active driver');
+      }
+      if (!state.vehicles.some((v) => v.status === 'active')) {
+        missing.push('at least one active vehicle');
+      }
+      if (!(state.partner.operating_airports || []).length) {
+        missing.push('the airports you serve');
+      }
+      if (!state.partner.payout_iban) {
+        missing.push('your payout details');
+      }
 
       if (missing.length) {
         return res.status(400).json({
-          error: 'A few things are still missing before we can verify you.',
+          error: 'A few things are still missing before we can review your account.',
           missing
         });
       }
 
       const { error } = await supabase.from('driver_partners').update({
-        status: 'submitted',
+        status: 'in_review',
         submitted_at: new Date().toISOString(),
         contract_accepted_at: state.partner.contract_accepted_at || new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -748,23 +788,33 @@ export function createPartnerRoutes({
 
       const { partner_id, decision, reason } = req.body || {};
 
-      if (!partner_id ||
-          !['verified', 'approved', 'rejected', 'in_review', 'suspended'].includes(decision)) {
-        return res.status(400).json({ error: 'Missing partner_id or invalid decision.' });
+      // 'verified' deixou de existir como decisão: havia duas e
+      // passou a haver uma. Continua aceite para não partir um
+      // pedido antigo, mas é tratado como 'approved'.
+      const allowed = ['approved', 'rejected', 'action_required', 'in_review', 'suspended', 'verified'];
+
+      if (!partner_id || !allowed.includes(decision)) {
+        return res.status(400).json({
+          error: 'Missing partner_id or invalid decision.',
+          allowed: allowed.filter((d) => d !== 'verified')
+        });
       }
 
+      const finalDecision = decision === 'verified' ? 'approved' : decision;
+
       const update = {
-        status: decision,
-        rejection_reason: decision === 'rejected' ? (reason || null) : null,
+        status: finalDecision,
+        rejection_reason: finalDecision === 'rejected' ? (reason || null) : null,
+        review_notes: reason || null,
         reviewed_at: new Date().toISOString(),
         reviewed_by: admin.id,
         updated_at: new Date().toISOString()
       };
 
-      // 'verified' = os três documentos de entrada foram aceites.
-      // 'approved' = está tudo completo e pode receber viagens.
-      if (decision === 'verified') update.verified_at = new Date().toISOString();
-      if (decision === 'approved') update.activated_at = new Date().toISOString();
+      if (finalDecision === 'approved') {
+        update.verified_at = new Date().toISOString();
+        update.activated_at = new Date().toISOString();
+      }
 
       const { data, error } = await supabase.from('driver_partners')
         .update(update).eq('id', partner_id)
@@ -775,7 +825,7 @@ export function createPartnerRoutes({
       // Aprovar a empresa ativa os motoristas e veículos que estavam à
       // espera dela. Sem isto, um parceiro aprovado continuava sem
       // poder receber viagens.
-      if (decision === 'verified' || decision === 'approved') {
+      if (finalDecision === 'approved') {
         await supabase.from('drivers').update({ status: 'active' })
           .eq('partner_id', partner_id).eq('status', 'pending');
         await supabase.from('partner_vehicles').update({ status: 'active' })
@@ -795,6 +845,306 @@ export function createPartnerRoutes({
       console.error('admin/partner/review error:', error);
       return res.status(500).json({ error: 'Could not update the application.' });
     }
+  });
+
+  // ============================================================
+  // CHAT
+  //
+  // Tabelas próprias, separadas do apoio a clientes: um parceiro
+  // escreve sobre dinheiro e viagens em curso, um cliente sobre uma
+  // reserva. Prioridades diferentes, e nenhum deve poder ver o outro.
+  // ============================================================
+
+  /** A conversa do parceiro, criada na primeira vez que faz falta. */
+  async function chatFor(partnerId) {
+    const { data: existing } = await supabase
+      .from('partner_chats')
+      .select('*')
+      .eq('partner_id', partnerId)
+      .maybeSingle();
+
+    if (existing) return existing;
+
+    const { data, error } = await supabase
+      .from('partner_chats')
+      .insert({ partner_id: partnerId })
+      .select()
+      .single();
+
+    // Corrida: dois separadores abertos ao mesmo tempo. O unique
+    // no partner_id impede o segundo, e nós apanhamos o primeiro.
+    if (error) {
+      const { data: retry } = await supabase
+        .from('partner_chats').select('*').eq('partner_id', partnerId).maybeSingle();
+      return retry || null;
+    }
+
+    return data;
+  }
+
+  router.get('/api/partner/chat', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      const chat = await chatFor(user.id);
+      if (!chat) return res.status(500).json({ error: 'Could not open your chat.' });
+
+      const [messagesRes, capacityRes] = await Promise.all([
+        supabase.from('partner_messages')
+          .select('*').eq('chat_id', chat.id)
+          .order('created_at').limit(200),
+        supabase.rpc('support_capacity')
+      ]);
+
+      const capacity = (capacityRes.data && capacityRes.data[0]) || {};
+
+      // Ao abrir, o que o admin escreveu passa a lido. Não o
+      // contrário: o admin marca as dele quando abre a conversa.
+      if (chat.unread_for_partner > 0) {
+        await supabase.from('partner_chats')
+          .update({ unread_for_partner: 0 })
+          .eq('id', chat.id);
+      }
+
+      return res.json({
+        chat,
+        messages: messagesRes.data || [],
+        // O parceiro precisa de saber três coisas diferentes: se há
+        // alguém, se já está a ser atendido, e há quanto tempo
+        // espera. Uma só bandeira "online" não distinguia nada disso.
+        support: {
+          agents_online: capacity.agents_online || 0,
+          free_slots: capacity.free_slots || 0,
+          waiting: capacity.waiting || 0,
+          assigned: Boolean(chat.assigned_to),
+          waiting_minutes: chat.waiting_since
+            ? Math.round((Date.now() - new Date(chat.waiting_since).getTime()) / 60000)
+            : 0
+        }
+      });
+    } catch (error) {
+      console.error('partner/chat error:', error);
+      return res.status(500).json({ error: 'Could not load your chat.' });
+    }
+  });
+
+  router.post('/api/partner/chat/send', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      const body = String(req.body?.body || '').trim();
+      const attachmentPath = req.body?.attachment_path || null;
+
+      if (!body && !attachmentPath) {
+        return res.status(400).json({ error: 'Write something first.' });
+      }
+
+      if (body.length > 4000) {
+        return res.status(400).json({ error: 'That message is too long.' });
+      }
+
+      const chat = await chatFor(user.id);
+      if (!chat) return res.status(500).json({ error: 'Could not open your chat.' });
+
+      const { data: partner } = await supabase
+        .from('driver_partners')
+        .select('legal_name, trading_name, contact_name')
+        .eq('id', user.id).maybeSingle();
+
+      const { data, error } = await supabase
+        .from('partner_messages')
+        .insert({
+          chat_id: chat.id,
+          sender: 'partner',
+          sender_id: user.id,
+          sender_name: partner?.trading_name || partner?.legal_name || null,
+          body: body || null,
+          attachment_path: attachmentPath,
+          attachment_name: req.body?.attachment_name || null
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // O gatilho no Postgres trata dos contadores e do resumo.
+      return res.json({ success: true, message: data });
+    } catch (error) {
+      console.error('partner/chat/send error:', error);
+      return res.status(500).json({ error: 'Your message did not send. Try again.' });
+    }
+  });
+
+  // ---------- lado do admin ----------
+
+  router.get('/api/admin/chats', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { data, error } = await supabase.from('partner_chat_queue').select('*');
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ chats: data || [] });
+  });
+
+  router.get('/api/admin/chat/:chatId', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { data: messages, error } = await supabase
+      .from('partner_messages')
+      .select('*').eq('chat_id', req.params.chatId)
+      .order('created_at').limit(300);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    await supabase.from('partner_chats')
+      .update({ unread_for_admin: 0 })
+      .eq('id', req.params.chatId);
+
+    return res.json({ messages: messages || [] });
+  });
+
+  router.post('/api/admin/chat/send', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id, body } = req.body || {};
+    if (!chat_id || !String(body || '').trim()) {
+      return res.status(400).json({ error: 'Send chat_id and a message.' });
+    }
+
+    const { data, error } = await supabase
+      .from('partner_messages')
+      .insert({
+        chat_id,
+        sender: 'admin',
+        sender_id: admin.id,
+        // O nome de quem responde, para o parceiro falar com uma
+        // pessoa e não com "o apoio".
+        sender_name: req.body.sender_name || admin.email.split('@')[0],
+        body: String(body).trim()
+      })
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ success: true, message: data });
+  });
+
+  /**
+   * Marcar-se ao serviço, e bater o ponto.
+   *
+   * O painel chama isto de dois em dois minutos enquanto estiver
+   * aberto. Sem essa batida, a presença expira sozinha ao fim de
+   * três — um separador esquecido aberto diria "online" toda a noite.
+   */
+  router.post('/api/admin/presence', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const online = req.body?.online !== false;
+
+    const { error } = await supabase.from('support_presence').upsert({
+      user_id: admin.id,
+      display_name: req.body?.display_name || admin.email.split('@')[0],
+      online,
+      last_seen_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ success: true, online });
+  });
+
+  /**
+   * Pegar uma conversa.
+   *
+   * O limite está DENTRO da função no Postgres. Verificar aqui e
+   * escrever a seguir deixava espaço para dois agentes pegarem a
+   * terceira conversa ao mesmo tempo.
+   */
+  router.post('/api/admin/chat/claim', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    // Chamada com o token do administrador, não com service_role: a
+    // função usa auth.uid() para saber quem está a pegar.
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+
+    const { data, error } = await supabase.rpc('claim_chat', { p_chat_id: chat_id },
+      { headers: { Authorization: `Bearer ${token}` } });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (!data?.ok) {
+      const reasons = {
+        at_capacity: `You already have ${data?.open || 2} chats open. ` +
+          'Close one before taking another — two at a time is the limit for a reason.',
+        already_taken: 'Someone else got to that one first.',
+        not_admin: 'Administrator access required.'
+      };
+      return res.status(409).json({ error: reasons[data?.reason] || 'Could not take that chat.' });
+    }
+
+    return res.json({ success: true, ...data });
+  });
+
+  router.post('/api/admin/chat/release', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id, close } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+
+    const { data, error } = await supabase.rpc('release_chat',
+      { p_chat_id: chat_id, p_close: close === true },
+      { headers: { Authorization: `Bearer ${token}` } });
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ success: true, ...data });
+  });
+
+  router.get('/api/admin/capacity', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const [capRes, mineRes] = await Promise.all([
+      supabase.rpc('support_capacity'),
+      supabase.from('partner_chats')
+        .select('id').eq('assigned_to', admin.id).eq('status', 'open')
+    ]);
+
+    return res.json({
+      ...((capRes.data && capRes.data[0]) || {}),
+      my_open_chats: (mineRes.data || []).length
+    });
+  });
+
+  router.post('/api/admin/chat/flag', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id, urgent, status } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const patch = { updated_at: new Date().toISOString() };
+    if (typeof urgent === 'boolean') patch.urgent = urgent;
+    if (status === 'open' || status === 'closed') patch.status = status;
+
+    const { error } = await supabase.from('partner_chats').update(patch).eq('id', chat_id);
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ success: true });
   });
 
   return router;
