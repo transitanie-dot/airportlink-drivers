@@ -924,8 +924,46 @@ var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
           storageKey: 'airportlink-partner-auth' }
 });
 
-var $ = function (id) { return document.getElementById(id); };
 var qsa = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+/**
+ * $ que nunca devolve null.
+ *
+ * Um único elemento em falta com addEventListener direto mata o
+ * script inteiro — e o sintoma é a página parecer viva mas nenhum
+ * botão funcionar, sem pista nenhuma de qual foi o elemento.
+ *
+ * Aconteceu, e custou caro a diagnosticar. Agora o que falta fica
+ * no console com o nome, e tudo o resto continua a funcionar.
+ */
+var MISSING = { __missing: true, style: {}, dataset: {}, files: null,
+  value: '', textContent: '', innerHTML: '', className: '', disabled: false, checked: false,
+  classList: { add: function () {}, remove: function () {}, toggle: function () {},
+               contains: function () { return false; } },
+  addEventListener: function () {}, removeEventListener: function () {},
+  setAttribute: function () {}, getAttribute: function () { return null; },
+  appendChild: function () {}, focus: function () {}, click: function () {},
+  scrollIntoView: function () {}, closest: function () { return null; },
+  querySelector: function () { return null; }, querySelectorAll: function () { return []; } };
+
+var warned = {};
+
+function safeEl(id) {
+  var node = document.getElementById(id);
+
+  if (!node) {
+    if (!warned[id]) {
+      warned[id] = true;
+      console.warn('[portal] element missing:', id,
+        '— the page will work, but something is not being drawn.');
+    }
+    return MISSING;
+  }
+
+  return node;
+}
+
+var $ = function (id) { return safeEl(id); };
 
 var user = null, S = null, rides = [], board = { available: [], mine: [], airports: [] };
 var wizStep = 1, wizCities = [], wizOwner = null, areaCities = [], areaAirports = [];
@@ -1351,19 +1389,45 @@ async function boot() {
   renderFleet();
   renderAreas();
 
-  // O painel primeiro. O chat é um extra — se falhar, não pode
-  // deixar o parceiro sem dashboard.
-  await Promise.all([loadBoard(), loadRides()]);
-  renderOverview();
-  renderRides();
-
+  // O chat primeiro e independente de tudo o resto.
+  //
+  // Estava depois do renderOverview, e por isso um erro a desenhar o
+  // painel deixava também o chat por ligar — o botão de enviar não
+  // fazia nada e não havia forma de perceber que as duas coisas eram
+  // o mesmo problema.
   $('chatFab').classList.remove('hidden');
+  loadChat().catch(function (e) { console.error('chat:', e.message); });
 
-  // Sem await e com o erro apanhado: nada do que aconteça ao chat
-  // pode travar o que já está desenhado.
-  loadChat().catch(function (e) {
-    console.error('chat:', e.message);
-  });
+  // Cada um no seu try. Uma falha a carregar as viagens não pode
+  // apagar o painel, e uma falha no painel não pode apagar as
+  // viagens.
+  try {
+    await Promise.all([loadBoard(), loadRides()]);
+  } catch (e) {
+    console.error('board/rides:', e.message);
+  }
+
+  try {
+    renderOverview();
+  } catch (e) {
+    // Visível, não escondido na consola. Um painel vazio sem
+    // explicação é o pior resultado possível.
+    console.error('overview:', e);
+    $('statusBanner').innerHTML =
+      '<div class="banner bad"><span class="mk">&#9679;</span><span>' +
+      '<strong>We could not draw your dashboard</strong>' +
+      esc(e.message) +
+      '<br><br>Your account is fine — this is a display problem on our side. ' +
+      'Tell us in the chat and we will fix it.' +
+      '<br><button class="btn amber sm" onclick="location.reload()" type="button">Reload</button>' +
+      '</span></div>';
+  }
+
+  try {
+    renderRides();
+  } catch (e) {
+    console.error('rides:', e.message);
+  }
 }
 
 async function refresh(newState) {
@@ -1396,6 +1460,17 @@ function checklist() {
 }
 
 function renderOverview() {
+  // Uma conta acabada de criar pode não ter nada disto ainda. Sem
+  // as redes, o primeiro .filter num undefined rebentava a função
+  // inteira — e com ela o painel e o chat.
+  S = S || {};
+  S.documents = S.documents || [];
+  S.drivers = S.drivers || [];
+  S.vehicles = S.vehicles || [];
+  S.requirements = S.requirements || [];
+  S.serviceZones = S.serviceZones || [];
+  S.airports = S.airports || [];
+
   var p = S.partner || {};
   var items = checklist();
   var done = items.filter(function (i) { return i.done; }).length;
