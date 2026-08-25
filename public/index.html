@@ -514,7 +514,7 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
             <input id="w1Phone" type="tel" placeholder="+351 ...">
             <div class="err">Please enter a phone number.</div></div>
           <div class="field"><label for="w1Emergency">Out-of-hours phone <span class="opt-tag">optional</span></label>
-            <input id="w1Emergency" type="tel" placeholder="For a 5am transfer"></div>
+            <input id="w1Emergency" type="tel" placeholder="Someone we can reach outside office hours"></div>
         </div>
         <div class="wiz-nav"><button class="btn teal" data-next="2" type="button">Continue</button></div>
       </div>
@@ -522,7 +522,8 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
       <!-- 2: onde opera -->
       <div class="wiz-page" data-step="2">
         <h2>Where do you operate?</h2>
-        <p class="sub">We are opening market by market. If we are not live where you are, you go on the list and get first pick of the work when we arrive.</p>
+        <p class="sub">Tell us where your company operates. Registering early means you are
+        first in line for the work in your country.</p>
         <div class="field"><label for="w2Country">Country</label>
           <select id="w2Country"><option value="">Select a country</option></select>
           <div class="err">Please choose a country.</div></div>
@@ -921,28 +922,36 @@ var qsa = function (s) { return Array.prototype.slice.call(document.querySelecto
 var user = null, S = null, rides = [], board = { available: [], mine: [], airports: [] };
 var wizStep = 1, wizCities = [], wizOwner = null, areaCities = [], areaAirports = [];
 
+// Os principais países do mundo, por população e por movimento de
+// aeroporto. Sem marcas de "ainda não estamos aí": queremos o
+// registo seja onde for, e quem se regista primeiro tem o trabalho
+// primeiro quando abrirmos.
 var COUNTRIES = [
-  ['PT','Portugal'],['ES','Spain'],['FR','France'],['IT','Italy'],['GB','United Kingdom'],
-  ['IE','Ireland'],['DE','Germany'],['NL','Netherlands'],['BE','Belgium'],['LU','Luxembourg'],
-  ['CH','Switzerland'],['AT','Austria'],['GR','Greece'],['CY','Cyprus'],['MT','Malta'],
-  ['HR','Croatia'],['SI','Slovenia'],['RS','Serbia'],['BA','Bosnia and Herzegovina'],['ME','Montenegro'],
-  ['AL','Albania'],['MK','North Macedonia'],['BG','Bulgaria'],['RO','Romania'],['HU','Hungary'],
-  ['PL','Poland'],['CZ','Czechia'],['SK','Slovakia'],['LT','Lithuania'],['LV','Latvia'],
-  ['EE','Estonia'],['FI','Finland'],['SE','Sweden'],['NO','Norway'],['DK','Denmark'],
-  ['IS','Iceland'],['UA','Ukraine'],['MD','Moldova'],['GE','Georgia'],['AM','Armenia'],
-  ['AZ','Azerbaijan'],['TR','Turkey'],['MA','Morocco'],['TN','Tunisia'],['DZ','Algeria'],
-  ['EG','Egypt'],['ZA','South Africa'],['KE','Kenya'],['TZ','Tanzania'],['NG','Nigeria'],
-  ['GH','Ghana'],['SN','Senegal'],['CI','Ivory Coast'],['MU','Mauritius'],['CV','Cape Verde'],
-  ['AE','United Arab Emirates'],['SA','Saudi Arabia'],['QA','Qatar'],['OM','Oman'],['BH','Bahrain'],
-  ['KW','Kuwait'],['JO','Jordan'],['IL','Israel'],['LB','Lebanon'],['IN','India'],
-  ['PK','Pakistan'],['LK','Sri Lanka'],['MV','Maldives'],['TH','Thailand'],['VN','Vietnam'],
-  ['MY','Malaysia'],['SG','Singapore'],['ID','Indonesia'],['PH','Philippines'],['JP','Japan'],
-  ['KR','South Korea'],['CN','China'],['HK','Hong Kong'],['TW','Taiwan'],['AU','Australia'],
-  ['NZ','New Zealand'],['US','United States'],['CA','Canada'],['MX','Mexico'],['BR','Brazil'],
-  ['AR','Argentina'],['CL','Chile'],['PE','Peru'],['CO','Colombia'],['UY','Uruguay'],
-  ['EC','Ecuador'],['BO','Bolivia'],['PY','Paraguay'],['CR','Costa Rica'],['PA','Panama'],
-  ['DO','Dominican Republic'],['CU','Cuba'],['JM','Jamaica'],['GT','Guatemala'],['HN','Honduras'],
-  ['RU','Russia'],['KZ','Kazakhstan'],['OTHER','Somewhere else']
+  ['AL','Albania'],['DZ','Algeria'],['AO','Angola'],['AR','Argentina'],['AM','Armenia'],
+  ['AU','Australia'],['AT','Austria'],['AZ','Azerbaijan'],['BH','Bahrain'],['BD','Bangladesh'],
+  ['BE','Belgium'],['BO','Bolivia'],['BA','Bosnia and Herzegovina'],['BW','Botswana'],['BR','Brazil'],
+  ['BG','Bulgaria'],['KH','Cambodia'],['CM','Cameroon'],['CA','Canada'],['CV','Cape Verde'],
+  ['CL','Chile'],['CN','China'],['CO','Colombia'],['CR','Costa Rica'],['HR','Croatia'],
+  ['CU','Cuba'],['CY','Cyprus'],['CZ','Czechia'],['DK','Denmark'],['DO','Dominican Republic'],
+  ['EC','Ecuador'],['EG','Egypt'],['SV','El Salvador'],['EE','Estonia'],['ET','Ethiopia'],
+  ['FI','Finland'],['FR','France'],['GE','Georgia'],['DE','Germany'],['GH','Ghana'],
+  ['GR','Greece'],['GT','Guatemala'],['HN','Honduras'],['HK','Hong Kong'],['HU','Hungary'],
+  ['IS','Iceland'],['IN','India'],['ID','Indonesia'],['IQ','Iraq'],['IE','Ireland'],
+  ['IL','Israel'],['IT','Italy'],['CI','Ivory Coast'],['JM','Jamaica'],['JP','Japan'],
+  ['JO','Jordan'],['KZ','Kazakhstan'],['KE','Kenya'],['KW','Kuwait'],['LA','Laos'],
+  ['LV','Latvia'],['LB','Lebanon'],['LY','Libya'],['LT','Lithuania'],['LU','Luxembourg'],
+  ['MY','Malaysia'],['MV','Maldives'],['MT','Malta'],['MU','Mauritius'],['MX','Mexico'],
+  ['MD','Moldova'],['MN','Mongolia'],['ME','Montenegro'],['MA','Morocco'],['MZ','Mozambique'],
+  ['MM','Myanmar'],['NA','Namibia'],['NP','Nepal'],['NL','Netherlands'],['NZ','New Zealand'],
+  ['NG','Nigeria'],['MK','North Macedonia'],['NO','Norway'],['OM','Oman'],['PK','Pakistan'],
+  ['PA','Panama'],['PY','Paraguay'],['PE','Peru'],['PH','Philippines'],['PL','Poland'],
+  ['PT','Portugal'],['QA','Qatar'],['RO','Romania'],['RU','Russia'],['RW','Rwanda'],
+  ['SA','Saudi Arabia'],['SN','Senegal'],['RS','Serbia'],['SG','Singapore'],['SK','Slovakia'],
+  ['SI','Slovenia'],['ZA','South Africa'],['KR','South Korea'],['ES','Spain'],['LK','Sri Lanka'],
+  ['SE','Sweden'],['CH','Switzerland'],['TW','Taiwan'],['TZ','Tanzania'],['TH','Thailand'],
+  ['TN','Tunisia'],['TR','Turkey'],['UG','Uganda'],['UA','Ukraine'],['AE','United Arab Emirates'],
+  ['GB','United Kingdom'],['US','United States'],['UY','Uruguay'],['UZ','Uzbekistan'],['VE','Venezuela'],
+  ['VN','Vietnam'],['ZM','Zambia'],['ZW','Zimbabwe'],['OTHER','Somewhere else']
 ];
 var LIVE_COUNTRIES = ['PT'];
 
@@ -1046,10 +1055,22 @@ $('backdrop').addEventListener('click', function () {
 // ============================================================
 (function fillCountries() {
   var sel = $('w2Country');
-  COUNTRIES.forEach(function (c) {
+  // Por ordem alfabética, com "Somewhere else" no fim. Cem países
+  // por ordem de código é impossível de percorrer.
+  var sorted = COUNTRIES.slice().sort(function (a, b) {
+    if (a[0] === 'OTHER') return 1;
+    if (b[0] === 'OTHER') return -1;
+    return a[1].localeCompare(b[1]);
+  });
+
+  sorted.forEach(function (c) {
     var o = document.createElement('option');
     o.value = c[0];
-    o.textContent = c[1] + (LIVE_COUNTRIES.indexOf(c[0]) !== -1 ? '' : '  ·  not live yet');
+    // Sem marcas de "não estamos aí". Um país assinalado como
+    // inativo convida a fechar a página — e nós queremos o registo,
+    // seja onde for. Quem se regista primeiro é quem tem o trabalho
+    // primeiro quando abrirmos.
+    o.textContent = c[1];
     sel.appendChild(o);
   });
 })();
@@ -1171,7 +1192,8 @@ $('w2Country').addEventListener('change', function () {
     box.style.background = 'var(--warn-bg)';
     box.style.color = 'var(--warn-text)';
     box.style.border = '1px solid var(--warn-rule)';
-    show(box, null, 'We are not live here yet. Register anyway — you go on the list and get first pick of the work when we open.');
+    show(box, null, 'Register now and you are first in line for the work in your country. ' +
+      'We will tell you the moment transfers start reaching you.');
   }
 });
 
