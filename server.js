@@ -30,13 +30,60 @@ const PORT = process.env.PORT || 3000;
 if (!process.env.SUPABASE_URL) throw new Error('SUPABASE_URL is required');
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required');
 
+/**
+ * A chave certa, ou não arranca.
+ *
+ * Com a chave publicável aqui, o serviço sobe e parece funcionar —
+ * mas o registo falha com "requires a valid Bearer token", o upload
+ * de documentos com "permission denied", e o chat não abre. Três
+ * sintomas diferentes da mesma causa, e horas a persegui-los.
+ *
+ * Falhar no arranque com uma mensagem clara custa um deploy. Não
+ * falhar custou uma tarde.
+ */
+if (process.env.SUPABASE_SERVICE_ROLE_KEY.startsWith('sb_publishable_')) {
+  throw new Error(
+    '\n\n  SUPABASE_SERVICE_ROLE_KEY contains the PUBLISHABLE key.\n\n' +
+    '  Sign-ups, document uploads and chat will all fail with different\n' +
+    '  error messages that do not name the real cause.\n\n' +
+    '  Fix: Supabase > Settings > API Keys > copy the SECRET key\n' +
+    '  (it starts with sb_secret_) into this variable on Render.\n'
+  );
+}
+
 // service_role ignora a RLS. É por isso que este ficheiro nunca pode
 // ser servido ao browser, e por isso que todas as rotas verificam
 // quem está a pedir antes de escreverem seja o que for.
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false, autoRefreshToken: false } }
 );
+
+/**
+ * Confirma no arranque que a chave é mesmo de administração.
+ *
+ * O formato antigo das chaves é um JWT, e nesse caso o prefixo acima
+ * não apanha nada. Uma chamada de administração responde de imediato
+ * se a chave não serve.
+ */
+(async function checkKey() {
+  try {
+    const { error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1 });
+
+    if (error) {
+      console.error(
+        '\n  SUPABASE_SERVICE_ROLE_KEY is not an admin key: ' + error.message +
+        '\n  Sign-ups and uploads will fail. Copy the SECRET key from Supabase.\n'
+      );
+      return;
+    }
+
+    console.log('Supabase admin key ok');
+  } catch (error) {
+    console.error('Supabase key check failed:', error.message);
+  }
+})();
 
 /**
  * Identidade a partir do JWT enviado pelo browser. O token é
@@ -149,6 +196,20 @@ app.use(createPartnerRoutes({
 // O portal é uma aplicação de página única: qualquer rota que não
 // seja da API devolve o index.html.
 app.use(express.static('public', { extensions: ['html'] }));
+
+/**
+ * Um ficheiro estático em falta tem de dar 404, não a página.
+ *
+ * Sem isto, um pedido a /assets/help-bot.js que não existe recebe o
+ * index.html — e o browser tenta interpretar HTML como JavaScript,
+ * dando "Unexpected token '<'". O erro não nomeia o ficheiro em
+ * falta, e perde-se meia hora a perceber que é só um ficheiro que
+ * não foi publicado.
+ */
+app.get(/\.(js|css|map|png|jpg|jpeg|svg|webp|ico|json|txt|woff2?)$/, (req, res) => {
+  console.warn('Static file not found:', req.path);
+  res.status(404).type('text/plain').send('Not found: ' + req.path);
+});
 
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
