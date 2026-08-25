@@ -2017,52 +2017,40 @@ function renderChat() {
 }
 
 /**
- * O estado do apoio, em palavras.
+ * O que o parceiro vê no topo.
  *
- * Quatro situações diferentes, e cada uma pede uma frase própria.
- * Uma bandeira só de "online" não distinguia "estão a atender-te" de
- * "há alguém mas está ocupado", que são coisas muito diferentes para
- * quem espera.
+ * Nunca dizemos se há ou não alguém ao serviço. Dizer "ninguém está
+ * aqui" à uma da manhã convida a pessoa a fechar a janela sem
+ * escrever — e nós preferimos a mensagem escrita, mesmo que só seja
+ * lida de manhã.
+ *
+ * O que fazemos é ser honestos sobre o TEMPO: à espera enquanto
+ * espera, e ao fim de dez minutos a verdade de que hoje ninguém vai
+ * pegar já.
  */
 function paintPresence() {
   var el = $('chatPresence');
   var note = $('chatWaiting');
-  var s = chat.support || {};
 
   note.classList.add('hidden');
 
-  if (s.assigned) {
+  if ((chat.support || {}).assigned) {
     el.textContent = 'You are being helped';
     el.className = 'live';
     stopWaitTimer();
     return;
   }
 
-  if (!s.agents_online) {
-    el.textContent = 'Nobody is at the desk right now';
+  if (!chat.messages.length) {
+    el.textContent = 'Support';
     el.className = '';
     stopWaitTimer();
-
-    if (chat.messages.length) {
-      note.className = 'chat-note';
-      note.textContent = 'Leave your message here and we answer as soon as we are back. ' +
-        'If it is about a ride happening now, call the number in Help and support.';
-      note.classList.remove('hidden');
-    }
     return;
   }
 
-  if (s.free_slots > 0) {
-    el.textContent = 'Someone is here now';
-    el.className = 'live';
-    stopWaitTimer();
-    return;
-  }
-
-  // Há gente, mas todos com as duas conversas cheias.
   el.textContent = 'Waiting for an agent';
   el.className = '';
-  startWaitTimer(s.waiting_minutes || 0);
+  startWaitTimer((chat.support || {}).waiting_minutes || 0);
 }
 
 function stopWaitTimer() {
@@ -2079,17 +2067,23 @@ function startWaitTimer(alreadyWaited) {
     var minutes = Math.floor((Date.now() - chat.waitStarted) / 60000);
 
     if (minutes >= WAIT_PATIENCE_MINUTES) {
+      // Aos dez minutos passamos à verdade. Deixar "à espera" a
+      // rodar meia hora é como se perde a confiança de quem espera.
+      $('chatPresence').textContent = 'We will come back to you';
       note.className = 'chat-note warn';
-      note.textContent = 'Every agent is busy right now. Leave your message here and we ' +
-        'come back to you as soon as one is free — you do not need to keep this open.';
+      note.textContent = 'Nobody is free to take this right now. Leave your message here ' +
+        'and someone gets back to you as soon as they can — you can close this window, ' +
+        'nothing is lost. If it is about a ride happening now, call the number in ' +
+        'Help and support.';
       stopWaitTimer();
-    } else {
-      note.className = 'chat-note';
-      note.textContent = minutes < 1
-        ? 'You are in the queue. Someone picks this up as soon as they are free.'
-        : 'Waiting ' + minutes + ' minute' + (minutes === 1 ? '' : 's') +
-          '. You are in the queue — nothing is lost if you close this.';
+      return;
     }
+
+    note.className = 'chat-note';
+    note.textContent = minutes < 1
+      ? 'You are in the queue. Someone picks this up as soon as they are free.'
+      : 'Waiting ' + minutes + ' minute' + (minutes === 1 ? '' : 's') +
+        '. You are in the queue — nothing is lost if you close this.';
 
     note.classList.remove('hidden');
   };
@@ -2212,9 +2206,9 @@ $('chatSend').addEventListener('click', async function () {
   try {
     var res = await api('/api/partner/chat/send', { body: body });
 
-    // A primeira mensagem põe a conversa na fila. Sem isto, o
+    // A primeira mensagem arranca o relógio da espera. Sem isto, o
     // parceiro escrevia e não via sinal nenhum de que alguém iria ler.
-    if (!chat.support.assigned && chat.messages.length === 1) {
+    if (!chat.support.assigned && !chat.waitTimer) {
       chat.support.waiting_minutes = 0;
       paintPresence();
     }
