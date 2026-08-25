@@ -310,6 +310,11 @@ html[data-theme="dark"] .metric.good .v{color:var(--amber)}
 .doc .st{grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--muted);
   padding-top:11px;border-top:1px solid var(--rule);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .doc input[type="file"]{display:none}
+.doc.rejected{border-color:var(--err-rule);background:var(--err-bg)}
+.doc-why{grid-column:1/-1;margin-top:11px;padding:12px 14px;border-radius:12px;
+  background:var(--surface);border:1px solid var(--err-rule);
+  font-size:13px;line-height:1.6;color:var(--err-text)}
+.doc-why strong{display:block;margin-bottom:4px}
 .file-hint{display:block;margin-top:7px;font-size:12px;line-height:1.5;color:var(--err-text)}
 
 /* quadro de viagens */
@@ -623,10 +628,14 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
         <div id="docsList"></div>
         <div id="docsErr" class="msg err"></div>
         <div id="docsOk" class="msg ok"></div>
+        <div id="submitPending" style="margin-top:20px"></div>
+
         <div class="card" id="submitCard" style="margin-top:20px">
-          <h2>Send for verification</h2>
-          <p class="note">Once all three are uploaded, send them to us. We check by hand and reply within a few working days.</p>
-          <button class="btn amber" id="submitBtn" type="button">Submit for verification</button>
+          <h2>Send your account for review</h2>
+          <p class="note">Everything is in place. Send it to us and we review by hand,
+          usually within a few working days. If something is wrong we tell you which
+          document and why.</p>
+          <button class="btn amber" id="submitBtn" type="button">Submit for review</button>
           <div id="submitErr" class="msg err"></div>
         </div>
       </div>
@@ -1248,9 +1257,11 @@ function checklist() {
   var need = S.requirements.filter(function (r) {
     return r.mandatory && r.scope === 'company' && r.stage === 'signup';
   });
+  // Um documento recusado não conta como feito, mesmo estando lá.
   var docsDone = need.length > 0 && need.every(function (r) {
     return S.documents.some(function (d) {
-      return d.requirement_code === r.code && !d.driver_id && !d.vehicle_id;
+      return d.requirement_code === r.code && !d.driver_id && !d.vehicle_id &&
+        d.status !== 'rejected';
     });
   });
 
@@ -1286,10 +1297,22 @@ function renderOverview() {
         ? esc(p.rejection_reason) + '<br><br>Correct it and send it back to us.'
         : 'Upload your three documents and send them to us. We verify by hand, usually within a few working days.') +
       '<br><button class="btn amber sm" data-go="pgDocs" type="button">Go to documents</button></span></div>';
+  } else if (p.status === 'action_required') {
+    var bad = S.documents.filter(function (d) { return d.status === 'rejected'; });
+
+    b = '<div class="banner bad"><span class="mk">&#9679;</span><span>' +
+      '<strong>' + (bad.length === 1 ? 'One document needs replacing' : bad.length + ' documents need replacing') + '</strong>' +
+      'We reviewed your account and could not accept ' +
+      (bad.length === 1 ? 'one of your documents' : 'some of your documents') +
+      '. The reason is written next to each one. Upload a new file and your account goes ' +
+      'straight back for review &mdash; nothing else you have done is lost.' +
+      '<br><button class="btn amber sm" data-go="pgDocs" type="button">See what to fix</button>' +
+      '</span></div>';
   } else if (p.status === 'submitted' || p.status === 'in_review') {
     b = '<div class="banner review"><span class="mk">&#8987;</span><span>' +
-      '<strong>Documents under review</strong>' +
-      'We are checking your paperwork. In the meantime you can add drivers, vehicles and work areas so you are ready the moment we say yes.' +
+      '<strong>Your account is under review</strong>' +
+      'Everything is with us. We check by hand, usually within a few working days, and email you either way. ' +
+      'If something is wrong we tell you which document and why &mdash; you will never get a rejection without a reason.' +
       '</span></div>';
   } else if (p.status === 'verified') {
     b = '<div class="banner ' + (done === items.length ? 'ok' : 'draft') + '"><span class="mk">' +
@@ -1437,11 +1460,15 @@ function renderDocs() {
   $('docsList').innerHTML = reqs.map(function (r) {
     var d = findDoc(r.code);
     var expired = d && d.expires_on && new Date(d.expires_on) < new Date();
-    var state = !d ? '<span class="pill">not uploaded</span>'
-      : (expired ? '<span class="pill bad">expired</span>'
-      : '<span class="pill ' + (d.status === 'approved' ? 'ok' : 'warn') + '">' + esc(d.status) + '</span>');
+    var rejected = d && d.status === 'rejected';
 
-    return '<div class="doc">' +
+    var state = !d ? '<span class="pill">not uploaded</span>'
+      : (rejected ? '<span class="pill bad">rejected</span>'
+      : (expired ? '<span class="pill bad">expired</span>'
+      : '<span class="pill ' + (d.status === 'approved' ? 'ok' : 'warn') + '">' +
+        esc(d.status === 'pending' ? 'under review' : d.status) + '</span>'));
+
+    return '<div class="doc' + (rejected ? ' rejected' : '') + '">' +
       '<div><div class="n">' + esc(r.label) + '</div><div class="d">' + esc(r.description || '') + '</div></div>' +
       '<div>' + (r.requires_expiry
         ? '<label style="font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Valid until</label>' +
@@ -1452,7 +1479,15 @@ function renderDocs() {
       (d ? 'Replace file' : 'Choose file') + '</button>' +
       '<span class="file-hint" data-hint="' + esc(r.code) + '"></span></div>' +
       '<div class="st">' + state + (d ? esc(d.file_name || 'uploaded') : 'Nothing uploaded yet') +
-      (d && d.expires_on ? ' · valid until ' + esc(d.expires_on) : '') + '</div></div>';
+      (d && d.expires_on ? ' · valid until ' + esc(d.expires_on) : '') + '</div>' +
+      // O motivo aparece ao lado do documento e não numa lista à
+      // parte: é aqui que a pessoa está quando decide o que fazer.
+      (rejected
+        ? '<div class="doc-why"><strong>We could not accept this one.</strong>' +
+          esc(d.rejection_reason || 'Please upload it again.') +
+          ' Upload a new file above and it goes straight back for review.</div>'
+        : '') +
+      '</div>';
   }).join('');
 
   qsa('[data-up]').forEach(function (b) {
@@ -1474,10 +1509,28 @@ function renderDocs() {
     });
   });
 
-  var allIn = reqs.every(function (r) { return findDoc(r.code); });
+  // O botão de submeter só aparece quando os CINCO passos estão
+  // feitos. Antes bastavam os documentos, e o parceiro submetia sem
+  // veículo nem IBAN — e a resposta era uma lista de erros.
+  var items = checklist();
+  var allDone = items.every(function (i) { return i.done; });
+  var noneRejected = !S.documents.some(function (d) { return d.status === 'rejected'; });
   var st = (S.partner || {}).status;
-  $('submitCard').classList.toggle('hidden',
-    !allIn || (st !== 'draft' && st !== 'rejected'));
+  var canSubmit = ['draft', 'rejected', 'action_required'].indexOf(st) !== -1;
+
+  $('submitCard').classList.toggle('hidden', !(allDone && noneRejected && canSubmit));
+
+  // Quando falta alguma coisa, dizemos o quê em vez de esconder o
+  // cartão sem explicação.
+  var pending = items.filter(function (i) { return !i.done; });
+
+  $('submitPending').innerHTML = (canSubmit && !allDone && pending.length)
+    ? '<div class="banner draft" style="margin:0"><span class="mk">&#9679;</span><span>' +
+      '<strong>' + pending.length + ' step' + (pending.length === 1 ? '' : 's') +
+      ' left before you can submit</strong>' +
+      pending.map(function (i) { return esc(i.title); }).join(' &middot; ') +
+      '</span></div>'
+    : '';
 }
 
 async function uploadDoc(code, button) {
@@ -1540,7 +1593,7 @@ $('submitBtn').addEventListener('click', async function () {
     }
     show($('submitErr'), null, html);
   } finally {
-    $('submitBtn').disabled = false; $('submitBtn').textContent = 'Submit for verification';
+    $('submitBtn').disabled = false; $('submitBtn').textContent = 'Submit for review';
   }
 });
 
