@@ -15,12 +15,14 @@ import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import { createPartnerRoutes } from './partners.js';
+// Os emails são pedidos à API principal, onde o emailService vive.
+// Este serviço não tem cópia nenhuma dele nem chaves do Resend.
 import {
-  initEmail,
   sendPartnerApplicationReceived,
   sendPartnerDecision,
-  sendRideConfirmedToPartner
-} from './emailService.js';
+  sendRideConfirmedToPartner,
+  sendVerification
+} from './emailclient.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -117,12 +119,17 @@ app.use(cors({
 
 app.use(express.json({ limit: '1mb' }));
 
+if (!process.env.CRON_SECRET) {
+  console.warn(
+    'CRON_SECRET is not set. The portal works, but no partner emails will be sent — ' +
+    'they go through the main API and that is the shared secret.'
+  );
+}
+
 // O ping do cron-job.org aponta aqui para o serviço não adormecer.
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'drivers', time: new Date().toISOString() });
 });
-
-initEmail(supabase);
 
 app.use(createPartnerRoutes({
   supabase,
@@ -131,7 +138,8 @@ app.use(createPartnerRoutes({
   email: {
     sendPartnerApplicationReceived,
     sendPartnerDecision,
-    sendRideConfirmedToPartner
+    sendRideConfirmedToPartner,
+    sendVerification
   },
   config: {
     defaultCountry: process.env.DEFAULT_PARTNER_COUNTRY || 'PT'
