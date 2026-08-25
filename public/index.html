@@ -293,34 +293,42 @@ html[data-theme="dark"] .metric.good .v{color:var(--amber)}
 .doc .st{grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--muted);
   padding-top:11px;border-top:1px solid var(--rule);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .doc input[type="file"]{display:none}
+.file-hint{display:block;margin-top:7px;font-size:12px;line-height:1.5;color:var(--err-text)}
 
-/* calendário */
-.cal{border:1px solid var(--rule);border-radius:20px;overflow:hidden;background:var(--surface)}
-.cal-head{display:flex;justify-content:space-between;align-items:center;padding:15px 18px;
-  border-bottom:1px solid var(--rule);background:var(--surface-2)}
-.cal-title{font-family:var(--display);font-weight:700;font-size:16.5px;letter-spacing:-.01em}
-.cal-nav{display:flex;gap:8px}
-.cal-nav button{height:34px;min-width:34px;padding:0 12px;border-radius:999px;
-  border:1px solid var(--rule-strong);background:transparent;cursor:pointer;font-size:15px;line-height:1}
-.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);padding:12px 12px 0}
-.cal-dow span{text-align:center;font-family:var(--mono);font-size:10px;font-weight:600;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:10px 12px 14px}
-.day{aspect-ratio:1;border:1px solid var(--rule);border-radius:12px;background:var(--field);
-  cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;transition:border-color .12s ease}
-.day:hover:not(.pad):not(.past){border-color:var(--teal)}
-.day.pad{background:transparent;border-color:transparent;cursor:default}
-.day.past{opacity:.32;cursor:not-allowed}
-.day.off{background:var(--err-bg);border-color:var(--err-rule);color:var(--err-text)}
-.day.today{box-shadow:inset 0 0 0 2px var(--amber)}
-.day .dot{width:5px;height:5px;border-radius:999px;background:var(--teal)}
-.cal-legend{display:flex;gap:18px;flex-wrap:wrap;padding:0 18px 16px;font-size:12.5px;color:var(--muted)}
-.cal-legend span{display:inline-flex;align-items:center;gap:8px}
-.sw{width:13px;height:13px;border-radius:5px;border:1px solid var(--rule-strong)}
-.sw.off{background:var(--err-bg);border-color:var(--err-rule)}
-.sw.ride{background:var(--teal)}
-.sw.today{box-shadow:inset 0 0 0 2px var(--amber)}
+/* quadro de viagens */
+.airport-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.airport-chip{display:inline-flex;align-items:center;gap:8px;background:var(--surface);
+  border:1px solid var(--rule);border-radius:999px;padding:7px 13px;font-size:13px}
+.airport-chip b{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--teal)}
+html[data-theme="dark"] .airport-chip b{color:var(--amber)}
+
+.ride{border:1px solid var(--rule);border-radius:20px;background:var(--surface);
+  padding:18px 20px;margin-bottom:12px;transition:border-color .15s ease}
+.ride:hover{border-color:var(--rule-strong)}
+.ride.mine{border-color:var(--teal)}
+html[data-theme="dark"] .ride.mine{border-color:var(--amber)}
+.ride-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;
+  flex-wrap:wrap;margin-bottom:14px}
+.ride-when{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:-.02em}
+.ride-in{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);margin-top:3px}
+.ride-pay{text-align:right;flex:0 0 auto}
+.ride-pay .k{font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.ride-pay .v{font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:-.02em;color:var(--teal)}
+html[data-theme="dark"] .ride-pay .v{color:var(--amber)}
+.ride-leg{display:flex;gap:11px;align-items:flex-start;margin-bottom:8px}
+.ride-dot{width:9px;height:9px;border-radius:999px;flex:0 0 auto;margin-top:6px}
+.ride-dot.p{background:var(--teal)}
+.ride-dot.d{background:var(--ink)}
+html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
+.ride-place{font-size:14.5px;line-height:1.5}
+.ride-facts{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+.ride-fact{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--muted);
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:999px;padding:5px 11px}
+.ride-acts{display:flex;gap:9px;margin-top:15px;padding-top:15px;
+  border-top:1px solid var(--rule);flex-wrap:wrap;align-items:center}
+.ride-note{font-size:12.5px;color:var(--muted);line-height:1.5;flex:1 1 200px}
 
 @media (max-width:1000px){
   .app.on{grid-template-columns:1fr}
@@ -502,9 +510,9 @@ html[data-theme="dark"] .metric.good .v{color:var(--amber)}
     <button class="nav-item" data-page="pgRides" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h18M4 13V9.5L6 5h12l2 4.5V13M4 13v4h3v-4M17 13v4h3v-4"/></svg>
       Rides <span class="badge hidden" id="navRides"></span></button>
-    <button class="nav-item" data-page="pgSchedule" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-      Schedule</button>
+    <button class="nav-item" data-page="pgBoard" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h10"/><circle cx="18" cy="18" r="3"/></svg>
+      Available rides <span class="badge hidden" id="navBoard"></span></button>
 
     <div class="nav-group">Company</div>
     <button class="nav-item" data-page="pgDocs" type="button">
@@ -574,27 +582,18 @@ html[data-theme="dark"] .metric.good .v{color:var(--amber)}
         <div id="ridesList"></div>
       </div>
 
-      <!-- SCHEDULE -->
-      <div class="page" id="pgSchedule">
-        <div class="page-head"><h1>Your schedule</h1><p>You are available by default. Tap any day you cannot work and offers for it stop arriving. Tap again to free it up.</p></div>
-        <div class="cal">
-          <div class="cal-head">
-            <span class="cal-title" id="calTitle">—</span>
-            <span class="cal-nav">
-              <button id="calPrev" type="button" aria-label="Previous">&#8249;</button>
-              <button id="calToday" type="button" style="font-family:var(--mono);font-size:11px">Today</button>
-              <button id="calNext" type="button" aria-label="Next">&#8250;</button>
-            </span>
-          </div>
-          <div class="cal-dow"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
-          <div class="cal-grid" id="calGrid"></div>
-          <div class="cal-legend">
-            <span><i class="sw off"></i> Not available</span>
-            <span><i class="sw ride"></i> Ride booked</span>
-            <span><i class="sw today"></i> Today</span>
-          </div>
+      <!-- AVAILABLE RIDES -->
+      <div class="page" id="pgBoard">
+        <div class="page-head">
+          <h1>Available rides</h1>
+          <p>Transfers picked up at the airports you serve. Take the ones that fit your day &mdash;
+          the passenger&rsquo;s name and phone appear once the ride is yours.</p>
         </div>
-        <div id="calErr" class="msg err"></div>
+
+        <div id="boardGate"></div>
+        <div id="boardAirports" class="airport-row"></div>
+        <div id="boardList"></div>
+        <div id="boardMsg" class="msg err"></div>
       </div>
 
       <!-- DOCUMENTS -->
@@ -744,7 +743,7 @@ var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 var $ = function (id) { return document.getElementById(id); };
 var qsa = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
 
-var user = null, S = null, avail = {}, rides = [], calCursor = new Date();
+var user = null, S = null, rides = [], board = { available: [], mine: [], airports: [] };
 var wizStep = 1, wizCities = [], wizOwner = null, areaCities = [], areaAirports = [];
 
 var COUNTRIES = [
@@ -897,7 +896,15 @@ $('siBtn').addEventListener('click', async function () {
   $('siBtn').disabled = true; $('siBtn').textContent = 'Signing in...';
   try {
     var res = await db.auth.signInWithPassword({ email: email, password: pw });
-    if (res.error) return show($('siErr'), $('siOk'), esc(res.error.message));
+
+    if (res.error) {
+      // "Email not confirmed" é literal e não explica o que fazer.
+      var msg = /not confirmed/i.test(res.error.message)
+        ? 'Your email is not confirmed yet. Open the link we sent you — check spam if it ' +
+          'is not in your inbox.'
+        : res.error.message;
+      return show($('siErr'), $('siOk'), esc(msg));
+    }
     user = res.data.user;
     await boot();
   } catch (e) {
@@ -1071,7 +1078,27 @@ $('wizSubmit').addEventListener('click', async function () {
   $('wizSubmit').disabled = true;
   $('wizSubmit').textContent = 'Creating...';
   try {
-    await api('/api/partner/signup', payload, { noAuth: true });
+    var created = await api('/api/partner/signup', payload, { noAuth: true });
+
+    // Com verificação obrigatória o login é recusado até o email
+    // estar confirmado. Tentar entrar aqui daria um erro que parecia
+    // uma avaria — mostramos o que se passa em vez disso.
+    if (created && created.verification_required) {
+      $('wizView').innerHTML =
+        '<div class="wiz-top"><span class="wiz-step">All done</span></div>' +
+        '<div class="wiz-bar"><div class="wiz-fill" style="width:100%"></div></div>' +
+        '<h2>Check your email</h2>' +
+        '<p class="sub">We sent a confirmation link to <strong>' + esc(payload.email) +
+        '</strong>. Click it and your account is active.</p>' +
+        '<div class="msg ok" style="display:block">Your company details are saved. ' +
+        'Nothing else is needed until you confirm.</div>' +
+        '<p class="sub" style="margin-top:22px">Not there? Look in spam, and check the ' +
+        'address above is right. The link works for 24 hours.</p>' +
+        '<button class="btn line block" onclick="location.reload()" type="button" ' +
+        'style="margin-top:12px">Back to sign in</button>';
+      return;
+    }
+
     var res = await db.auth.signInWithPassword({ email: payload.email, password: pw });
     if (res.error) throw new Error(res.error.message);
     user = res.data.user;
@@ -1115,9 +1142,8 @@ async function boot() {
   renderFleet();
   renderAreas();
 
-  await Promise.all([loadAvail(), loadRides()]);
+  await Promise.all([loadBoard(), loadRides()]);
   renderOverview();
-  renderCalendar();
   renderRides();
 }
 
@@ -1201,7 +1227,7 @@ function renderOverview() {
   } else if (p.status === 'approved' && setupComplete) {
     b = '<div class="banner ok"><span class="mk">&#10003;</span><span>' +
       '<strong>You are live</strong>' +
-      'Offers arrive by email and appear under Rides. Block days you cannot work under Schedule.' +
+      'Transfers at your airports appear under Available rides. Take the ones that fit your day.' +
       (soon.length ? '<br><br>' + soon.length + ' document' + (soon.length === 1 ? '' : 's') +
         ' expire within 30 days — replace them to stay in the dispatch list.' : '') +
       '</span></div>';
@@ -1235,8 +1261,7 @@ function renderOverview() {
     .sort(function (a, b) {
       return (a.booking_date + (a.booking_time || '')).localeCompare(b.booking_date + (b.booking_time || ''));
     });
-  var horizon = iso(new Date(Date.now() + 60 * 864e5));
-  var blocked = Object.keys(avail).filter(function (d) { return d >= today && d <= horizon; }).length;
+  var openNearby = (board.available || []).length;
 
   var docState = expired.length
     ? { cls: 'bad', v: expired.length, s: 'expired · offers paused' }
@@ -1250,7 +1275,7 @@ function renderOverview() {
     card('', 'Next ride',
       upcoming.length ? (upcoming[0].booking_date + (upcoming[0].booking_time ? ' · ' + String(upcoming[0].booking_time).slice(0,5) : '')) : '—',
       upcoming.length ? String(upcoming[0].pickup || '').slice(0, 44) : 'Nothing scheduled', true) +
-    card('', 'Days blocked', blocked, 'In the next 60 days') +
+    card(openNearby ? 'good' : '', 'Up for grabs', openNearby, 'At your airports right now') +
     card(docState.cls, 'Documents', docState.v, docState.s) +
     card('', 'Fleet', S.drivers.length + S.vehicles.length,
       S.drivers.length + ' driver' + (S.drivers.length === 1 ? '' : 's') + ', ' +
@@ -1335,13 +1360,29 @@ function renderDocs() {
         : '<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">No expiry needed</span>') + '</div>' +
       '<div><input type="file" accept=".pdf,.jpg,.jpeg,.png" data-file="' + esc(r.code) + '">' +
       '<button class="btn line sm block" data-up="' + esc(r.code) + '" type="button">' +
-      (d ? 'Replace file' : 'Choose file') + '</button></div>' +
+      (d ? 'Replace file' : 'Choose file') + '</button>' +
+      '<span class="file-hint" data-hint="' + esc(r.code) + '"></span></div>' +
       '<div class="st">' + state + (d ? esc(d.file_name || 'uploaded') : 'Nothing uploaded yet') +
       (d && d.expires_on ? ' · valid until ' + esc(d.expires_on) : '') + '</div></div>';
   }).join('');
 
   qsa('[data-up]').forEach(function (b) {
-    b.addEventListener('click', function () { uploadDoc(b.getAttribute('data-up'), b); });
+    b.addEventListener('click', function () {
+      var code = b.getAttribute('data-up');
+      var input = document.querySelector('[data-file="' + code + '"]');
+      if (input) input.click();
+    });
+  });
+
+  // Escolher o ficheiro é o gesto; carregar noutro botão a seguir
+  // não é óbvio para ninguém. Antes disto, quem escolhia um ficheiro
+  // via a página não fazer nada e concluía que estava avariada.
+  qsa('[data-file]').forEach(function (input) {
+    input.addEventListener('change', function () {
+      var code = input.getAttribute('data-file');
+      var button = document.querySelector('[data-up="' + code + '"]');
+      if (input.files && input.files[0]) uploadDoc(code, button);
+    });
   });
 
   var allIn = reqs.every(function (r) { return findDoc(r.code); });
@@ -1352,11 +1393,13 @@ function renderDocs() {
 
 async function uploadDoc(code, button) {
   hideMsgs();
+  var hint = document.querySelector('[data-hint="' + code + '"]');
+  if (hint) hint.textContent = '';
   var fileInput = document.querySelector('[data-file="' + code + '"]');
   var expInput = document.querySelector('[data-exp="' + code + '"]');
   var file = fileInput && fileInput.files && fileInput.files[0];
 
-  if (!file) { if (fileInput) fileInput.click(); return; }
+  if (!file) return;
 
   var req = S.requirements.find(function (r) { return r.code === code; });
   if (req && req.requires_expiry && (!expInput || !expInput.value)) {
@@ -1387,6 +1430,10 @@ async function uploadDoc(code, button) {
   } catch (e) {
     show($('docsErr'), $('docsOk'), esc(e.message));
     button.disabled = false; button.textContent = 'Choose file';
+    // A mensagem do Supabase é o que diz o que se passa de verdade.
+    // Escondê-la atrás de "algo correu mal" tornava isto impossível
+    // de diagnosticar.
+    if (hint) hint.textContent = e.message;
   }
 }
 
@@ -1700,91 +1747,214 @@ $('stSave').addEventListener('click', function () {
   saveCompany({}, $('stOk'), $('stMsg'), $('stSave'));
 });
 
-// ---------- agenda ----------
-async function loadAvail() {
+// ---------- quadro de viagens ----------
+//
+// O parceiro vê o que há para fazer nos aeroportos que serve e pega
+// o que quiser. Substituiu o calendário: quem não quer trabalhar num
+// dia simplesmente não pega nada, e um calendário para dizer isso
+// era trabalho a mais para o mesmo resultado.
+
+async function loadBoard() {
+  $('boardList').innerHTML = '<div class="empty">Loading...</div>';
+
   try {
-    var r = await api('/api/partner/availability');
-    avail = {};
-    (r.availability || []).forEach(function (a) { avail[a.day] = a; });
-  } catch (e) { console.error('availability:', e); }
-}
-
-async function loadRides() {
-  var res = await db.from('bookings')
-    .select('id, booking_id, booking_reference, pickup, dropoff, booking_date, booking_time, passengers, driver_payout, currency, status, flight_number, passenger_name, full_name')
-    .eq('assigned_partner_id', user.id)
-    .order('booking_date', { ascending: true });
-  rides = res.error ? [] : (res.data || []);
-}
-
-function ridesOn(day) {
-  return rides.filter(function (r) { return r.booking_date === day && r.status !== 'cancelled'; });
-}
-
-function renderCalendar() {
-  var y = calCursor.getFullYear(), m = calCursor.getMonth();
-  $('calTitle').textContent = calCursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-
-  var first = new Date(y, m, 1);
-  // getDay() dá 0 ao domingo; a grelha começa à segunda.
-  var lead = (first.getDay() + 6) % 7;
-  var days = new Date(y, m + 1, 0).getDate();
-  var todayStr = iso(new Date());
-  var cells = '';
-
-  for (var i = 0; i < lead; i++) cells += '<div class="day pad"></div>';
-
-  for (var d = 1; d <= days; d++) {
-    var day = iso(new Date(y, m, d));
-    var past = day < todayStr;
-    var off = Boolean(avail[day]);
-    var n = ridesOn(day).length;
-    cells += '<div class="day' + (past ? ' past' : '') + (off ? ' off' : '') +
-      (day === todayStr ? ' today' : '') + '" data-day="' + day + '">' +
-      '<span>' + d + '</span>' + (n ? '<span class="dot"></span>' : '') + '</div>';
+    board = await api('/api/partner/rides');
+  } catch (e) {
+    $('boardList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>';
+    return;
   }
 
-  $('calGrid').innerHTML = cells;
-  qsa('#calGrid .day[data-day]').forEach(function (c) {
-    if (c.classList.contains('past')) return;
-    c.addEventListener('click', function () { toggleDay(c.getAttribute('data-day'), c); });
+  renderBoard();
+}
+
+function hoursTo(day, time) {
+  var at = new Date(day + 'T' + (time || '00:00'));
+  if (isNaN(at.getTime())) return NaN;
+  return (at.getTime() - Date.now()) / 36e5;
+}
+
+function whenLabel(day, time) {
+  var d = new Date(day + 'T' + (time || '12:00'));
+  if (isNaN(d.getTime())) return day;
+  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) +
+    (time ? ' \u00b7 ' + String(time).slice(0, 5) : '');
+}
+
+function inLabel(hours) {
+  if (!isFinite(hours)) return '';
+  if (hours < 0) return 'in the past';
+  if (hours < 24) return 'in ' + Math.round(hours) + ' hours';
+  return 'in ' + Math.round(hours / 24) + ' days';
+}
+
+function rideCard(r, mine) {
+  var hours = hoursTo(r.booking_date, r.booking_time);
+  var cur = r.currency || 'EUR';
+
+  var facts = [
+    (r.passengers || 1) + ' passenger' + ((r.passengers || 1) === 1 ? '' : 's'),
+    r.pickup_airport,
+    r.flight_number ? 'Flight ' + r.flight_number : null,
+    r.distance_km ? Math.round(r.distance_km) + ' km' : null
+  ].filter(Boolean);
+
+  // Os dados do passageiro só existem depois de a viagem ser pegada.
+  // Não é o código que os esconde antes disso — a vista no Postgres
+  // não os devolve de todo.
+  var contact = mine
+    ? '<div class="ride-facts">' +
+      '<span class="ride-fact">' + esc(r.passenger_name || r.full_name || 'Passenger') + '</span>' +
+      (r.passenger_phone || r.phone
+        ? '<span class="ride-fact">' + esc(r.passenger_phone || r.phone) + '</span>' : '') +
+      (r.preferred_languages && r.preferred_languages.length
+        ? '<span class="ride-fact">speaks ' + esc(r.preferred_languages.join(', ')) + '</span>' : '') +
+      '</div>'
+    : '';
+
+  return '<div class="ride' + (mine ? ' mine' : '') + '">' +
+    '<div class="ride-top"><div>' +
+    '<div class="ride-when">' + esc(whenLabel(r.booking_date, r.booking_time)) + '</div>' +
+    '<div class="ride-in">' + esc(inLabel(hours)) + '</div></div>' +
+    '<div class="ride-pay"><div class="k">You receive</div>' +
+    '<div class="v">' + (r.driver_payout
+      ? esc(cur + ' ' + Number(r.driver_payout).toFixed(2))
+      : '&mdash;') + '</div></div></div>' +
+
+    '<div class="ride-leg"><span class="ride-dot p"></span>' +
+    '<span class="ride-place">' + esc(r.pickup || '') + '</span></div>' +
+    '<div class="ride-leg"><span class="ride-dot d"></span>' +
+    '<span class="ride-place">' + esc(r.dropoff || '') + '</span></div>' +
+
+    '<div class="ride-facts">' + facts.map(function (f) {
+      return '<span class="ride-fact">' + esc(f) + '</span>';
+    }).join('') + '</div>' +
+
+    contact +
+    (r.notes ? '<div class="ride-note" style="margin-top:12px">' + esc(r.notes) + '</div>' : '') +
+
+    '<div class="ride-acts">' +
+    (mine
+      ? (hours >= 24
+          ? '<button class="btn line sm" data-release="' + esc(r.id) + '" type="button">Release this ride</button>' +
+            '<span class="ride-note">You can release it until 24 hours before pick-up.</span>'
+          : '<span class="ride-note">Too close to pick-up to release. Contact support if you cannot make it.</span>')
+      : '<button class="btn teal sm" data-claim="' + esc(r.id) + '" type="button">Take this ride</button>' +
+        '<span class="ride-note">First to take it gets it.</span>') +
+    '</div></div>';
+}
+
+function renderBoard() {
+  var gate = $('boardGate');
+  var partner = S.partner || {};
+
+  // Quatro razões possíveis para o quadro estar vazio, e cada uma
+  // pede uma ação diferente. "Sem viagens" para todas seria enviar
+  // o parceiro à procura do problema errado.
+  if (partner.status !== 'approved') {
+    gate.innerHTML = '<div class="banner draft"><span class="mk">&#9679;</span><span>' +
+      '<strong>Not receiving rides yet</strong>' +
+      'Your account has to be approved before rides reach you. Finish the steps on the overview.' +
+      '<br><button class="btn amber sm" data-go="pgOverview" type="button">See what is left</button>' +
+      '</span></div>';
+  } else if (!(partner.operating_airports || []).length) {
+    gate.innerHTML = '<div class="banner draft"><span class="mk">&#9679;</span><span>' +
+      '<strong>No airports selected</strong>' +
+      'Rides are matched by pick-up airport. Until you pick at least one, nothing can reach you.' +
+      '<br><button class="btn amber sm" data-go="pgAreas" type="button">Choose airports</button>' +
+      '</span></div>';
+  } else if (!partner.payout_iban) {
+    gate.innerHTML = '<div class="banner draft"><span class="mk">&#9679;</span><span>' +
+      '<strong>No payout details</strong>' +
+      'We need somewhere to send your money before you can take a ride.' +
+      '<br><button class="btn amber sm" data-go="pgPayouts" type="button">Add them</button>' +
+      '</span></div>';
+  } else {
+    gate.innerHTML = '';
+  }
+
+  $('boardAirports').innerHTML = (board.airports || []).map(function (code) {
+    var a = airportByCode(code);
+    return '<span class="airport-chip"><b>' + esc(code) + '</b>' +
+      esc(a ? a.city : '') + '</span>';
+  }).join('');
+
+  var mine = (board.mine || []).filter(function (r) { return r.status !== 'cancelled'; });
+  var today = iso(new Date());
+  var upcoming = mine.filter(function (r) { return r.booking_date >= today; });
+
+  var html = '';
+
+  if (upcoming.length) {
+    html += '<h2 style="font-family:var(--display);font-weight:700;font-size:18px;' +
+      'letter-spacing:-.02em;margin:0 0 12px">Your rides</h2>' +
+      upcoming.map(function (r) { return rideCard(r, true); }).join('') +
+      '<h2 style="font-family:var(--display);font-weight:700;font-size:18px;' +
+      'letter-spacing:-.02em;margin:26px 0 12px">Up for grabs</h2>';
+  }
+
+  html += (board.available || []).length
+    ? board.available.map(function (r) { return rideCard(r, false); }).join('')
+    : '<div class="empty">' + (
+        (S.partner || {}).status === 'approved'
+          ? 'Nothing available right now at your airports. New transfers appear here as they are booked.'
+          : 'Rides will appear here once your account is live.'
+      ) + '</div>';
+
+  $('boardList').innerHTML = html;
+
+  var n = (board.available || []).length;
+  if (n) { $('navBoard').textContent = n; $('navBoard').classList.remove('hidden'); }
+  else $('navBoard').classList.add('hidden');
+
+  qsa('[data-claim]').forEach(function (b) {
+    b.addEventListener('click', function () { claimRide(b.getAttribute('data-claim'), b); });
+  });
+  qsa('[data-release]').forEach(function (b) {
+    b.addEventListener('click', function () { releaseRide(b.getAttribute('data-release'), b); });
+  });
+  qsa('#boardGate [data-go]').forEach(function (b) {
+    b.addEventListener('click', function () { goPage(b.getAttribute('data-go')); });
   });
 }
 
-async function toggleDay(day, cell) {
-  var wasOff = Boolean(avail[day]);
-  $('calErr').style.display = 'none';
-
-  if (!wasOff && ridesOn(day).length) {
-    // Bloquear um dia com viagens atribuídas seria enganador: a
-    // viagem continua tua.
-    show($('calErr'), null, 'You already have a ride on ' + esc(day) +
-      '. Blocking the day does not cancel it — contact support if you cannot make it.');
-  }
-
-  // Otimista: o clique responde já e revertemos se falhar. Um
-  // calendário que demora meio segundo por toque é irritante ao fim
-  // de dez cliques.
-  cell.classList.toggle('off', !wasOff);
-  if (wasOff) delete avail[day]; else avail[day] = { day: day };
+async function claimRide(id, button) {
+  hideMsgs();
+  button.disabled = true;
+  button.textContent = 'Taking...';
 
   try {
-    await api('/api/partner/availability', { day: day, available: wasOff });
+    await api('/api/partner/rides/claim', { ride_id: id });
+    await loadBoard();
     renderOverview();
   } catch (e) {
-    cell.classList.toggle('off', wasOff);
-    if (wasOff) avail[day] = { day: day }; else delete avail[day];
-    show($('calErr'), null, esc(e.message));
+    // "Outro parceiro chegou primeiro" não é um erro do sistema, é
+    // o resultado normal de duas pessoas quererem a mesma viagem.
+    show($('boardMsg'), null, esc(e.message));
+    button.disabled = false;
+    button.textContent = 'Take this ride';
+    await loadBoard();
   }
 }
 
-$('calPrev').addEventListener('click', function () {
-  calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() - 1, 1); renderCalendar();
-});
-$('calNext').addEventListener('click', function () {
-  calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + 1, 1); renderCalendar();
-});
-$('calToday').addEventListener('click', function () { calCursor = new Date(); renderCalendar(); });
+async function releaseRide(id, button) {
+  hideMsgs();
+
+  if (!window.confirm('Release this ride?\n\nIt goes back on the board for another partner. ' +
+      'Doing this often affects how much work we send you.')) return;
+
+  button.disabled = true;
+  button.textContent = 'Releasing...';
+
+  try {
+    await api('/api/partner/rides/release', { ride_id: id });
+    await loadBoard();
+    renderOverview();
+  } catch (e) {
+    show($('boardMsg'), null, esc(e.message));
+    button.disabled = false;
+    button.textContent = 'Release this ride';
+  }
+}
 
 // ---------- viagens ----------
 function renderRides() {
