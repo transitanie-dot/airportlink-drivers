@@ -22,7 +22,9 @@
 (function (global) {
   'use strict';
 
-  var CONTACT_PHONE = '+351 000 000 000';
+// Sem número de telefone. O apoio é por aqui, e uma resposta que
+// manda telefonar para um número que pode não estar atendido é pior
+// do que uma que diz claramente o que acontece a seguir.
 
   /**
    * Assuntos que o bot NUNCA tenta responder.
@@ -53,8 +55,8 @@
               'broken down', 'breakdown', 'stranded', 'broke down', 'car broke',
               'wont start', 'will not start', 'flat tyre', 'flat tire'],
       reply: 'If anyone is hurt, call the emergency services first.\n\n' +
-        'For the ride itself, call us on ' + CONTACT_PHONE + ' — do not wait for chat. ' +
-        'I have flagged this conversation as urgent.',
+        'I have flagged this conversation as urgent so it goes to the top of the queue. ' +
+        'Tell us what happened and which ride it is, and someone picks it up as a priority.',
       urgent: true
     },
     {
@@ -62,7 +64,7 @@
       words: ['passenger is not here', 'cannot find the passenger', 'no show', 'noshow',
               'nobody came', 'not showing up', 'waiting at the airport', 'been waiting'],
       reply: 'Call the number on the ride first — most of these are solved with one call.\n\n' +
-        'If there is no answer, call us on ' + CONTACT_PHONE + '. I have flagged this ' +
+        'If there is no answer, tell me the ride reference here. I have flagged this ' +
         'conversation as urgent so someone sees it now.',
       urgent: true
     },
@@ -149,8 +151,9 @@
               'drop a ride', 'return a ride', 'no longer available'],
       reply: 'Open Available rides, find it under "Your rides" and press "Release this ride". ' +
         'Possible until 24 hours before pick-up.\n\n' +
-        'Inside 24 hours you cannot release it yourself — call us on ' + CONTACT_PHONE + '. ' +
-        'Please do not simply not turn up: there is a passenger at an airport counting on you.\n\n' +
+        'Inside 24 hours you cannot release it yourself — write here and someone sorts it ' +
+        'out with you. Please do not simply not turn up: there is a passenger at an airport ' +
+        'counting on you.\n\n' +
         'Releasing often does affect how much work reaches you, so it is worth being ' +
         'realistic when you take one.'
     },
