@@ -871,12 +871,24 @@ export function createPartnerRoutes({
       .select()
       .single();
 
-    // Corrida: dois separadores abertos ao mesmo tempo. O unique
-    // no partner_id impede o segundo, e nós apanhamos o primeiro.
     if (error) {
+      // Corrida: dois separadores abertos ao mesmo tempo. O unique
+      // no partner_id impede o segundo, e nós apanhamos o primeiro.
       const { data: retry } = await supabase
         .from('partner_chats').select('*').eq('partner_id', partnerId).maybeSingle();
-      return retry || null;
+
+      if (retry) return retry;
+
+      // Não foi corrida: foi mesmo recusado. A mensagem do Postgres
+      // é o que diz porquê — engoli-la deixava um "could not open
+      // your chat" que não ajuda ninguém.
+      console.error('chatFor insert failed:', error.code, error.message);
+      throw new Error(
+        error.code === '42501'
+          ? 'The drivers service does not have permission to open a chat. ' +
+            'This usually means SUPABASE_SERVICE_ROLE_KEY holds the publishable key.'
+          : error.message
+      );
     }
 
     return data;
@@ -886,6 +898,18 @@ export function createPartnerRoutes({
     try {
       const user = await getUserFromRequest(req);
       if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      // Sem parceiro não há conversa: a chave estrangeira aponta
+      // para driver_partners, e a mensagem tem de dizer isso.
+      const { data: partnerRow } = await supabase
+        .from('driver_partners').select('id').eq('id', user.id).maybeSingle();
+
+      if (!partnerRow) {
+        return res.status(400).json({
+          error: 'This account is not registered as a partner company yet. ' +
+                 'Finish signing up and the chat opens with it.'
+        });
+      }
 
       const chat = await chatFor(user.id);
       if (!chat) return res.status(500).json({ error: 'Could not open your chat.' });
@@ -925,7 +949,7 @@ export function createPartnerRoutes({
       });
     } catch (error) {
       console.error('partner/chat error:', error);
-      return res.status(500).json({ error: 'Could not load your chat.' });
+      return res.status(500).json({ error: error.message || 'Could not load your chat.' });
     }
   });
 
@@ -973,7 +997,9 @@ export function createPartnerRoutes({
       return res.json({ success: true, message: data });
     } catch (error) {
       console.error('partner/chat/send error:', error);
-      return res.status(500).json({ error: 'Your message did not send. Try again.' });
+      return res.status(500).json({
+        error: error.message || 'Your message did not send. Try again.'
+      });
     }
   });
 
