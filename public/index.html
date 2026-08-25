@@ -231,6 +231,23 @@ html[data-theme="dark"] .tagchip .code{color:var(--amber)}
 .page-head p{margin:0;color:var(--muted);font-size:14.5px;line-height:1.6;max-width:62ch}
 
 .card{background:var(--surface);border:1px solid var(--rule);border-radius:22px;padding:24px;margin-bottom:20px}
+
+/* apoio */
+.help-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.help-item{border:1px solid var(--rule);border-radius:18px;padding:18px 20px;background:var(--surface-2)}
+.help-item .tag{display:block;color:var(--muted);margin-bottom:8px}
+.help-item a{display:block;font-family:var(--display);font-weight:700;font-size:17px;
+  letter-spacing:-.02em;color:var(--teal);text-decoration:none;margin-bottom:6px;word-break:break-word}
+html[data-theme="dark"] .help-item a{color:var(--amber)}
+.help-item span{color:var(--muted);font-size:13px;line-height:1.55}
+.qa{border-top:1px solid var(--rule)}
+.qa-item{padding:18px 0;border-bottom:1px solid var(--rule);display:grid;
+  grid-template-columns:30px 1fr;gap:14px}
+.qa-item:last-child{border-bottom:0}
+.qa-item .n{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--muted);padding-top:2px}
+.qa-item h3{font-family:var(--display);font-weight:700;font-size:15.5px;margin:0 0 6px;letter-spacing:-.015em}
+.qa-item p{margin:0;color:var(--muted);font-size:14px;line-height:1.65}
+@media (max-width:700px){.help-row{grid-template-columns:1fr}}
 .card h2{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:-.02em;margin:0 0 6px}
 .card .note{margin:0 0 20px;color:var(--muted);font-size:13.5px;line-height:1.6}
 
@@ -533,6 +550,10 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
       Payouts</button>
 
+    <button class="nav-item" data-page="pgHelp" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.8-.9 1.4v.4"/><path d="M12 17h.01"/></svg>
+      Help &amp; support</button>
+
     <div class="nav-foot">
       <button class="nav-item" data-page="pgSettings" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.2a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H7a1.6 1.6 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V7a1.6 1.6 0 0 0 1.5 1H23a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
@@ -696,6 +717,72 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
         </div>
       </div>
 
+      <!-- HELP -->
+      <div class="page" id="pgHelp">
+        <div class="page-head">
+          <h1>Help &amp; support</h1>
+          <p>Most questions have an answer below. If yours does not, write to us &mdash; we read
+          everything and reply as fast as we can.</p>
+        </div>
+
+        <div class="card">
+          <h2>Talk to us</h2>
+          <p class="note">For anything happening right now on a ride, call. Email is for
+          everything else.</p>
+          <div class="help-row">
+            <div class="help-item">
+              <span class="tag">Email</span>
+              <a href="mailto:partners@airportlink.app">partners@airportlink.app</a>
+              <span>We reply within one working day.</span>
+            </div>
+            <div class="help-item">
+              <span class="tag">Urgent, on the day</span>
+              <a href="tel:+351000000000">+351 000 000 000</a>
+              <span>Passenger not there, vehicle broken down, anything happening now.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Questions partners ask</h2>
+          <div class="qa">
+            <div class="qa-item"><span class="n">01</span><div>
+              <h3>No rides are showing. Why?</h3>
+              <p>Four possible reasons, and the Available rides page tells you which one:
+              your account is not approved yet, you have not chosen any airports, you have
+              no payout details, or there is genuinely nothing at your airports right now.</p></div></div>
+            <div class="qa-item"><span class="n">02</span><div>
+              <h3>How and when am I paid?</h3>
+              <p>Once a month. At the start of each month you receive a statement covering
+              every ride you completed in the previous one, and the money goes to the account
+              on your payouts page. The fee shown on each ride is what reaches you in full.</p></div></div>
+            <div class="qa-item"><span class="n">03</span><div>
+              <h3>I took a ride and cannot do it.</h3>
+              <p>Release it from the Available rides page &mdash; possible until 24 hours before
+              pick-up. Inside 24 hours, call us. Do not simply not turn up: there is a passenger
+              at an airport counting on you.</p></div></div>
+            <div class="qa-item"><span class="n">04</span><div>
+              <h3>The passenger is not at the pick-up point.</h3>
+              <p>Call the number on the ride. If there is no answer, wait and call us &mdash;
+              we have the flight details and can often find out what happened.</p></div></div>
+            <div class="qa-item"><span class="n">05</span><div>
+              <h3>A document of mine expired.</h3>
+              <p>Rides stop reaching you on the expiry date, and we warn you 30 days, 7 days
+              and 1 day before. Upload the new one and you are back in immediately. Rides you
+              already accepted are not cancelled &mdash; please still do them.</p></div></div>
+            <div class="qa-item"><span class="n">06</span><div>
+              <h3>Can I add more drivers and vehicles later?</h3>
+              <p>Any time, from the Drivers and Vehicles pages. A bigger vehicle means bigger
+              groups reach you: a booking for six only appears to companies with a vehicle
+              that seats six.</p></div></div>
+            <div class="qa-item"><span class="n">07</span><div>
+              <h3>Do you take a commission?</h3>
+              <p>No. The fee on the offer is transferred to you in full. Our margin is in what
+              the passenger pays, which is a separate number you never have to think about.</p></div></div>
+          </div>
+        </div>
+      </div>
+
       <!-- SETTINGS -->
       <div class="page" id="pgSettings">
         <div class="page-head"><h1>Company profile</h1><p>Keep this current. It is what appears on the paperwork we issue you.</p></div>
@@ -842,7 +929,9 @@ $('themeBtn').addEventListener('click', function () {
   document.documentElement.setAttribute('data-theme', next);
   try { localStorage.setItem('airportlink-theme', next); } catch (e) {}
 });
-$('helpBtn').addEventListener('click', function () { window.open(SITE + '/support', '_blank', 'noopener'); });
+// O apoio vive dentro do portal: mandar um parceiro para o site do
+// cliente era mandá-lo para o sítio errado.
+$('helpBtn').addEventListener('click', function () { goPage('pgHelp'); });
 
 // navegação
 qsa('.nav-item[data-page]').forEach(function (b) {
