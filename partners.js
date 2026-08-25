@@ -17,11 +17,23 @@ export function createPartnerRoutes({
   supabase,
   getUserFromRequest,
   requireAdmin,
+  email = {},
   config = {}
 }) {
   if (!supabase) throw new Error('createPartnerRoutes: supabase is required');
   if (!getUserFromRequest) throw new Error('createPartnerRoutes: getUserFromRequest is required');
   if (!requireAdmin) throw new Error('createPartnerRoutes: requireAdmin is required');
+
+  // As funções de email vêm por injeção, não por import: o
+  // emailService vive no outro serviço, e importá-lo daqui obrigaria
+  // a manter duas cópias. Sem elas o portal funciona na mesma —
+  // apenas não avisa ninguém.
+  const notify = {
+    received: email.sendPartnerApplicationReceived || (async () => {}),
+    decision: email.sendPartnerDecision || (async () => {}),
+    ride: email.sendRideConfirmedToPartner || (async () => {}),
+    verify: email.sendVerification || (async () => {})
+  };
 
   const router = Router();
 
@@ -108,10 +120,14 @@ export function createPartnerRoutes({
         });
       }
 
+      // Ao contrário dos clientes, aqui a confirmação é exigida. Um
+      // parceiro vai ter acesso a dados de passageiros e a receber
+      // dinheiro, e ninguém está a meio de uma compra ao registar-se
+      // — o atrito custa pouco e vale a pena.
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: b.email,
         password: b.password,
-        email_confirm: true,
+        email_confirm: false,
         user_metadata: { full_name: b.contact_name, partner: true }
       });
 
@@ -165,7 +181,14 @@ export function createPartnerRoutes({
 
       console.log('Partner signed up:', { email: b.email, country: b.country });
 
-      return res.json({ success: true });
+      await notify.verify(b.email, b.contact_name, 'partner');
+
+      return res.json({
+        success: true,
+        // O portal precisa de saber que não pode entrar já: com
+        // email_confirm a false, o signInWithPassword é recusado.
+        verification_required: true
+      });
     } catch (error) {
       console.error('partner/signup error:', error);
 
@@ -296,6 +319,10 @@ export function createPartnerRoutes({
       }
 
       console.log('Ride claimed:', { partner: partner.email, ride: ride.booking_id || ride.id });
+
+      // O parceiro leva a viagem por email: no dia, não vai ter o
+      // portal aberto.
+      await notify.ride(partner, ride);
 
       return res.json({ success: true });
     } catch (error) {
@@ -651,6 +678,9 @@ export function createPartnerRoutes({
 
       if (error) throw error;
 
+      // state.partner é o que temos aqui, e já tem o email e o nome.
+      await notify.received(state.partner);
+
       return res.json({ success: true, state: await loadPartnerState(user.id) });
     } catch (error) {
       console.error('partner/submit error:', error);
@@ -756,6 +786,9 @@ export function createPartnerRoutes({
       }
 
       console.log('Partner reviewed:', { by: admin.email, partner: data.email, decision });
+
+      // O email não pode partir a decisão: já está gravada.
+      await notify.decision(data, decision, reason);
 
       return res.json({ success: true, partner: data });
     } catch (error) {
