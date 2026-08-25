@@ -65,6 +65,60 @@ export function createPartnerRoutes({
   // de uma candidatura já submetida.
   const PARTNER_EDITABLE_STATUSES = ['draft', 'rejected', 'verified', 'approved'];
 
+  /**
+   * Garante que existe linha de empresa para este utilizador.
+   *
+   * Uma conta pode ficar sem ela: o registo cria conta e empresa em
+   * dois passos, e se o segundo falhar — ou se a conta foi criada
+   * por outro caminho — fica um utilizador que consegue entrar mas
+   * não consegue fazer nada. Sem esta linha falha o upload de
+   * documentos, falha o chat, e o painel de administração conta
+   * zero parceiros.
+   *
+   * Criar em rascunho é melhor do que devolver erro: o parceiro
+   * continua o registo de onde estava, em vez de bater contra uma
+   * parede sem explicação.
+   */
+  async function ensurePartnerRow(user) {
+    const { data: existing } = await supabase
+      .from('driver_partners')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (existing) return existing;
+
+    const meta = user.user_metadata || {};
+
+    const { data, error } = await supabase
+      .from('driver_partners')
+      .insert({
+        id: user.id,
+        email: user.email,
+        contact_name: meta.full_name || null,
+        legal_name: meta.company_name || null,
+        country: config.defaultCountry || 'PT',
+        status: 'draft'
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      // Corrida entre dois separadores: alguém criou entretanto.
+      if (error.code === '23505') {
+        const { data: retry } = await supabase
+          .from('driver_partners').select('id').eq('id', user.id).maybeSingle();
+        return retry || null;
+      }
+
+      console.error('ensurePartnerRow failed:', error.code, error.message);
+      return null;
+    }
+
+    console.log('Recovered partner row for', user.email);
+    return data;
+  }
+
   async function loadPartnerState(userId) {
     const [partner, zones, drivers, vehicles, documents, requirements, allZones, compliance, airports] =
       await Promise.all([
@@ -386,6 +440,11 @@ export function createPartnerRoutes({
       const user = await getUserFromRequest(req);
       if (!user) return res.status(401).json({ error: 'Not signed in' });
 
+      // A porta de entrada do portal. Se a linha de empresa faltar,
+      // é aqui que se repara — antes de qualquer outra coisa falhar
+      // por causa dela.
+      await ensurePartnerRow(user);
+
       const state = await loadPartnerState(user.id);
 
       return res.json({
@@ -606,6 +665,18 @@ export function createPartnerRoutes({
       stale = b.vehicle_id ? stale.eq('vehicle_id', b.vehicle_id) : stale.is('vehicle_id', null);
       await stale;
 
+      // Sem linha de empresa, a chave estrangeira recusa o
+      // documento — e o erro era "Could not register the document",
+      // que não dizia nada a ninguém.
+      const company = await ensurePartnerRow(user);
+
+      if (!company) {
+        return res.status(500).json({
+          error: 'We could not link this document to your company. ' +
+                 'Reload the page and try again — if it keeps happening, tell us in the chat.'
+        });
+      }
+
       const { error } = await supabase.from('compliance_documents').insert({
         partner_id: user.id,
         driver_id: b.driver_id || null,
@@ -642,8 +713,13 @@ export function createPartnerRoutes({
 
       return res.json({ success: true, state });
     } catch (error) {
-      console.error('partner/document error:', error);
-      return res.status(500).json({ error: 'Could not register the document.' });
+      console.error('partner/document error:', error.code, error.message);
+      // A mensagem real do Postgres. "Could not register the
+      // document" não diz a ninguém o que fazer a seguir, e este é
+      // exatamente o género de erro que se diagnostica pela causa.
+      return res.status(500).json({
+        error: error.message || 'Could not register the document.'
+      });
     }
   });
 
@@ -899,17 +975,10 @@ export function createPartnerRoutes({
       const user = await getUserFromRequest(req);
       if (!user) return res.status(401).json({ error: 'Not signed in.' });
 
-      // Sem parceiro não há conversa: a chave estrangeira aponta
-      // para driver_partners, e a mensagem tem de dizer isso.
-      const { data: partnerRow } = await supabase
-        .from('driver_partners').select('id').eq('id', user.id).maybeSingle();
-
-      if (!partnerRow) {
-        return res.status(400).json({
-          error: 'This account is not registered as a partner company yet. ' +
-                 'Finish signing up and the chat opens with it.'
-        });
-      }
+      // O chat está aberto a qualquer conta autenticada, incluindo
+      // quem está a meio do registo — que é precisamente quem mais
+      // precisa de ajuda. Se faltar a linha de empresa, cria-se.
+      await ensurePartnerRow(user);
 
       const chat = await chatFor(user.id);
       if (!chat) return res.status(500).json({ error: 'Could not open your chat.' });
@@ -968,6 +1037,8 @@ export function createPartnerRoutes({
       if (body.length > 4000) {
         return res.status(400).json({ error: 'That message is too long.' });
       }
+
+      await ensurePartnerRow(user);
 
       const chat = await chatFor(user.id);
       if (!chat) return res.status(500).json({ error: 'Could not open your chat.' });
