@@ -84,7 +84,12 @@ html[data-theme="dark"] .linkish{color:var(--amber)}
 .field{display:block;margin-bottom:16px}
 .field label{display:block;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.1em;
   text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-.field .opt{color:var(--rule-strong)}
+/* Estava a chamar-se .opt, igual aos cartões de escolha do
+   questionário — e herdava deles o contorno e os 16px de espaço
+   interior. Daí o aspeto colado ao campo. */
+.field label{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.opt-tag{font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.08em;
+  text-transform:lowercase;color:var(--muted);opacity:.75;flex:0 0 auto}
 .field input,.field select,.field textarea{width:100%;height:50px;padding:0 15px;
   border:1px solid var(--rule-strong);border-radius:14px;background:var(--field);outline:none;font-size:15px}
 .field textarea{height:auto;min-height:92px;padding:13px 15px;resize:vertical;line-height:1.55;font-family:var(--body)}
@@ -418,14 +423,14 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
           <div class="field full"><label for="w1Legal">Registered company name</label>
             <input id="w1Legal" type="text" placeholder="As it appears on your registration">
             <div class="err">Please enter your registered company name.</div></div>
-          <div class="field"><label for="w1Trading">Trading name <span class="opt">optional</span></label>
+          <div class="field"><label for="w1Trading">Trading name <span class="opt-tag">optional</span></label>
             <input id="w1Trading" type="text" placeholder="If different"></div>
-          <div class="field"><label for="w1Vat">VAT or tax number <span class="opt">optional for now</span></label>
+          <div class="field"><label for="w1Vat">VAT or tax number <span class="opt-tag">optional for now</span></label>
             <input id="w1Vat" type="text"></div>
           <div class="field"><label for="w1Contact">Your name</label>
             <input id="w1Contact" type="text" autocomplete="name" placeholder="Who manages this account">
             <div class="err">Please enter your name.</div></div>
-          <div class="field"><label for="w1Role">Your role <span class="opt">optional</span></label>
+          <div class="field"><label for="w1Role">Your role <span class="opt-tag">optional</span></label>
             <input id="w1Role" type="text" placeholder="Owner, manager, dispatcher..."></div>
           <div class="field full"><label for="w1Email">Email</label>
             <input id="w1Email" type="email" autocomplete="email" placeholder="you@company.com">
@@ -434,7 +439,7 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
           <div class="field"><label for="w1Phone">Phone</label>
             <input id="w1Phone" type="tel" placeholder="+351 ...">
             <div class="err">Please enter a phone number.</div></div>
-          <div class="field"><label for="w1Emergency">Out-of-hours phone <span class="opt">optional</span></label>
+          <div class="field"><label for="w1Emergency">Out-of-hours phone <span class="opt-tag">optional</span></label>
             <input id="w1Emergency" type="tel" placeholder="For a 5am transfer"></div>
         </div>
         <div class="wiz-nav"><button class="btn teal" data-next="2" type="button">Continue</button></div>
@@ -448,7 +453,7 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
           <select id="w2Country"><option value="">Select a country</option></select>
           <div class="err">Please choose a country.</div></div>
         <div id="w2Notice" class="msg"></div>
-        <div class="field"><label for="w2City">Cities you cover <span class="opt">optional</span></label>
+        <div class="field"><label for="w2City">Cities you cover <span class="opt-tag">optional</span></label>
           <input id="w2City" type="text" placeholder="Type a city and press Enter">
           <div class="help">Add as many as you like. You can change these later.</div>
           <div class="tags" id="w2Tags"></div></div>
@@ -475,7 +480,7 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
             <div class="err">Please enter your company address.</div></div>
           <div class="field"><label for="w3City">City</label><input id="w3City" type="text"></div>
           <div class="field"><label for="w3Postal">Postal code</label><input id="w3Postal" type="text"></div>
-          <div class="field full"><label for="w3Heard">How did you hear about us? <span class="opt">optional</span></label>
+          <div class="field full"><label for="w3Heard">How did you hear about us? <span class="opt-tag">optional</span></label>
             <select id="w3Heard">
               <option value="">Prefer not to say</option>
               <option>Search engine</option><option>Social media</option>
@@ -649,8 +654,8 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
           <div class="grid2">
             <div class="field"><label for="dvName">Full name</label><input id="dvName" type="text"></div>
             <div class="field"><label for="dvPhone">Phone</label><input id="dvPhone" type="tel" placeholder="+351 ..."></div>
-            <div class="field"><label for="dvEmail">Email <span class="opt">optional</span></label><input id="dvEmail" type="email"></div>
-            <div class="field"><label for="dvLangs">Languages <span class="opt">optional</span></label><input id="dvLangs" type="text" placeholder="English, Spanish"></div>
+            <div class="field"><label for="dvEmail">Email <span class="opt-tag">optional</span></label><input id="dvEmail" type="email"></div>
+            <div class="field"><label for="dvLangs">Languages <span class="opt-tag">optional</span></label><input id="dvLangs" type="text" placeholder="English, Spanish"></div>
           </div>
           <button class="btn teal" id="dvAdd" type="button">Add driver</button>
           <div id="dvMsg" class="msg err"></div>
@@ -670,7 +675,7 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
             <div class="field"><label for="vhSeats">Passenger seats</label><input id="vhSeats" type="number" min="1" max="16" placeholder="Not counting the driver"></div>
             <div class="field"><label for="vhClass">Class</label>
               <select id="vhClass"><option value="standard">Standard</option><option value="executive">Executive</option><option value="van">Van</option><option value="minibus">Minibus</option></select></div>
-            <div class="field"><label for="vhYear">Year <span class="opt">optional</span></label><input id="vhYear" type="number" min="2000" max="2030"></div>
+            <div class="field"><label for="vhYear">Year <span class="opt-tag">optional</span></label><input id="vhYear" type="number" min="2000" max="2030"></div>
           </div>
           <button class="btn teal" id="vhAdd" type="button">Add vehicle</button>
           <div id="vhMsg" class="msg err"></div>
