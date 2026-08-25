@@ -237,6 +237,73 @@ html[data-theme="dark"] .tagchip .code{color:var(--amber)}
 
 .card{background:var(--surface);border:1px solid var(--rule);border-radius:22px;padding:24px;margin-bottom:20px}
 
+/* ---------- chat ----------
+   Fora do fluxo da página: acompanha o parceiro em qualquer
+   separador do portal. */
+.chat-fab{position:fixed;right:22px;bottom:22px;width:56px;height:56px;border-radius:999px;
+  border:0;background:var(--teal);color:#fff;cursor:pointer;z-index:80;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 12px 30px rgba(15,118,110,.4);transition:transform .18s ease}
+.chat-fab:hover{transform:translateY(-2px)}
+html[data-theme="dark"] .chat-fab{background:var(--amber);color:#141A28;
+  box-shadow:0 12px 30px rgba(232,163,61,.34)}
+.chat-fab svg{width:24px;height:24px}
+.chat-badge{position:absolute;top:-3px;right:-3px;min-width:21px;height:21px;
+  border-radius:999px;background:#C0392B;color:#fff;font-family:var(--mono);
+  font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;
+  padding:0 6px;border:2px solid var(--bg)}
+
+.chat-panel{position:fixed;right:22px;bottom:88px;width:min(380px,calc(100vw - 32px));
+  height:min(520px,calc(100vh - 130px));background:var(--surface);
+  border:1px solid var(--rule-strong);border-radius:22px;z-index:80;
+  display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 24px 60px rgba(20,26,40,.24)}
+html[data-theme="dark"] .chat-panel{box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.chat-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:15px 18px;background:var(--ink);color:#EEF1F6;flex:0 0 auto}
+.chat-head strong{display:block;font-family:var(--display);font-weight:700;font-size:15px}
+.chat-head span{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+  color:#8C97A8;margin-top:3px}
+.chat-head span.live{color:#6EE7B7}
+.chat-x{background:transparent;border:0;color:#8C97A8;cursor:pointer;padding:4px}
+.chat-x svg{width:18px;height:18px;display:block}
+
+.chat-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.chat-empty{margin:auto;text-align:center;color:var(--muted);font-size:13.5px;
+  line-height:1.6;padding:20px;max-width:30ch}
+.msg-row{display:flex}
+.msg-row.mine{justify-content:flex-end}
+.bubble{max-width:78%;padding:11px 14px;border-radius:16px;font-size:14px;line-height:1.55;
+  word-break:break-word;white-space:pre-wrap}
+.msg-row.mine .bubble{background:var(--teal);color:#fff;border-bottom-right-radius:5px}
+html[data-theme="dark"] .msg-row.mine .bubble{background:var(--amber);color:#141A28}
+.msg-row.theirs .bubble{background:var(--surface-2);border:1px solid var(--rule);
+  border-bottom-left-radius:5px}
+.msg-meta{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--muted);
+  margin-top:5px}
+.msg-row.mine .msg-meta{text-align:right}
+
+.chat-foot{display:flex;gap:9px;padding:12px;border-top:1px solid var(--rule);
+  background:var(--surface-2);flex:0 0 auto}
+.chat-foot textarea{flex:1;resize:none;max-height:110px;padding:11px 13px;
+  border:1px solid var(--rule-strong);border-radius:13px;background:var(--surface);
+  color:var(--text);font-family:var(--body);font-size:14px;line-height:1.5;outline:none}
+.chat-foot textarea:focus{border-color:var(--teal)}
+.chat-send{width:44px;flex:0 0 auto;border:0;border-radius:13px;background:var(--teal);
+  color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+html[data-theme="dark"] .chat-send{background:var(--amber);color:#141A28}
+.chat-send:disabled{opacity:.5;cursor:not-allowed}
+.chat-send svg{width:17px;height:17px}
+.chat-note{padding:11px 14px;background:var(--surface-2);border-top:1px solid var(--rule);
+  color:var(--muted);font-size:12.5px;line-height:1.55;flex:0 0 auto}
+.chat-note.warn{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn-rule)}
+.chat-err{display:none;padding:10px 14px;background:var(--err-bg);color:var(--err-text);
+  font-size:12.5px;line-height:1.5;border-top:1px solid var(--err-rule)}
+@media (max-width:520px){
+  .chat-panel{right:10px;left:10px;bottom:82px;width:auto;height:min(72vh,540px)}
+  .chat-fab{right:16px;bottom:16px}
+}
+
 /* apoio */
 .help-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .help-item{border:1px solid var(--rule);border-radius:18px;padding:18px 20px;background:var(--surface-2)}
@@ -1248,6 +1315,11 @@ async function boot() {
   await Promise.all([loadBoard(), loadRides()]);
   renderOverview();
   renderRides();
+
+  // Só depois de haver sessão: um chat antes do login não teria
+  // conversa a que pertencer.
+  $('chatFab').classList.remove('hidden');
+  loadChat();
 }
 
 async function refresh(newState) {
@@ -1894,6 +1966,275 @@ $('stSave').addEventListener('click', function () {
   saveCompany({}, $('stOk'), $('stMsg'), $('stSave'));
 });
 
+// ---------- chat ----------
+//
+// O realtime do Supabase entrega as respostas sem recarregar nada.
+// A subscrição é por conversa, não por tabela: um parceiro nunca
+// recebe eventos da conversa de outro.
+var chat = {
+  id: null, messages: [], open: false, channel: null,
+  support: {}, waitTimer: null, waitStarted: null
+};
+
+// Ao fim de dez minutos sem ninguém pegar, a mensagem muda. Deixar
+// "waiting for an agent" a rodar meia hora é como se perde a
+// confiança de quem está do outro lado.
+var WAIT_PATIENCE_MINUTES = 10;
+
+function chatTime(iso) {
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  var today = new Date().toDateString() === d.toDateString();
+  return today
+    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    : d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' ' +
+      d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function renderChat() {
+  var box = $('chatBody');
+
+  if (!chat.messages.length) {
+    box.innerHTML = '<div class="chat-empty">' +
+      '<strong style="display:block;color:var(--text);font-family:var(--display);' +
+      'font-size:15px;margin-bottom:8px">How can we help?</strong>' +
+      'Ask us anything &mdash; a ride, a document, a payment. ' +
+      'We read every message.</div>';
+    return;
+  }
+
+  box.innerHTML = chat.messages.map(function (m) {
+    var mine = m.sender === 'partner';
+    return '<div class="msg-row ' + (mine ? 'mine' : 'theirs') + '"><div>' +
+      '<div class="bubble">' + esc(m.body || '[attachment]') + '</div>' +
+      '<div class="msg-meta">' +
+      (mine ? '' : esc(m.sender_name || 'Airportlink') + ' \u00b7 ') +
+      esc(chatTime(m.created_at)) + '</div>' +
+      '</div></div>';
+  }).join('');
+
+  box.scrollTop = box.scrollHeight;
+}
+
+/**
+ * O estado do apoio, em palavras.
+ *
+ * Quatro situações diferentes, e cada uma pede uma frase própria.
+ * Uma bandeira só de "online" não distinguia "estão a atender-te" de
+ * "há alguém mas está ocupado", que são coisas muito diferentes para
+ * quem espera.
+ */
+function paintPresence() {
+  var el = $('chatPresence');
+  var note = $('chatWaiting');
+  var s = chat.support || {};
+
+  note.classList.add('hidden');
+
+  if (s.assigned) {
+    el.textContent = 'You are being helped';
+    el.className = 'live';
+    stopWaitTimer();
+    return;
+  }
+
+  if (!s.agents_online) {
+    el.textContent = 'Nobody is at the desk right now';
+    el.className = '';
+    stopWaitTimer();
+
+    if (chat.messages.length) {
+      note.className = 'chat-note';
+      note.textContent = 'Leave your message here and we answer as soon as we are back. ' +
+        'If it is about a ride happening now, call the number in Help and support.';
+      note.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (s.free_slots > 0) {
+    el.textContent = 'Someone is here now';
+    el.className = 'live';
+    stopWaitTimer();
+    return;
+  }
+
+  // Há gente, mas todos com as duas conversas cheias.
+  el.textContent = 'Waiting for an agent';
+  el.className = '';
+  startWaitTimer(s.waiting_minutes || 0);
+}
+
+function stopWaitTimer() {
+  if (chat.waitTimer) { clearInterval(chat.waitTimer); chat.waitTimer = null; }
+}
+
+function startWaitTimer(alreadyWaited) {
+  stopWaitTimer();
+
+  var note = $('chatWaiting');
+  chat.waitStarted = Date.now() - alreadyWaited * 60000;
+
+  var tick = function () {
+    var minutes = Math.floor((Date.now() - chat.waitStarted) / 60000);
+
+    if (minutes >= WAIT_PATIENCE_MINUTES) {
+      note.className = 'chat-note warn';
+      note.textContent = 'Every agent is busy right now. Leave your message here and we ' +
+        'come back to you as soon as one is free — you do not need to keep this open.';
+      stopWaitTimer();
+    } else {
+      note.className = 'chat-note';
+      note.textContent = minutes < 1
+        ? 'You are in the queue. Someone picks this up as soon as they are free.'
+        : 'Waiting ' + minutes + ' minute' + (minutes === 1 ? '' : 's') +
+          '. You are in the queue — nothing is lost if you close this.';
+    }
+
+    note.classList.remove('hidden');
+  };
+
+  tick();
+  chat.waitTimer = setInterval(tick, 30000);
+}
+
+async function loadChat() {
+  try {
+    var data = await api('/api/partner/chat');
+
+    chat.id = data.chat.id;
+    chat.messages = data.messages || [];
+    chat.support = data.support || {};
+
+    renderChat();
+    paintPresence();
+    subscribeChat();
+    paintChatBadge(0);
+  } catch (e) {
+    $('chatBody').innerHTML = '<div class="chat-empty">' + esc(e.message) + '</div>';
+  }
+}
+
+function paintChatBadge(n) {
+  var b = $('chatBadge');
+  if (n > 0) { b.textContent = n; b.classList.remove('hidden'); }
+  else b.classList.add('hidden');
+}
+
+function subscribeChat() {
+  if (!chat.id || chat.channel) return;
+
+  chat.channel = db.channel('partner-chat-' + chat.id)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'partner_messages',
+      filter: 'chat_id=eq.' + chat.id
+    }, function (payload) {
+      var m = payload.new;
+
+      // A nossa própria mensagem já foi acrescentada ao enviar.
+      if (chat.messages.some(function (x) { return x.id === m.id; })) return;
+
+      chat.messages.push(m);
+      renderChat();
+
+      // Se um agente respondeu, é porque pegou a conversa.
+      if (m.sender === 'admin') {
+        chat.support.assigned = true;
+        paintPresence();
+      }
+
+      if (m.sender === 'admin' && !chat.open) {
+        paintChatBadge(chat.messages.filter(function (x) {
+          return x.sender === 'admin' && !x.read_at;
+        }).length);
+      }
+    })
+    .subscribe();
+}
+
+function openChat() {
+  chat.open = true;
+  $('chatPanel').classList.remove('hidden');
+  $('chatFab').classList.add('hidden');
+  paintChatBadge(0);
+  loadChat();
+  setTimeout(function () { $('chatInput').focus(); }, 120);
+}
+
+function closeChat() {
+  chat.open = false;
+  $('chatPanel').classList.add('hidden');
+  $('chatFab').classList.remove('hidden');
+}
+
+$('chatFab').addEventListener('click', openChat);
+$('chatClose').addEventListener('click', closeChat);
+
+$('chatInput').addEventListener('input', function () {
+  // Cresce com o texto, até um limite. Uma caixa de uma linha para
+  // uma mensagem de cinco esconde o que se está a escrever.
+  this.style.height = 'auto';
+  this.style.height = Math.min(110, this.scrollHeight) + 'px';
+});
+
+$('chatInput').addEventListener('keydown', function (e) {
+  // Enter envia, Shift+Enter faz parágrafo. É o que toda a gente
+  // espera de um chat.
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    $('chatSend').click();
+  }
+});
+
+$('chatSend').addEventListener('click', async function () {
+  var body = $('chatInput').value.trim();
+  if (!body) return;
+
+  $('chatErr').style.display = 'none';
+  $('chatSend').disabled = true;
+
+  // Aparece já, antes da resposta do servidor. Uma mensagem que
+  // demora um segundo a aparecer parece que não foi enviada.
+  var pending = {
+    id: 'pending-' + Date.now(),
+    sender: 'partner',
+    body: body,
+    created_at: new Date().toISOString()
+  };
+
+  chat.messages.push(pending);
+  renderChat();
+  $('chatInput').value = '';
+  $('chatInput').style.height = 'auto';
+
+  try {
+    var res = await api('/api/partner/chat/send', { body: body });
+
+    // A primeira mensagem põe a conversa na fila. Sem isto, o
+    // parceiro escrevia e não via sinal nenhum de que alguém iria ler.
+    if (!chat.support.assigned && chat.messages.length === 1) {
+      chat.support.waiting_minutes = 0;
+      paintPresence();
+    }
+
+    // Trocar a provisória pela real, para o realtime não a duplicar.
+    var i = chat.messages.indexOf(pending);
+    if (i !== -1 && res.message) chat.messages[i] = res.message;
+    renderChat();
+  } catch (e) {
+    chat.messages = chat.messages.filter(function (x) { return x !== pending; });
+    renderChat();
+    $('chatInput').value = body;
+    $('chatErr').textContent = e.message;
+    $('chatErr').style.display = 'block';
+  } finally {
+    $('chatSend').disabled = false;
+    $('chatInput').focus();
+  }
+});
+
 // ---------- quadro de viagens ----------
 //
 // O parceiro vê o que há para fazer nos aeroportos que serve e pega
@@ -2144,5 +2485,38 @@ function renderRides() {
 })();
 })();
 </script>
+<!-- Botão flutuante. Vive fora do <main> de propósito: acompanha o
+     parceiro em qualquer página do portal. -->
+<button class="chat-fab hidden" id="chatFab" type="button" aria-label="Open support chat">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-3.6-.7L3 21l1.9-5a8.2 8.2 0 0 1-.9-3.8 8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg>
+  <span class="chat-badge hidden" id="chatBadge">0</span>
+</button>
+
+<div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Support chat">
+  <div class="chat-head">
+    <div>
+      <strong>Support</strong>
+      <span id="chatPresence">Checking...</span>
+    </div>
+    <button class="chat-x" id="chatClose" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="chat-body" id="chatBody">
+    <div class="chat-empty">Loading...</div>
+  </div>
+
+  <div class="chat-note hidden" id="chatWaiting"></div>
+
+  <div class="chat-foot">
+    <textarea id="chatInput" rows="1" placeholder="Write your message" maxlength="4000"></textarea>
+    <button class="chat-send" id="chatSend" type="button" aria-label="Send">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+    </button>
+  </div>
+  <div class="chat-err" id="chatErr"></div>
+</div>
+
 </body>
 </html>
