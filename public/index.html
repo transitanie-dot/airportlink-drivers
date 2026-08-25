@@ -17,6 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/assets/help-bot.js"></script>
 <style>
 :root{
   --ink:#141A28;--slate:#333B50;--sage:#E8EBE7;--paper:#FBFBF8;
@@ -294,6 +295,12 @@ html[data-theme="dark"] .msg-row.mine .bubble{background:var(--amber);color:#141
 html[data-theme="dark"] .chat-send{background:var(--amber);color:#141A28}
 .chat-send:disabled{opacity:.5;cursor:not-allowed}
 .chat-send svg{width:17px;height:17px}
+.chat-tips{display:flex;gap:7px;flex-wrap:wrap;padding:11px 14px 0;flex:0 0 auto}
+.chat-tip{background:var(--surface-2);border:1px solid var(--rule-strong);border-radius:999px;
+  padding:7px 13px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap}
+.chat-tip:hover{border-color:var(--teal)}
+.bubble.bot{background:var(--teal-soft);border:1px solid var(--teal)}
+html[data-theme="dark"] .bubble.bot{background:rgba(232,163,61,.12);border-color:var(--amber)}
 .chat-note{padding:11px 14px;background:var(--surface-2);border-top:1px solid var(--rule);
   color:var(--muted);font-size:12.5px;line-height:1.55;flex:0 0 auto}
 .chat-note.warn{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn-rule)}
@@ -1981,6 +1988,12 @@ var chat = {
 // confiança de quem está do outro lado.
 var WAIT_PATIENCE_MINUTES = 10;
 
+// As respostas do bot vivem só no browser: não vão para a base de
+// dados nem entram na fila do admin. Quando alguém pega a conversa,
+// o histórico que lê é o que o parceiro escreveu — não uma parede de
+// respostas automáticas.
+var botSaid = [];
+
 function chatTime(iso) {
   var d = new Date(iso);
   if (isNaN(d.getTime())) return '';
@@ -1991,10 +2004,77 @@ function chatTime(iso) {
       d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+/** Mostra os atalhos das perguntas mais comuns. */
+function renderTips() {
+  var box = $('chatTips');
+
+  // Só antes da conversa arrancar. Depois de haver troca, atalhos
+  // no fundo do ecrã são ruído.
+  if (!window.AirportlinkHelpBot || chat.messages.length > 2 || chat.support.assigned) {
+    box.classList.add('hidden');
+    return;
+  }
+
+  box.innerHTML = window.AirportlinkHelpBot.suggestions.map(function (sug) {
+    return '<button class="chat-tip" data-tip="' + esc(sug.topic) + '" type="button">' +
+      esc(sug.label) + '</button>';
+  }).join('');
+
+  box.classList.remove('hidden');
+
+  qsa('#chatTips [data-tip]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var sug = window.AirportlinkHelpBot.suggestions.find(function (x) {
+        return x.topic === b.getAttribute('data-tip');
+      });
+      if (sug) { $('chatInput').value = sug.label; $('chatSend').click(); }
+    });
+  });
+}
+
+/**
+ * A resposta automática, se houver.
+ *
+ * Devolve true quando passou a conversa para a fila — quer por não
+ * ter percebido, quer por ser um assunto que nunca responde sozinho.
+ */
+function botReply(text) {
+  if (!window.AirportlinkHelpBot) return true;
+
+  var result = window.AirportlinkHelpBot.answer(text);
+  if (!result) return true;
+
+  // Um instante antes de responder. Uma resposta instantânea a uma
+  // pergunta escrita denuncia o robô mais do que o próprio texto.
+  setTimeout(function () {
+    botSaid.push({
+      id: 'bot-' + Date.now(),
+      sender: 'bot',
+      body: result.reply,
+      created_at: new Date().toISOString()
+    });
+
+    renderChat();
+    renderTips();
+
+    if (result.handoff) {
+      chat.support.waiting_minutes = 0;
+      paintPresence();
+    }
+  }, 550);
+
+  return result.handoff;
+}
+
 function renderChat() {
   var box = $('chatBody');
 
-  if (!chat.messages.length) {
+  // As do bot entram na ordem certa entre as reais.
+  var all = chat.messages.concat(botSaid).sort(function (a, b) {
+    return String(a.created_at).localeCompare(String(b.created_at));
+  });
+
+  if (!all.length) {
     box.innerHTML = '<div class="chat-empty">' +
       '<strong style="display:block;color:var(--text);font-family:var(--display);' +
       'font-size:15px;margin-bottom:8px">How can we help?</strong>' +
@@ -2003,12 +2083,15 @@ function renderChat() {
     return;
   }
 
-  box.innerHTML = chat.messages.map(function (m) {
+  box.innerHTML = all.map(function (m) {
     var mine = m.sender === 'partner';
+    var bot = m.sender === 'bot';
+
     return '<div class="msg-row ' + (mine ? 'mine' : 'theirs') + '"><div>' +
-      '<div class="bubble">' + esc(m.body || '[attachment]') + '</div>' +
+      '<div class="bubble' + (bot ? ' bot' : '') + '">' +
+      esc(m.body || '[attachment]') + '</div>' +
       '<div class="msg-meta">' +
-      (mine ? '' : esc(m.sender_name || 'Airportlink') + ' \u00b7 ') +
+      (mine ? '' : esc(bot ? 'Automatic answer' : (m.sender_name || 'Airportlink')) + ' \u00b7 ') +
       esc(chatTime(m.created_at)) + '</div>' +
       '</div></div>';
   }).join('');
@@ -2048,7 +2131,7 @@ function paintPresence() {
     return;
   }
 
-  el.textContent = 'Waiting for an agent';
+  el.textContent = 'Waiting for an available agent';
   el.className = '';
   startWaitTimer((chat.support || {}).waiting_minutes || 0);
 }
@@ -2079,11 +2162,11 @@ function startWaitTimer(alreadyWaited) {
       return;
     }
 
+    // Sem contador. Dizer "à espera há 3 minutos" não ajuda ninguém
+    // e só chama a atenção para o tempo que passa.
     note.className = 'chat-note';
-    note.textContent = minutes < 1
-      ? 'You are in the queue. Someone picks this up as soon as they are free.'
-      : 'Waiting ' + minutes + ' minute' + (minutes === 1 ? '' : 's') +
-        '. You are in the queue — nothing is lost if you close this.';
+    note.textContent = 'You are in the queue. Nothing is lost if you close this window — ' +
+      'your message is here when someone picks it up.';
 
     note.classList.remove('hidden');
   };
@@ -2101,6 +2184,7 @@ async function loadChat() {
     chat.support = data.support || {};
 
     renderChat();
+    renderTips();
     paintPresence();
     subscribeChat();
     paintChatBadge(0);
@@ -2200,15 +2284,21 @@ $('chatSend').addEventListener('click', async function () {
 
   chat.messages.push(pending);
   renderChat();
+  renderTips();
   $('chatInput').value = '';
   $('chatInput').style.height = 'auto';
+
+  // O bot responde primeiro. Se resolveu, a mensagem fica na base de
+  // dados na mesma — o admin tem de poder ver o que foi perguntado,
+  // mesmo quando não teve de responder.
+  var needsHuman = chat.support.assigned ? true : botReply(body);
 
   try {
     var res = await api('/api/partner/chat/send', { body: body });
 
-    // A primeira mensagem arranca o relógio da espera. Sem isto, o
-    // parceiro escrevia e não via sinal nenhum de que alguém iria ler.
-    if (!chat.support.assigned && !chat.waitTimer) {
+    // Só entra na fila quando o bot não resolveu. Uma pergunta a que
+    // já foi respondida não deve fazer soar o alarme do outro lado.
+    if (needsHuman && !chat.support.assigned && !chat.waitTimer) {
       chat.support.waiting_minutes = 0;
       paintPresence();
     }
@@ -2501,6 +2591,7 @@ function renderRides() {
     <div class="chat-empty">Loading...</div>
   </div>
 
+  <div class="chat-tips hidden" id="chatTips"></div>
   <div class="chat-note hidden" id="chatWaiting"></div>
 
   <div class="chat-foot">
