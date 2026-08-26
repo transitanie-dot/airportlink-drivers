@@ -2408,15 +2408,29 @@ async function loadChat() {
     subscribeChat();
     paintChatBadge(0);
   } catch (e) {
-    // A mensagem real, não uma genérica. "Could not open your chat"
-    // não diz a ninguém o que fazer a seguir.
+    // A mensagem real, com um botão para tentar de novo.
+    //
+    // O botão de enviar NÃO fica desativado: estava, e nunca mais
+    // voltava a ligar-se — clicar não fazia nada e não havia forma
+    // de perceber porquê.
     $('chatBody').innerHTML = '<div class="chat-empty">' +
       '<strong style="display:block;color:var(--err-text);margin-bottom:8px">' +
-      'Chat is not available right now</strong>' + esc(e.message) + '</div>';
+      'Chat is not available right now</strong>' + esc(e.message) +
+      '<br><br><button class="btn line sm" id="chatRetryBtn" type="button">Try again</button>' +
+      '</div>';
 
     $('chatPresence').textContent = 'Unavailable';
     $('chatPresence').className = '';
-    $('chatSend').disabled = true;
+    $('chatSend').disabled = false;
+
+    var retry = document.getElementById('chatRetryBtn');
+    if (retry) {
+      retry.addEventListener('click', function () {
+        $('chatBody').innerHTML = '<div class="chat-empty">Loading...</div>';
+        loadChat().catch(function () {});
+      });
+    }
+
     throw e;
   }
 }
@@ -2500,6 +2514,20 @@ $('chatSend').addEventListener('click', async function () {
 
   $('chatErr').style.display = 'none';
   $('chatSend').disabled = true;
+
+  // O chat pode não ter carregado — servidor a acordar, rede em
+  // baixo. Tentamos abrir agora em vez de recusar em silêncio.
+  if (!chat.id) {
+    try {
+      await loadChat();
+    } catch (e) {
+      $('chatSend').disabled = false;
+      $('chatErr').textContent = 'We could not reach the server. Your message is still ' +
+        'in the box — try again in a moment.';
+      $('chatErr').style.display = 'block';
+      return;
+    }
+  }
 
   // Aparece já, antes da resposta do servidor. Uma mensagem que
   // demora um segundo a aparecer parece que não foi enviada.
