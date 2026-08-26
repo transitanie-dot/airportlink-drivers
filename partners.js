@@ -1011,6 +1011,9 @@ export function createPartnerRoutes({
       const [messagesRes, capacityRes] = await Promise.all([
         supabase.from('partner_messages')
           .select('*').eq('chat_id', chat.id)
+          // Aqui também, além da RLS. Duas barreiras: se uma falhar
+          // por engano numa migração, a outra segura.
+          .eq('internal', false)
           .order('created_at').limit(200),
         supabase.rpc('support_capacity')
       ]);
@@ -1104,6 +1107,28 @@ export function createPartnerRoutes({
     }
   });
 
+  router.post('/api/partner/chat/close', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      const chat = await chatFor(user.id);
+      if (!chat) return res.status(400).json({ error: 'No conversation to close.' });
+
+      const { data, error } = await asUser(req).rpc('close_chat_as_partner', {
+        p_chat_id: chat.id
+      });
+
+      if (error) throw error;
+      if (!data?.ok) return res.status(400).json({ error: 'Could not close that conversation.' });
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('partner/chat/close error:', error);
+      return res.status(500).json({ error: error.message || 'Could not close the conversation.' });
+    }
+  });
+
   // ---------- lado do admin ----------
 
   router.get('/api/admin/chats', async (req, res) => {
@@ -1114,6 +1139,7 @@ export function createPartnerRoutes({
     // uso do painel que faz a rotação avançar. Como há sempre um
     // painel aberto quando há agentes ao serviço, funciona.
     try { await supabase.rpc('sweep_chat_offers'); } catch (e) {}
+    try { await supabase.rpc('flag_stale_chats'); } catch (e) {}
 
     const [queueRes, ringingRes] = await Promise.all([
       supabase.from('partner_chat_queue').select('*'),
@@ -1204,6 +1230,8 @@ export function createPartnerRoutes({
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
 
+    // Sem filtro de internal: o admin vê as notas, que é para isso
+    // que elas existem.
     const { data: messages, error } = await supabase
       .from('partner_messages')
       .select('*').eq('chat_id', req.params.chatId)
@@ -1227,16 +1255,34 @@ export function createPartnerRoutes({
       return res.status(400).json({ error: 'Send chat_id and a message.' });
     }
 
+    const internal = req.body.internal === true;
+
+    // O nome de apresentação é o que o parceiro lê. Guardado na
+    // presença para ser o mesmo em todas as conversas, em vez de
+    // depender do que o browser mandar de cada vez.
+    let displayName = req.body.sender_name;
+
+    if (!displayName && !internal) {
+      const { data: presence } = await supabase
+        .from('support_presence')
+        .select('display_name')
+        .eq('user_id', admin.id)
+        .maybeSingle();
+
+      displayName = presence?.display_name || admin.email.split('@')[0];
+    }
+
     const { data, error } = await supabase
       .from('partner_messages')
       .insert({
         chat_id,
         sender: 'admin',
         sender_id: admin.id,
-        // O nome de quem responde, para o parceiro falar com uma
-        // pessoa e não com "o apoio".
-        sender_name: req.body.sender_name || admin.email.split('@')[0],
-        body: String(body).trim()
+        sender_name: displayName || admin.email.split('@')[0],
+        body: String(body).trim(),
+        internal,
+        attachment_path: req.body.attachment_path || null,
+        attachment_name: req.body.attachment_name || null
       })
       .select()
       .single();
@@ -1285,6 +1331,52 @@ export function createPartnerRoutes({
     if (error) return res.status(500).json({ error: error.message });
 
     return res.json({ success: true, state });
+  });
+
+  /** O nome que o parceiro vê quando este agente responde. */
+  router.post('/api/admin/display-name', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const name = String(req.body?.display_name || '').trim();
+
+    if (name.length < 2 || name.length > 40) {
+      return res.status(400).json({ error: 'Use between 2 and 40 characters.' });
+    }
+
+    const { error } = await supabase.from('support_presence').upsert({
+      user_id: admin.id,
+      display_name: name,
+      last_seen_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ success: true, display_name: name });
+  });
+
+  /** O dia de cada agente: tempo em cada estado e chamadas. */
+  router.get('/api/admin/agent-day', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    // Marcar as paradas antes de reportar: assim o relatório e as
+    // notas do chat contam a mesma história.
+    try { await supabase.rpc('flag_stale_chats'); } catch (e) {}
+
+    const days = Math.min(30, Math.max(1, Number(req.query.days) || 7));
+    const from = new Date();
+    from.setDate(from.getDate() - days + 1);
+
+    const { data, error } = await supabase
+      .from('agent_day')
+      .select('*')
+      .gte('day', from.toISOString().slice(0, 10));
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ days, rows: data || [] });
   });
 
   router.get('/api/admin/team', async (req, res) => {
