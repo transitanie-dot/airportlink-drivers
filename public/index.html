@@ -291,6 +291,7 @@ html[data-theme="dark"] .chat-av.human{background:var(--amber);color:#141A28}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chat-id span.live{color:#6EE7B7}
 .chat-id span.wait{color:#F0C77A}
+.chat-head-acts{display:flex;gap:2px;flex:0 0 auto}
 .chat-x{background:transparent;border:0;color:#8C97A8;cursor:pointer;padding:6px;
   border-radius:9px;flex:0 0 auto;transition:background .15s ease,color .15s ease}
 .chat-x:hover{background:rgba(255,255,255,.09);color:#EEF1F6}
@@ -386,6 +387,16 @@ html[data-theme="dark"] .chat-jump{background:var(--amber);color:#141A28}
   transition:border-color .16s ease,background .16s ease}
 .chat-foot textarea:focus{border-color:var(--teal);background:var(--surface)}
 html[data-theme="dark"] .chat-foot textarea:focus{border-color:var(--amber)}
+.chat-clip{width:40px;height:44px;flex:0 0 auto;border:0;background:transparent;
+  color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  border-radius:12px;transition:color .15s ease,background .15s ease}
+.chat-clip:hover{color:var(--teal);background:var(--surface-2)}
+html[data-theme="dark"] .chat-clip:hover{color:var(--amber)}
+.chat-clip svg{width:19px;height:19px}
+.chat-clip:disabled{opacity:.4;cursor:not-allowed}
+.bubble .file{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.bubble .file svg{width:18px;height:18px;flex:0 0 auto;opacity:.8}
+.bubble .file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chat-send{width:44px;height:44px;flex:0 0 auto;border:0;border-radius:999px;
   background:var(--teal);color:#fff;cursor:pointer;display:flex;align-items:center;
   justify-content:center;transition:transform .16s ease,opacity .16s ease}
@@ -1019,9 +1030,14 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
         <span id="chatPresence">Support</span>
       </div>
     </div>
-    <button class="chat-x" id="chatClose" type="button" aria-label="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-    </button>
+    <div class="chat-head-acts">
+      <button class="chat-x" id="chatResolve" type="button" title="Mark as resolved" aria-label="Mark as resolved">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </button>
+      <button class="chat-x" id="chatClose" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
   </div>
 
   <div class="chat-body" id="chatBody">
@@ -1036,6 +1052,10 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
   <div class="chat-note hidden" id="chatWaiting"></div>
 
   <div class="chat-foot">
+    <input type="file" id="chatFile" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp" hidden>
+    <button class="chat-clip" id="chatAttach" type="button" aria-label="Attach a file">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.3 20.2a5.5 5.5 0 0 1-7.8-7.8l9.2-9.1a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.1a1.8 1.8 0 0 1-2.6-2.6l8.5-8.4"/></svg>
+    </button>
     <textarea id="chatInput" rows="1" placeholder="Write a message" maxlength="4000"></textarea>
     <button class="chat-send" id="chatSend" type="button" aria-label="Send">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
@@ -2389,7 +2409,15 @@ function renderChat() {
     html += '<div class="msg-row ' + (mine ? 'mine' : 'theirs') +
       (turn ? ' turn' : '') + (last ? ' last' : '') + '"><div>' +
       '<div class="bubble' + (m.failed ? ' failed' : '') + (sending ? ' sending' : '') + '">' +
-      esc(m.body || '[attachment]') + '</div>';
+      (m.attachment_path
+        ? '<a class="file" href="#" data-file-path="' + esc(m.attachment_path) + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+          'stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
+          '<path d="M14 2v6h6"/></svg><span>' +
+          esc(m.attachment_name || 'attachment') + '</span></a>' +
+          (m.body ? '<div style="margin-top:8px">' + esc(m.body) + '</div>' : '')
+        : esc(m.body || '')) + '</div>';
 
     if (m.failed) {
       html += '<div class="msg-fail">Not sent \u00b7 ' + esc(m.error || 'unknown error') +
@@ -2409,6 +2437,25 @@ function renderChat() {
     box.scrollTop = box.scrollHeight;
     $('chatJump').classList.add('hidden');
   }
+
+  // Um endereço assinado, válido por um minuto. O balde é privado:
+  // um link permanente seria um ficheiro do parceiro exposto para
+  // sempre a quem apanhasse o endereço.
+  qsa('#chatBody [data-file-path]').forEach(function (a) {
+    a.addEventListener('click', async function (e) {
+      e.preventDefault();
+
+      try {
+        var res = await db.storage.from('chat-attachments')
+          .createSignedUrl(a.getAttribute('data-file-path'), 60);
+
+        if (res.error) throw new Error(res.error.message);
+        window.open(res.data.signedUrl, '_blank', 'noopener');
+      } catch (err) {
+        window.alert('We could not open that file: ' + err.message);
+      }
+    });
+  });
 
   qsa('#chatBody [data-retry]').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -2631,6 +2678,109 @@ function closeChat() {
   $('chatPanel').classList.add('hidden');
   $('chatFab').classList.remove('hidden');
 }
+
+$('chatAttach').addEventListener('click', function () { $('chatFile').click(); });
+
+$('chatFile').addEventListener('change', async function () {
+  var file = this.files && this.files[0];
+  if (!file) return;
+
+  if (file.size > 10 * 1024 * 1024) {
+    $('chatErr').textContent = 'That file is over the 10 MB limit.';
+    $('chatErr').style.display = 'block';
+    this.value = '';
+    return;
+  }
+
+  $('chatErr').style.display = 'none';
+  $('chatAttach').disabled = true;
+
+  // Aparece já com o nome, para se ver que está a subir.
+  var pending = {
+    id: 'pending-' + Date.now(),
+    sender: 'partner',
+    body: '',
+    attachment_name: file.name,
+    created_at: new Date().toISOString(),
+    seq: ++msgSeq
+  };
+
+  chat.messages.push(pending);
+  renderChat();
+
+  try {
+    if (!chat.id) await loadChat();
+
+    // A primeira pasta é o uuid do parceiro: é o que a política do
+    // balde verifica antes de deixar escrever.
+    var ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+    var path = user.id + '/chat/' + Date.now() + '.' + ext;
+
+    var up = await db.storage.from('chat-attachments').upload(path, file, {
+      contentType: file.type || 'application/octet-stream'
+    });
+
+    if (up.error) throw new Error(up.error.message);
+
+    var res = await api('/api/partner/chat/send', {
+      body: '',
+      attachment_path: path,
+      attachment_name: file.name
+    });
+
+    var i = chat.messages.indexOf(pending);
+    if (i !== -1 && res.message) {
+      res.message.seq = pending.seq;
+      chat.messages[i] = res.message;
+    }
+
+    if (!chat.support.assigned && !chat.waitTimer) {
+      chat.support.waiting_minutes = 0;
+      paintPresence();
+    }
+  } catch (e) {
+    pending.failed = true;
+    pending.error = e.message;
+  } finally {
+    renderChat();
+    $('chatAttach').disabled = false;
+    $('chatFile').value = '';
+  }
+});
+
+/**
+ * O parceiro fecha a conversa quando o assunto estiver resolvido.
+ *
+ * Fechar não apaga nada — reabre na próxima mensagem, com todo o
+ * histórico. É o que se diz na confirmação, senão ninguém carrega
+ * com medo de perder o que escreveu.
+ */
+$('chatResolve').addEventListener('click', async function () {
+  if (!chat.id || !chat.messages.length) return;
+
+  if (!window.confirm('Mark this conversation as resolved?\n\n' +
+      'Nothing is deleted — write again any time and it picks up where it left off.')) return;
+
+  try {
+    await api('/api/partner/chat/close', {});
+    chat.support.assigned = false;
+    stopWaitTimer();
+    paintPresence();
+
+    $('chatBody').innerHTML = '<div class="chat-empty">' +
+      '<span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M20 6 9 17l-5-5"/></svg></span>' +
+      '<strong>Marked as resolved</strong>' +
+      '<span>Thanks. Write again whenever you need &mdash; this conversation reopens ' +
+      'with everything still here.</span></div>';
+
+    chat.messages = [];
+  } catch (e) {
+    $('chatErr').textContent = e.message;
+    $('chatErr').style.display = 'block';
+  }
+});
 
 $('chatFab').addEventListener('click', openChat);
 $('chatClose').addEventListener('click', closeChat);
