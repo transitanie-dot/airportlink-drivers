@@ -1226,6 +1226,36 @@ export function createPartnerRoutes({
     });
   });
 
+  /** O contexto do parceiro por trás de uma conversa. */
+  router.get('/api/admin/chat/:chatId/context', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { data: chat } = await supabase
+      .from('partner_chats').select('partner_id').eq('id', req.params.chatId).maybeSingle();
+
+    if (!chat) return res.status(404).json({ error: 'No such conversation.' });
+
+    const [ctxRes, ridesRes] = await Promise.all([
+      supabase.from('partner_context').select('*').eq('partner_id', chat.partner_id).maybeSingle(),
+      // As próximas viagens: quem escreve costuma escrever sobre uma
+      // delas, e tê-las à vista poupa o agente de ir procurar.
+      supabase.from('bookings')
+        .select('booking_id, booking_reference, booking_date, booking_time, pickup, dropoff, ' +
+                'passengers, driver_payout, currency, status')
+        .eq('assigned_partner_id', chat.partner_id)
+        .neq('status', 'cancelled')
+        .gte('booking_date', new Date().toISOString().slice(0, 10))
+        .order('booking_date')
+        .limit(5)
+    ]);
+
+    return res.json({
+      context: ctxRes.data || null,
+      upcoming: ridesRes.data || []
+    });
+  });
+
   router.get('/api/admin/chat/:chatId', async (req, res) => {
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
