@@ -301,6 +301,12 @@ html[data-theme="dark"] .chat-send{background:var(--amber);color:#141A28}
 .chat-tip:hover{border-color:var(--teal)}
 .bubble.bot{background:var(--teal-soft);border:1px solid var(--teal)}
 html[data-theme="dark"] .bubble.bot{background:rgba(232,163,61,.12);border-color:var(--amber)}
+.bubble.failed{opacity:.6;border:1px dashed var(--err-rule)}
+.msg-fail{margin-top:5px;font-size:11.5px;line-height:1.5;color:var(--err-text)}
+.msg-row.mine .msg-fail{text-align:right}
+.msg-retry{background:transparent;border:1px solid var(--err-rule);border-radius:8px;
+  padding:3px 9px;margin-left:6px;font-family:var(--mono);font-size:10px;font-weight:600;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--err-text);cursor:pointer}
 .chat-note{padding:11px 14px;background:var(--surface-2);border-top:1px solid var(--rule);
   color:var(--muted);font-size:12.5px;line-height:1.55;flex:0 0 auto}
 .chat-note.warn{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn-rule)}
@@ -2284,13 +2290,29 @@ function renderChat() {
     var bot = m.sender === 'bot';
 
     return '<div class="msg-row ' + (mine ? 'mine' : 'theirs') + '"><div>' +
-      '<div class="bubble' + (bot ? ' bot' : '') + '">' +
+      '<div class="bubble' + (bot ? ' bot' : '') + (m.failed ? ' failed' : '') + '">' +
       esc(m.body || '[attachment]') + '</div>' +
-      '<div class="msg-meta">' +
-      (mine ? '' : esc(bot ? 'Automatic answer' : (m.sender_name || 'Airportlink')) + ' \u00b7 ') +
-      esc(chatTime(m.created_at)) + '</div>' +
+      (m.failed
+        ? '<div class="msg-fail">Not sent \u00b7 ' + esc(m.error || 'unknown error') +
+          ' <button class="msg-retry" data-retry="' + esc(m.id) + '" type="button">Try again</button></div>'
+        : '<div class="msg-meta">' +
+          (mine ? '' : esc(bot ? 'Automatic answer' : (m.sender_name || 'Airportlink')) + ' \u00b7 ') +
+          esc(chatTime(m.created_at)) + '</div>') +
       '</div></div>';
   }).join('');
+
+  qsa('#chatBody [data-retry]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var id = b.getAttribute('data-retry');
+      var msg = chat.messages.find(function (x) { return x.id === id; });
+      if (!msg) return;
+
+      chat.messages = chat.messages.filter(function (x) { return x !== msg; });
+      $('chatInput').value = msg.body;
+      renderChat();
+      $('chatSend').click();
+    });
+  });
 
   box.scrollTop = box.scrollHeight;
 }
@@ -2514,11 +2536,17 @@ $('chatSend').addEventListener('click', async function () {
     if (i !== -1 && res.message) chat.messages[i] = res.message;
     renderChat();
   } catch (e) {
-    chat.messages = chat.messages.filter(function (x) { return x !== pending; });
+    // A mensagem FICA, marcada como falhada, com um botão para
+    // tentar de novo.
+    //
+    // Antes era apagada e o texto voltava à caixa — o que à vista é
+    // igual a não ter acontecido nada, e leva a carregar outra vez
+    // sem perceber que já falhou uma.
+    pending.failed = true;
+    pending.error = e.message;
     renderChat();
-    $('chatInput').value = body;
-    $('chatErr').textContent = e.message;
-    $('chatErr').style.display = 'block';
+
+    console.error('[chat] send failed:', e);
   } finally {
     $('chatSend').disabled = false;
     $('chatInput').focus();
