@@ -274,8 +274,14 @@ html[data-theme="dark"] .chat-panel{box-shadow:0 24px 60px rgba(0,0,0,.6)}
   line-height:1.6;padding:20px;max-width:30ch}
 .msg-row{display:flex}
 .msg-row.mine{justify-content:flex-end}
-.bubble{max-width:78%;padding:11px 14px;border-radius:16px;font-size:14px;line-height:1.55;
-  word-break:break-word;white-space:pre-wrap}
+/* O filho do flex encolhia até à largura da letra mais larga, e o
+   texto saía uma letra por linha. min-width:0 e a largura máxima
+   aqui, em vez de na bolha, resolvem. */
+.msg-row > div{max-width:78%;min-width:0}
+.bubble{max-width:100%;width:fit-content;padding:11px 14px;border-radius:16px;
+  font-size:14px;line-height:1.55;overflow-wrap:anywhere;white-space:pre-wrap}
+.msg-row.mine > div{margin-left:auto}
+.msg-row.mine .bubble{margin-left:auto}
 .msg-row.mine .bubble{background:var(--teal);color:#fff;border-bottom-right-radius:5px}
 html[data-theme="dark"] .msg-row.mine .bubble{background:var(--amber);color:#141A28}
 .msg-row.theirs .bubble{background:var(--surface-2);border:1px solid var(--rule);
@@ -2263,6 +2269,9 @@ var WAIT_PATIENCE_MINUTES = 10;
 // respostas automáticas.
 var botSaid = [];
 
+// Ordem de chegada ao ecrã. Ver renderChat para o porquê.
+var msgSeq = 0;
+
 function chatTime(iso) {
   var d = new Date(iso);
   if (isNaN(d.getTime())) return '';
@@ -2277,9 +2286,9 @@ function chatTime(iso) {
 function renderTips() {
   var box = $('chatTips');
 
-  // Só antes da conversa arrancar. Depois de haver troca, atalhos
-  // no fundo do ecrã são ruído.
-  if (!window.AirportlinkHelpBot || chat.messages.length > 2 || chat.support.assigned) {
+  // Só enquanto não houver mensagem nenhuma. Depois da primeira,
+  // atalhos no fundo do ecrã são ruído.
+  if (!window.AirportlinkHelpBot || chat.messages.length || chat.support.assigned) {
     box.classList.add('hidden');
     return;
   }
@@ -2320,7 +2329,8 @@ function botReply(text) {
       id: 'bot-' + Date.now(),
       sender: 'bot',
       body: result.reply,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      seq: ++msgSeq
     });
 
     renderChat();
@@ -2338,9 +2348,14 @@ function botReply(text) {
 function renderChat() {
   var box = $('chatBody');
 
-  // As do bot entram na ordem certa entre as reais.
+  // Ordem por sequência, não por data.
+  //
+  // O carimbo do servidor pode ser posterior ao da resposta do bot,
+  // e nesse caso a resposta aparecia ANTES da pergunta. Um contador
+  // atribuído no momento em que cada mensagem entra no ecrã garante
+  // a ordem em que realmente aconteceram.
   var all = chat.messages.concat(botSaid).sort(function (a, b) {
-    return String(a.created_at).localeCompare(String(b.created_at));
+    return (a.seq || 0) - (b.seq || 0);
   });
 
   if (!all.length) {
@@ -2466,7 +2481,11 @@ async function loadChat() {
     if (!data || !data.chat) throw new Error('The server did not return a conversation.');
 
     chat.id = data.chat.id;
-    chat.messages = data.messages || [];
+    // As do histórico ficam pela ordem em que vieram do servidor.
+    chat.messages = (data.messages || []).map(function (m) {
+      m.seq = ++msgSeq;
+      return m;
+    });
     chat.support = data.support || {};
 
     renderChat();
@@ -2523,6 +2542,7 @@ function subscribeChat() {
       // A nossa própria mensagem já foi acrescentada ao enviar.
       if (chat.messages.some(function (x) { return x.id === m.id; })) return;
 
+      m.seq = ++msgSeq;
       chat.messages.push(m);
       renderChat();
 
@@ -2602,7 +2622,8 @@ $('chatSend').addEventListener('click', async function () {
     id: 'pending-' + Date.now(),
     sender: 'partner',
     body: body,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    seq: ++msgSeq
   };
 
   chat.messages.push(pending);
@@ -2628,7 +2649,12 @@ $('chatSend').addEventListener('click', async function () {
 
     // Trocar a provisória pela real, para o realtime não a duplicar.
     var i = chat.messages.indexOf(pending);
-    if (i !== -1 && res.message) chat.messages[i] = res.message;
+    // A sequência da provisória fica com a real, senão a mensagem
+    // saltava para o fim ao ser substituída.
+    if (i !== -1 && res.message) {
+      res.message.seq = pending.seq;
+      chat.messages[i] = res.message;
+    }
     renderChat();
   } catch (e) {
     // A mensagem FICA, marcada como falhada, com um botão para
