@@ -264,9 +264,10 @@
     {
       id: 'greeting',
       words: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'ola', 'olá'],
-      reply: 'Hello. Ask me anything about rides, documents, payments or your account — ' +
-        'I answer the common ones straight away.\n\n' +
-        'If I cannot help, I put you through to a person.'
+      // Curto. Um cumprimento respondido com um parágrafo sobre o
+      // que o robô sabe fazer é a forma mais rápida de parecer um
+      // robô.
+      reply: 'Hello. What do you need?'
     },
     {
       id: 'human',
