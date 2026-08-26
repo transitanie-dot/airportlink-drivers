@@ -90,7 +90,8 @@
       id: 'when_paid',
       words: ['when am i paid', 'when do i get paid', 'payment date', 'payout date',
               'when is payday', 'how often paid', 'monthly payment', 'when will i be paid',
-              'payment schedule'],
+              'payment schedule', 'paid', 'payment', 'payout', 'salary', 'earnings',
+              'money', 'how much do i earn', 'wages', 'transfer to my account'],
       reply: 'Once a month. At the start of each month you get a statement by email covering ' +
         'every ride you completed the month before, and the money goes to the account on ' +
         'your Payouts page in the first working days.\n\n' +
@@ -128,7 +129,9 @@
     {
       id: 'no_rides',
       words: ['no rides', 'nothing showing', 'empty board', 'no work', 'no transfers',
-              'board is empty', 'not getting rides', 'no offers', 'why no rides'],
+              'board is empty', 'not getting rides', 'no offers', 'why no rides',
+              'no jobs', 'nothing available', 'no bookings', 'quiet', 'no clients',
+              'when do i get work', 'more work'],
       reply: 'Four possible reasons, and the Available rides page tells you which one applies ' +
         'to you:\n\n' +
         '· Your account is not approved yet\n' +
@@ -140,7 +143,8 @@
     {
       id: 'how_claim',
       words: ['how do i take', 'how to accept', 'claim a ride', 'accept a transfer',
-              'take a ride', 'book a ride', 'get a job'],
+              'take a ride', 'book a ride', 'get a job', 'accept', 'claim', 'take a job',
+              'how does it work', 'how do rides work'],
       reply: 'Open Available rides and press "Take this ride". First to take it gets it.\n\n' +
         'The passenger name and phone number appear only after it is yours — before that ' +
         'nobody can see them, including you.'
@@ -191,7 +195,8 @@
     {
       id: 'documents',
       words: ['document', 'upload', 'paperwork', 'insurance', 'licence', 'license',
-              'certificate', 'registry', 'which documents'],
+              'certificate', 'registry', 'which documents', 'documents', 'file',
+              'attach', 'send documents', 'what do i need', 'requirements'],
       reply: 'Three company documents: your company registry, your insurance, and your ' +
         'passenger transport licence. All on the Documents page.\n\n' +
         'Choose the file and it uploads straight away — there is no second button to press. ' +
@@ -216,7 +221,8 @@
       words: ['how long approval', 'still waiting approval', 'not approved', 'pending',
               'under review', 'when will i be approved', 'application status',
               'approval', 'approved', 'review my account', 'activate my account',
-              'go live', 'when can i start'],
+              'go live', 'when can i start', 'account status', 'still waiting',
+              'how long', 'verification', 'verify', 'my application'],
       reply: 'We check every account by hand, usually within a few working days.\n\n' +
         'Your Overview page shows exactly which of the five steps are done: documents, ' +
         'a driver, a vehicle, your airports, and payout details. All five have to be ' +
@@ -333,6 +339,9 @@
    * mais para arriscar uma resposta errada — e uma resposta errada
    * custa mais do que nenhuma.
    */
+  // Quantas seguidas não percebemos. Ver o fundo de answer().
+  var misses = 0;
+
   function answer(message) {
     var text = normalise(message);
     if (!text) return null;
@@ -363,14 +372,39 @@
     // resposta errada custa mais do que nenhuma — mas duas palavras
     // certas já são sinal suficiente.
     if (!best || bestScore < 2) {
+      // Não percebemos — mas passar logo para pessoa gasta o tempo
+      // de alguém com uma pergunta que provavelmente sabemos
+      // responder. Primeiro perguntamos de que se trata.
+      //
+      // Só à SEGUNDA vez seguida é que passa. Quem escreve duas
+      // coisas que não percebemos precisa mesmo de gente.
+      misses += 1;
+
+      if (misses >= 2) {
+        misses = 0;
+        return {
+          id: 'unknown_twice',
+          reply: 'Still not following, sorry — better a person than more guessing ' +
+            'from me.\n\nYou are in the queue. Add anything that helps while you wait.',
+          handoff: true
+        };
+      }
+
       return {
         id: 'unknown',
-        reply: 'I did not understand that one, and I would rather put you through than ' +
-          'guess.\n\nYou are in the queue — someone will pick this up. Add anything else ' +
-          'that helps in the meantime.',
-        handoff: true
+        reply: 'I did not catch that one. Which of these is it closest to?\n\n' +
+          '· Payments and statements\n' +
+          '· Rides — taking, releasing, passengers\n' +
+          '· Documents and approval\n' +
+          '· Drivers, vehicles or airports\n' +
+          '· Signing in\n\n' +
+          'Or write "a person" and I put you through straight away.',
+        handoff: false
       };
     }
+
+    // Percebeu: o contador de falhas volta a zero.
+    misses = 0;
 
     return {
       id: best.id,
