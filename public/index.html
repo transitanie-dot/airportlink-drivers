@@ -1408,9 +1408,11 @@ async function boot() {
   // apagar o painel, e uma falha no painel não pode apagar as
   // viagens.
   try {
-    await Promise.all([loadBoard(), loadRides()]);
+    // O quadro primeiro: as viagens desta empresa vêm de lá.
+    await loadBoard();
+    loadRides();
   } catch (e) {
-    console.error('board/rides:', e.message);
+    console.error('board:', e.message);
   }
 
   try {
@@ -2791,7 +2793,29 @@ async function releaseRide(id, button) {
 }
 
 // ---------- viagens ----------
+/**
+ * As viagens do parceiro.
+ *
+ * A variável e o carregamento perderam-se quando o calendário deu
+ * lugar ao quadro — ficaram as chamadas sem a função, e o boot
+ * rebentava com "loadRides is not defined".
+ *
+ * A fonte é a mesma do quadro: board.mine já traz as viagens desta
+ * empresa. Uma segunda chamada ao servidor para os mesmos dados
+ * seria trabalho a dobrar.
+ */
+var rides = [];
+
+function loadRides() {
+  rides = (board.mine || []).filter(function (r) { return r.status !== 'cancelled'; });
+  return rides;
+}
+
 function renderRides() {
+  // Se o quadro ainda não carregou, não há nada a desenhar — e
+  // tentar rebentaria a função.
+  if (!rides.length && board.mine && board.mine.length) loadRides();
+
   var today = iso(new Date());
   var upcoming = rides.filter(function (r) { return r.booking_date >= today; });
   var past = rides.filter(function (r) { return r.booking_date < today; }).reverse();
