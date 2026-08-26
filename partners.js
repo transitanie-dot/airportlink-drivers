@@ -1136,6 +1136,37 @@ export function createPartnerRoutes({
     });
   });
 
+  /**
+   * Pedir para tocar.
+   *
+   * Se há alguém à espera e este agente está livre, cria a oferta
+   * agora. Existe porque a oferta é criada quando a mensagem chega —
+   * e se nessa altura ninguém estava em Live, ninguém a recebeu.
+   * Sem isto, o parceiro ficava na fila e o painel calado.
+   */
+  router.post('/api/admin/chat/ring', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { data: waiting } = await supabase
+      .from('partner_chats')
+      .select('id')
+      .eq('status', 'open')
+      .is('assigned_to', null)
+      .not('waiting_since', 'is', null)
+      .order('waiting_since')
+      .limit(1);
+
+    if (!waiting || !waiting.length) {
+      return res.json({ ok: false, reason: 'nobody_waiting' });
+    }
+
+    const { data, error } = await supabase.rpc('offer_chat', { p_chat_id: waiting[0].id });
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ ok: true, ...(data || {}) });
+  });
+
   /** Não atendeu: passa ao seguinte e fica no registo. */
   router.post('/api/admin/chat/pass', async (req, res) => {
     const { user: admin, error: adminError } = await requireAdmin(req);
