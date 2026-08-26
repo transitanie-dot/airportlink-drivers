@@ -1089,7 +1089,12 @@ export function createPartnerRoutes({
 
       if (error) throw error;
 
-      // O gatilho no Postgres trata dos contadores e do resumo.
+      // Toca a alguém. O gatilho no Postgres já pôs a conversa em
+      // espera; isto escolhe quem atende e arranca os 30 segundos.
+      try { await supabase.rpc('offer_chat', { p_chat_id: chat.id }); } catch (e) {
+        console.error('offer_chat failed:', e.message);
+      }
+
       return res.json({ success: true, message: data });
     } catch (error) {
       console.error('partner/chat/send error:', error);
@@ -1105,10 +1110,63 @@ export function createPartnerRoutes({
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
 
-    const { data, error } = await supabase.from('partner_chat_queue').select('*');
-    if (error) return res.status(500).json({ error: error.message });
+    // Varrer primeiro: sem um trabalhador permanente, é o próprio
+    // uso do painel que faz a rotação avançar. Como há sempre um
+    // painel aberto quando há agentes ao serviço, funciona.
+    try { await supabase.rpc('sweep_chat_offers'); } catch (e) {}
 
-    return res.json({ chats: data || [] });
+    const [queueRes, ringingRes] = await Promise.all([
+      supabase.from('partner_chat_queue').select('*'),
+      supabase.from('chat_offers')
+        .select('*')
+        .eq('agent_id', admin.id)
+        .eq('outcome', 'ringing')
+        .gt('expires_at', new Date().toISOString())
+        .order('offered_at')
+        .limit(1)
+    ]);
+
+    if (queueRes.error) return res.status(500).json({ error: queueRes.error.message });
+
+    return res.json({
+      chats: queueRes.data || [],
+      // A que está a tocar AGORA neste agente. É isto que faz o
+      // painel mostrar a chamada a entrar.
+      ringing: (ringingRes.data && ringingRes.data[0]) || null
+    });
+  });
+
+  /** Não atendeu: passa ao seguinte e fica no registo. */
+  router.post('/api/admin/chat/pass', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id, declined } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const { data, error } = await asUser(req).rpc('pass_chat', {
+      p_chat_id: chat_id,
+      p_declined: declined === true
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ success: true, ...(data || {}) });
+  });
+
+  /** O registo de quem atendeu e quem deixou passar. */
+  router.get('/api/admin/chat-log', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const [logRes, statsRes] = await Promise.all([
+      supabase.from('chat_offer_log').select('*').limit(120),
+      supabase.from('agent_response_stats').select('*')
+    ]);
+
+    return res.json({
+      log: logRes.data || [],
+      stats: statsRes.data || []
+    });
   });
 
   router.get('/api/admin/chat/:chatId', async (req, res) => {
