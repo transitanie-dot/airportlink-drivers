@@ -17,7 +17,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/assets/help-bot.js"></script>
 <style>
 :root{
   --ink:#141A28;--slate:#333B50;--sage:#E8EBE7;--paper:#FBFBF8;
@@ -241,86 +240,169 @@ html[data-theme="dark"] .tagchip .code{color:var(--amber)}
 /* ---------- chat ----------
    Fora do fluxo da página: acompanha o parceiro em qualquer
    separador do portal. */
-.chat-fab{position:fixed;right:22px;bottom:22px;width:56px;height:56px;border-radius:999px;
+.chat-fab{position:fixed;right:24px;bottom:24px;width:58px;height:58px;border-radius:999px;
   border:0;background:var(--teal);color:#fff;cursor:pointer;z-index:80;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 12px 30px rgba(15,118,110,.4);transition:transform .18s ease}
-.chat-fab:hover{transform:translateY(-2px)}
+  box-shadow:0 14px 34px rgba(15,118,110,.42),0 2px 6px rgba(0,0,0,.12);
+  transition:transform .22s cubic-bezier(.34,1.4,.5,1),box-shadow .22s ease}
+.chat-fab:hover{transform:translateY(-3px) scale(1.03);
+  box-shadow:0 18px 40px rgba(15,118,110,.5),0 2px 8px rgba(0,0,0,.16)}
+.chat-fab:active{transform:translateY(-1px) scale(.98)}
 html[data-theme="dark"] .chat-fab{background:var(--amber);color:#141A28;
-  box-shadow:0 12px 30px rgba(232,163,61,.34)}
-.chat-fab svg{width:24px;height:24px}
-.chat-badge{position:absolute;top:-3px;right:-3px;min-width:21px;height:21px;
+  box-shadow:0 14px 34px rgba(232,163,61,.36),0 2px 6px rgba(0,0,0,.3)}
+.chat-fab svg{width:25px;height:25px}
+.chat-badge{position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;
   border-radius:999px;background:#C0392B;color:#fff;font-family:var(--mono);
   font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;
-  padding:0 6px;border:2px solid var(--bg)}
+  padding:0 6px;border:2.5px solid var(--bg);
+  animation:badgePop .4s cubic-bezier(.34,1.6,.5,1)}
+@keyframes badgePop{from{transform:scale(0)}to{transform:scale(1)}}
 
-.chat-panel{position:fixed;right:22px;bottom:88px;width:min(380px,calc(100vw - 32px));
-  height:min(520px,calc(100vh - 130px));background:var(--surface);
-  border:1px solid var(--rule-strong);border-radius:22px;z-index:80;
+.chat-panel{position:fixed;right:24px;bottom:24px;width:min(392px,calc(100vw - 32px));
+  height:min(600px,calc(100vh - 48px));background:var(--surface);
+  border:1px solid var(--rule);border-radius:26px;z-index:81;
   display:flex;flex-direction:column;overflow:hidden;
-  box-shadow:0 24px 60px rgba(20,26,40,.24)}
-html[data-theme="dark"] .chat-panel{box-shadow:0 24px 60px rgba(0,0,0,.6)}
+  box-shadow:0 32px 70px rgba(20,26,40,.26),0 4px 12px rgba(20,26,40,.08);
+  transform-origin:bottom right;
+  animation:panelIn .3s cubic-bezier(.22,1.2,.36,1)}
+@keyframes panelIn{from{opacity:0;transform:translateY(14px) scale(.96)}
+  to{opacity:1;transform:none}}
+html[data-theme="dark"] .chat-panel{box-shadow:0 32px 70px rgba(0,0,0,.66)}
+
+/* ---------- cabeçalho ---------- */
 .chat-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:15px 18px;background:var(--ink);color:#EEF1F6;flex:0 0 auto}
-.chat-head strong{display:block;font-family:var(--display);font-weight:700;font-size:15px}
-.chat-head span{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
-  color:#8C97A8;margin-top:3px}
-.chat-head span.live{color:#6EE7B7}
-.chat-x{background:transparent;border:0;color:#8C97A8;cursor:pointer;padding:4px}
+  padding:15px 16px;background:var(--ink);color:#EEF1F6;flex:0 0 auto;
+  border-bottom:1px solid rgba(255,255,255,.07)}
+.chat-who{display:flex;align-items:center;gap:12px;min-width:0}
+.chat-av{width:38px;height:38px;border-radius:999px;flex:0 0 auto;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.1);color:#EEF1F6;
+  font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:-.02em}
+.chat-av svg{width:19px;height:19px}
+.chat-av.human{background:var(--teal);color:#fff}
+html[data-theme="dark"] .chat-av.human{background:var(--amber);color:#141A28}
+.chat-av.human::after{content:"";position:absolute;right:-1px;bottom:-1px;
+  width:11px;height:11px;border-radius:999px;background:#34D399;
+  border:2.5px solid var(--ink)}
+.chat-id{min-width:0}
+.chat-id strong{display:block;font-family:var(--display);font-weight:700;font-size:14.5px;
+  letter-spacing:-.015em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-id span{display:block;font-size:11.5px;color:#8C97A8;margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-id span.live{color:#6EE7B7}
+.chat-id span.wait{color:#F0C77A}
+.chat-x{background:transparent;border:0;color:#8C97A8;cursor:pointer;padding:6px;
+  border-radius:9px;flex:0 0 auto;transition:background .15s ease,color .15s ease}
+.chat-x:hover{background:rgba(255,255,255,.09);color:#EEF1F6}
 .chat-x svg{width:18px;height:18px;display:block}
 
-.chat-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
-.chat-empty{margin:auto;text-align:center;color:var(--muted);font-size:13.5px;
-  line-height:1.6;padding:20px;max-width:30ch}
-.msg-row{display:flex}
+/* ---------- corpo ---------- */
+.chat-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:18px 16px 8px;
+  display:flex;flex-direction:column;gap:3px;scroll-behavior:smooth}
+.chat-body::-webkit-scrollbar{width:7px}
+.chat-body::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:999px}
+.chat-body::-webkit-scrollbar-track{background:transparent}
+
+.chat-empty{margin:auto;text-align:center;padding:26px 20px;max-width:32ch}
+.chat-empty .ico{width:52px;height:52px;border-radius:18px;margin:0 auto 16px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--teal-soft);color:var(--teal)}
+html[data-theme="dark"] .chat-empty .ico{background:rgba(232,163,61,.13);color:var(--amber)}
+.chat-empty .ico svg{width:24px;height:24px}
+.chat-empty strong{display:block;font-family:var(--display);font-weight:700;font-size:16.5px;
+  letter-spacing:-.02em;color:var(--text);margin-bottom:8px}
+.chat-empty span{display:block;color:var(--muted);font-size:13.5px;line-height:1.65}
+
+.chat-day{display:flex;align-items:center;gap:12px;margin:16px 0 10px;
+  font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted)}
+.chat-day::before,.chat-day::after{content:"";flex:1;height:1px;background:var(--rule)}
+
+.msg-row{display:flex;animation:msgIn .26s cubic-bezier(.22,1.1,.36,1)}
+@keyframes msgIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
 .msg-row.mine{justify-content:flex-end}
-/* O filho do flex encolhia até à largura da letra mais larga, e o
-   texto saía uma letra por linha. min-width:0 e a largura máxima
-   aqui, em vez de na bolha, resolvem. */
-.msg-row > div{max-width:78%;min-width:0}
-.bubble{max-width:100%;width:fit-content;padding:11px 14px;border-radius:16px;
-  font-size:14px;line-height:1.55;overflow-wrap:anywhere;white-space:pre-wrap}
+/* O filho do flex encolhia até à largura da letra mais larga e o
+   texto saía uma letra por linha. */
+.msg-row > div{max-width:80%;min-width:0}
 .msg-row.mine > div{margin-left:auto}
-.msg-row.mine .bubble{margin-left:auto}
-.msg-row.mine .bubble{background:var(--teal);color:#fff;border-bottom-right-radius:5px}
+.msg-row + .msg-row{margin-top:3px}
+/* Espaço extra quando muda de interlocutor: agrupa o que é da mesma
+   pessoa e separa o que não é. */
+.msg-row.turn{margin-top:12px}
+
+.bubble{max-width:100%;width:fit-content;padding:11px 15px;font-size:14.5px;
+  line-height:1.55;overflow-wrap:anywhere;white-space:pre-wrap;
+  border-radius:20px}
+.msg-row.mine .bubble{background:var(--teal);color:#fff;margin-left:auto;
+  border-bottom-right-radius:7px}
 html[data-theme="dark"] .msg-row.mine .bubble{background:var(--amber);color:#141A28}
 .msg-row.theirs .bubble{background:var(--surface-2);border:1px solid var(--rule);
-  border-bottom-left-radius:5px}
-.msg-meta{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--muted);
-  margin-top:5px}
-.msg-row.mine .msg-meta{text-align:right}
-
-.chat-foot{display:flex;gap:9px;padding:12px;border-top:1px solid var(--rule);
-  background:var(--surface-2);flex:0 0 auto}
-.chat-foot textarea{flex:1;resize:none;max-height:110px;padding:11px 13px;
-  border:1px solid var(--rule-strong);border-radius:13px;background:var(--surface);
-  color:var(--text);font-family:var(--body);font-size:14px;line-height:1.5;outline:none}
-.chat-foot textarea:focus{border-color:var(--teal)}
-.chat-send{width:44px;flex:0 0 auto;border:0;border-radius:13px;background:var(--teal);
-  color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
-html[data-theme="dark"] .chat-send{background:var(--amber);color:#141A28}
-.chat-send:disabled{opacity:.5;cursor:not-allowed}
-.chat-send svg{width:17px;height:17px}
-.chat-tips{display:flex;gap:7px;flex-wrap:wrap;padding:11px 14px 0;flex:0 0 auto}
-.chat-tip{background:var(--surface-2);border:1px solid var(--rule-strong);border-radius:999px;
-  padding:7px 13px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap}
-.chat-tip:hover{border-color:var(--teal)}
-.bubble.bot{background:var(--teal-soft);border:1px solid var(--teal)}
-html[data-theme="dark"] .bubble.bot{background:rgba(232,163,61,.12);border-color:var(--amber)}
+  border-bottom-left-radius:7px}
+/* Numa sequência do mesmo lado, só a última leva o canto cortado. */
+.msg-row.mine:not(.last) .bubble{border-bottom-right-radius:20px}
+.msg-row.theirs:not(.last) .bubble{border-bottom-left-radius:20px}
+.bubble.sending{opacity:.62}
 .bubble.failed{opacity:.6;border:1px dashed var(--err-rule)}
-.msg-fail{margin-top:5px;font-size:11.5px;line-height:1.5;color:var(--err-text)}
+
+.msg-meta{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:var(--muted);
+  margin:5px 2px 2px}
+.msg-row.mine .msg-meta{text-align:right}
+.msg-fail{margin:5px 2px 2px;font-size:11.5px;line-height:1.5;color:var(--err-text)}
 .msg-row.mine .msg-fail{text-align:right}
 .msg-retry{background:transparent;border:1px solid var(--err-rule);border-radius:8px;
   padding:3px 9px;margin-left:6px;font-family:var(--mono);font-size:10px;font-weight:600;
   letter-spacing:.05em;text-transform:uppercase;color:var(--err-text);cursor:pointer}
-.chat-note{padding:11px 14px;background:var(--surface-2);border-top:1px solid var(--rule);
+
+/* três pontos de "está a escrever" */
+.typing{display:flex;gap:4px;padding:14px 16px;background:var(--surface-2);
+  border:1px solid var(--rule);border-radius:20px;border-bottom-left-radius:7px;
+  width:fit-content}
+.typing i{width:7px;height:7px;border-radius:999px;background:var(--muted);
+  animation:typing 1.3s ease-in-out infinite}
+.typing i:nth-child(2){animation-delay:.18s}
+.typing i:nth-child(3){animation-delay:.36s}
+@keyframes typing{0%,60%,100%{opacity:.3;transform:translateY(0)}
+  30%{opacity:1;transform:translateY(-4px)}}
+
+.chat-jump{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);
+  display:inline-flex;align-items:center;gap:7px;z-index:2;
+  background:var(--ink);color:#fff;border:0;border-radius:999px;
+  padding:8px 15px 8px 12px;font-size:12.5px;font-weight:600;cursor:pointer;
+  box-shadow:0 8px 22px rgba(20,26,40,.28);
+  animation:msgIn .26s cubic-bezier(.22,1.1,.36,1)}
+html[data-theme="dark"] .chat-jump{background:var(--amber);color:#141A28}
+.chat-jump svg{width:14px;height:14px}
+
+/* ---------- rodapé ---------- */
+.chat-note{padding:11px 16px;background:var(--surface-2);border-top:1px solid var(--rule);
   color:var(--muted);font-size:12.5px;line-height:1.55;flex:0 0 auto}
 .chat-note.warn{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn-rule)}
-.chat-err{display:none;padding:10px 14px;background:var(--err-bg);color:var(--err-text);
+
+.chat-foot{display:flex;gap:9px;align-items:flex-end;padding:12px;
+  border-top:1px solid var(--rule);background:var(--surface);flex:0 0 auto}
+.chat-foot textarea{flex:1;resize:none;max-height:118px;padding:12px 15px;
+  border:1px solid var(--rule-strong);border-radius:19px;background:var(--surface-2);
+  color:var(--text);font-family:var(--body);font-size:14.5px;line-height:1.5;outline:none;
+  transition:border-color .16s ease,background .16s ease}
+.chat-foot textarea:focus{border-color:var(--teal);background:var(--surface)}
+html[data-theme="dark"] .chat-foot textarea:focus{border-color:var(--amber)}
+.chat-send{width:44px;height:44px;flex:0 0 auto;border:0;border-radius:999px;
+  background:var(--teal);color:#fff;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:transform .16s ease,opacity .16s ease}
+.chat-send:hover:not(:disabled){transform:scale(1.06)}
+.chat-send:active:not(:disabled){transform:scale(.94)}
+html[data-theme="dark"] .chat-send{background:var(--amber);color:#141A28}
+.chat-send:disabled{opacity:.4;cursor:not-allowed}
+.chat-send svg{width:17px;height:17px;margin-left:-2px}
+.chat-err{display:none;padding:11px 16px;background:var(--err-bg);color:var(--err-text);
   font-size:12.5px;line-height:1.5;border-top:1px solid var(--err-rule)}
+
 @media (max-width:520px){
-  .chat-panel{right:10px;left:10px;bottom:82px;width:auto;height:min(72vh,540px)}
-  .chat-fab{right:16px;bottom:16px}
+  .chat-panel{right:0;left:0;bottom:0;width:auto;height:100dvh;border-radius:0;
+    border:0;animation:sheetIn .28s cubic-bezier(.22,1.1,.36,1)}
+  @keyframes sheetIn{from{transform:translateY(100%)}to{transform:none}}
+  .chat-fab{right:18px;bottom:18px}
+  .chat-jump{bottom:100px}
 }
 
 /* ---------- o que fazer a seguir ----------
@@ -928,9 +1010,14 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
 
 <div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Support chat">
   <div class="chat-head">
-    <div>
-      <strong>Support</strong>
-      <span id="chatPresence">Checking...</span>
+    <div class="chat-who">
+      <span class="chat-av" id="chatAvatar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-3.6-.7L3 21l1.9-5a8.2 8.2 0 0 1-.9-3.8 8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg>
+      </span>
+      <div class="chat-id">
+        <strong id="chatTitle">Airportlink</strong>
+        <span id="chatPresence">Support</span>
+      </div>
     </div>
     <button class="chat-x" id="chatClose" type="button" aria-label="Close">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -938,14 +1025,18 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
   </div>
 
   <div class="chat-body" id="chatBody">
-    <div class="chat-empty">Loading...</div>
+    <div class="chat-empty">Loading&hellip;</div>
   </div>
 
-  <div class="chat-tips hidden" id="chatTips"></div>
+  <button class="chat-jump hidden" id="chatJump" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+    New message
+  </button>
+
   <div class="chat-note hidden" id="chatWaiting"></div>
 
   <div class="chat-foot">
-    <textarea id="chatInput" rows="1" placeholder="Write your message" maxlength="4000"></textarea>
+    <textarea id="chatInput" rows="1" placeholder="Write a message" maxlength="4000"></textarea>
     <button class="chat-send" id="chatSend" type="button" aria-label="Send">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
     </button>
@@ -979,12 +1070,10 @@ var qsa = function (s) { return Array.prototype.slice.call(document.querySelecto
  * Um único elemento em falta com addEventListener direto mata o
  * script inteiro — e o sintoma é a página parecer viva mas nenhum
  * botão funcionar, sem pista nenhuma de qual foi o elemento.
- *
- * Aconteceu, e custou caro a diagnosticar. Agora o que falta fica
- * no console com o nome, e tudo o resto continua a funcionar.
  */
 var MISSING = { __missing: true, style: {}, dataset: {}, files: null,
   value: '', textContent: '', innerHTML: '', className: '', disabled: false, checked: false,
+  scrollHeight: 0, scrollTop: 0, clientHeight: 0,
   classList: { add: function () {}, remove: function () {}, toggle: function () {},
                contains: function () { return false; } },
   addEventListener: function () {}, removeEventListener: function () {},
@@ -1175,10 +1264,6 @@ $('backdrop').addEventListener('click', function () {
   sorted.forEach(function (c) {
     var o = document.createElement('option');
     o.value = c[0];
-    // Sem marcas de "não estamos aí". Um país assinalado como
-    // inativo convida a fechar a página — e nós queremos o registo,
-    // seja onde for. Quem se regista primeiro é quem tem o trabalho
-    // primeiro quando abrirmos.
     o.textContent = c[1];
     sel.appendChild(o);
   });
@@ -1226,7 +1311,9 @@ $('siForgot').addEventListener('click', async function () {
   var email = $('siEmail').value.trim();
   if (!email) return show($('siErr'), $('siOk'), 'Enter your email first.');
   try {
-    await db.auth.resetPasswordForEmail(email, { redirectTo: SITE + '/resetpassword' });
+    // O /resetpassword foi eliminado: o formulário de nova password
+    // vive dentro do /login.
+    await db.auth.resetPasswordForEmail(email, { redirectTo: SITE + '/login' });
   } catch (e) { console.error(e); }
   // Resposta genérica: não revelamos que emails existem.
   show($('siOk'), $('siErr'), 'If an account exists for that email, a reset link has been sent.');
@@ -1452,6 +1539,7 @@ async function boot() {
   var stepsLeft = checklist().filter(function (i) { return !i.done; }).length;
   $('tbStatus').textContent = ({
     draft: 'Not submitted', submitted: 'Under review', in_review: 'Under review',
+    action_required: 'Needs your attention',
     verified: 'Verified', suspended: 'Suspended', rejected: 'Not approved',
     approved: stepsLeft ? (stepsLeft + ' step' + (stepsLeft === 1 ? '' : 's') + ' left') : 'Live'
   })[p.status] || 'Setting up';
@@ -1465,18 +1553,12 @@ async function boot() {
   renderFleet();
   renderAreas();
 
-  // O chat primeiro e independente de tudo o resto.
-  //
-  // Estava depois do renderOverview, e por isso um erro a desenhar o
-  // painel deixava também o chat por ligar — o botão de enviar não
-  // fazia nada e não havia forma de perceber que as duas coisas eram
-  // o mesmo problema.
+  // O chat primeiro e independente de tudo o resto: um erro a
+  // desenhar o painel não pode deixar o parceiro sem forma de pedir
+  // ajuda, que é quando mais precisa dela.
   $('chatFab').classList.remove('hidden');
   loadChat().catch(function (e) { console.error('chat:', e.message); });
 
-  // Cada um no seu try. Uma falha a carregar as viagens não pode
-  // apagar o painel, e uma falha no painel não pode apagar as
-  // viagens.
   try {
     // O quadro primeiro: as viagens desta empresa vêm de lá.
     await loadBoard();
@@ -1494,19 +1576,14 @@ async function boot() {
     console.error('overview:', e);
     $('statusBanner').innerHTML =
       '<div class="banner bad"><span class="mk">&#9679;</span><span>' +
-      '<strong>We could not draw your dashboard</strong>' +
-      esc(e.message) +
+      '<strong>We could not draw your dashboard</strong>' + esc(e.message) +
       '<br><br>Your account is fine — this is a display problem on our side. ' +
       'Tell us in the chat and we will fix it.' +
       '<br><button class="btn amber sm" onclick="location.reload()" type="button">Reload</button>' +
       '</span></div>';
   }
 
-  try {
-    renderRides();
-  } catch (e) {
-    console.error('rides:', e.message);
-  }
+  try { renderRides(); } catch (e) { console.error('rides:', e.message); }
 }
 
 async function refresh(newState) {
@@ -1517,13 +1594,13 @@ async function refresh(newState) {
 
 // ---------- panorama ----------
 function checklist() {
-  var p = S.partner || {};
-  var need = S.requirements.filter(function (r) {
+  var p = (S && S.partner) || {};
+  var need = ((S && S.requirements) || []).filter(function (r) {
     return r.mandatory && r.scope === 'company' && r.stage === 'signup';
   });
   // Um documento recusado não conta como feito, mesmo estando lá.
   var docsDone = need.length > 0 && need.every(function (r) {
-    return S.documents.some(function (d) {
+    return ((S && S.documents) || []).some(function (d) {
       return d.requirement_code === r.code && !d.driver_id && !d.vehicle_id &&
         d.status !== 'rejected';
     });
@@ -1531,8 +1608,8 @@ function checklist() {
 
   return [
     { id: 'pgDocs',    title: 'Upload 3 documents', sub: 'Registration, insurance, licence', done: docsDone },
-    { id: 'pgDrivers', title: 'Add a driver',       sub: 'At least one, with a phone number', done: S.drivers.length > 0 },
-    { id: 'pgFleet',   title: 'Add a vehicle',      sub: 'Seats decide which rides you get',  done: S.vehicles.length > 0 },
+    { id: 'pgDrivers', title: 'Add a driver',       sub: 'At least one, with a phone number', done: ((S && S.drivers) || []).length > 0 },
+    { id: 'pgFleet',   title: 'Add a vehicle',      sub: 'Seats decide which rides you get',  done: ((S && S.vehicles) || []).length > 0 },
     { id: 'pgAreas',   title: 'Set your work areas',sub: 'Airports you can serve',            done: (p.operating_airports || []).length > 0 },
     { id: 'pgPayouts', title: 'Add payout details', sub: 'Where we send your money',          done: Boolean(p.payout_iban) }
   ];
@@ -1541,7 +1618,7 @@ function checklist() {
 function renderOverview() {
   // Uma conta acabada de criar pode não ter nada disto ainda. Sem
   // as redes, o primeiro .filter num undefined rebentava a função
-  // inteira — e com ela o painel e o chat.
+  // inteira — e com ela o painel.
   S = S || {};
   S.documents = S.documents || [];
   S.drivers = S.drivers || [];
@@ -1589,22 +1666,12 @@ function renderOverview() {
       'Everything is with us. We check by hand, usually within a few working days, and email you either way. ' +
       'If something is wrong we tell you which document and why &mdash; you will never get a rejection without a reason.' +
       '</span></div>';
-  } else if (p.status === 'verified') {
-    b = '<div class="banner ' + (done === items.length ? 'ok' : 'draft') + '"><span class="mk">' +
-      (done === items.length ? '&#10003;' : '&#9679;') + '</span><span>' +
-      '<strong>' + (done === items.length
-        ? 'Everything is in. We are switching you on.'
-        : 'Verified — a few things left before your first ride') + '</strong>' +
-      (done === items.length
-        ? 'Your setup is complete and we are reviewing the final step. You will start receiving offers shortly.'
-        : 'Your documents are accepted. Complete the steps below and offers start arriving.') +
-      '</span></div>';
   } else if (p.status === 'suspended') {
     b = '<div class="banner bad"><span class="mk">&#10005;</span><span>' +
       '<strong>Offers are paused</strong>' +
       (expired.length
         ? 'A document has expired. Replace it and you are back in immediately.'
-        : 'Your account is suspended. Contact support and we will tell you exactly why.') +
+        : 'Your account is suspended. Tell us in the chat and we will explain exactly why.') +
       '</span></div>';
   } else if (expired.length) {
     b = '<div class="banner bad"><span class="mk">&#10005;</span><span>' +
@@ -1669,21 +1736,18 @@ function renderOverview() {
 
   var fee = function (r) { return Number(r.driver_payout || 0); };
   var completed = live.filter(function (r) { return r.booking_date < today; });
+  var thisMonthRides = completed.filter(function (r) {
+    return String(r.booking_date).slice(0, 7) === month;
+  });
 
-  var earnedThisMonth = completed
-    .filter(function (r) { return String(r.booking_date).slice(0, 7) === month; })
-    .reduce(function (t, r) { return t + fee(r); }, 0);
-
+  var earnedThisMonth = thisMonthRides.reduce(function (t, r) { return t + fee(r); }, 0);
   var owedLastMonth = completed
     .filter(function (r) { return String(r.booking_date).slice(0, 7) === lastMonth; })
     .reduce(function (t, r) { return t + fee(r); }, 0);
-
   var booked = upcoming.reduce(function (t, r) { return t + fee(r); }, 0);
-  var cur = (live[0] && live[0].currency) || 'EUR';
 
-  var money = function (v) {
-    return cur + ' ' + Number(v || 0).toFixed(0);
-  };
+  var cur = (live[0] && live[0].currency) || 'EUR';
+  var money = function (v) { return cur + ' ' + Number(v || 0).toFixed(0); };
 
   var nextRide = upcoming[0];
   var hoursToNext = nextRide
@@ -1693,12 +1757,9 @@ function renderOverview() {
   $('metrics').innerHTML =
     // Linha um: o dinheiro.
     card(earnedThisMonth ? 'good' : '', 'Earned this month', money(earnedThisMonth),
-      completed.filter(function (r) { return String(r.booking_date).slice(0, 7) === month; }).length +
-        ' ride' + (completed.filter(function (r) { return String(r.booking_date).slice(0, 7) === month; }).length === 1 ? '' : 's') + ' done') +
+      thisMonthRides.length + ' ride' + (thisMonthRides.length === 1 ? '' : 's') + ' done') +
     card(owedLastMonth ? 'good' : '', 'Due to you', money(owedLastMonth),
-      owedLastMonth
-        ? 'For ' + lastMonth + ', paid in the first working days'
-        : 'Nothing outstanding') +
+      owedLastMonth ? 'For ' + lastMonth + ', paid in the first working days' : 'Nothing outstanding') +
     card('', 'Already booked', money(booked),
       upcoming.length + ' ride' + (upcoming.length === 1 ? '' : 's') + ' ahead') +
     card(openNearby ? 'good' : '', 'Up for grabs', openNearby,
@@ -1716,14 +1777,12 @@ function renderOverview() {
         : 'Nothing scheduled', true) +
     card('', 'Completed', completed.length, 'All time') +
     card(docState.cls, 'Documents', docState.v, docState.s) +
-    card('', 'Fleet',
-      S.drivers.length + ' / ' + S.vehicles.length,
+    card('', 'Fleet', S.drivers.length + ' / ' + S.vehicles.length,
       'drivers / vehicles' +
       (S.vehicles.length
         ? ' · up to ' + Math.max.apply(null, S.vehicles.map(function (v) { return v.seats || 0; })) + ' seats'
         : '')) +
-    card('', 'Airports',
-      ((S.partner && S.partner.operating_airports) || []).length, 'you can serve');
+    card('', 'Airports', (p.operating_airports || []).length, 'you can serve');
 
   // próximas viagens
   $('nextRides').innerHTML = upcoming.length
@@ -1736,25 +1795,16 @@ function renderOverview() {
   // quem já tem três é ruído.
   var actions = [];
 
-  if (openNearby) {
-    actions.push(['pgBoard', 'Take a ride', openNearby + ' waiting at your airports']);
-  }
+  if (openNearby) actions.push(['pgBoard', 'Take a ride', openNearby + ' waiting at your airports']);
   if (expired.length || soon.length) {
-    actions.push(['pgDocs', 'Update documents',
-      expired.length ? 'One has expired' : 'One expires soon']);
+    actions.push(['pgDocs', 'Update documents', expired.length ? 'One has expired' : 'One expires soon']);
   }
-  if (!((S.partner && S.partner.operating_airports) || []).length) {
+  if (!(p.operating_airports || []).length) {
     actions.push(['pgAreas', 'Choose your airports', 'Nothing reaches you without this']);
   }
-  if (!S.partner || !S.partner.payout_iban) {
-    actions.push(['pgPayouts', 'Add payout details', 'We cannot pay you without them']);
-  }
-  if (!S.vehicles.length) {
-    actions.push(['pgVehicles', 'Add a vehicle', 'Bigger vehicles get bigger groups']);
-  }
-  if (upcoming.length) {
-    actions.push(['pgBoard', 'See your rides', upcoming.length + ' coming up']);
-  }
+  if (!p.payout_iban) actions.push(['pgPayouts', 'Add payout details', 'We cannot pay you without them']);
+  if (!S.vehicles.length) actions.push(['pgFleet', 'Add a vehicle', 'Bigger vehicles get bigger groups']);
+  if (upcoming.length) actions.push(['pgRides', 'See your rides', upcoming.length + ' coming up']);
   actions.push(['pgPayouts', 'Your payouts', 'Statements and bank details']);
 
   $('quickActions').innerHTML = actions.slice(0, 4).map(function (a) {
@@ -1812,7 +1862,7 @@ function renderDocs() {
   });
 
   if (!reqs.length) {
-    $('docsList').innerHTML = '<div class="empty">No documents configured yet. Contact support.</div>';
+    $('docsList').innerHTML = '<div class="empty">No documents configured yet. Tell us in the chat.</div>';
     return;
   }
 
@@ -1858,8 +1908,7 @@ function renderDocs() {
   });
 
   // Escolher o ficheiro é o gesto; carregar noutro botão a seguir
-  // não é óbvio para ninguém. Antes disto, quem escolhia um ficheiro
-  // via a página não fazer nada e concluía que estava avariada.
+  // não é óbvio para ninguém.
   qsa('[data-file]').forEach(function (input) {
     input.addEventListener('change', function () {
       var code = input.getAttribute('data-file');
@@ -1879,8 +1928,6 @@ function renderDocs() {
 
   $('submitCard').classList.toggle('hidden', !(allDone && noneRejected && canSubmit));
 
-  // Quando falta alguma coisa, dizemos o quê em vez de esconder o
-  // cartão sem explicação.
   var pending = items.filter(function (i) { return !i.done; });
 
   $('submitPending').innerHTML = (canSubmit && !allDone && pending.length)
@@ -1931,9 +1978,8 @@ async function uploadDoc(code, button) {
   } catch (e) {
     show($('docsErr'), $('docsOk'), esc(e.message));
     button.disabled = false; button.textContent = 'Choose file';
-    // A mensagem do Supabase é o que diz o que se passa de verdade.
-    // Escondê-la atrás de "algo correu mal" tornava isto impossível
-    // de diagnosticar.
+    // A mensagem real é o que diz o que se passa. Escondê-la atrás
+    // de "algo correu mal" torna isto impossível de diagnosticar.
     if (hint) hint.textContent = e.message;
   }
 }
@@ -2138,7 +2184,7 @@ function renderAreas() {
     return '<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 0 10px">' +
       esc(region) + '</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px">' +
       byRegion[region].map(function (z) {
-        var on = S.zones.indexOf(z.code) !== -1;
+        var on = (S.zones || []).indexOf(z.code) !== -1;
         return '<label class="opt" style="display:flex;align-items:center;gap:10px;padding:12px 14px' +
           (on ? ';border-color:var(--teal);background:var(--teal-soft)' : '') + '">' +
           '<input type="checkbox" value="' + esc(z.code) + '"' + (on ? ' checked' : '') +
@@ -2248,140 +2294,121 @@ $('stSave').addEventListener('click', function () {
   saveCompany({}, $('stOk'), $('stMsg'), $('stSave'));
 });
 
-// ---------- chat ----------
+// ============================================================
+// CHAT
+//
+// Sem bot. Estas empresas são de quem depende a operação, e a
+// resposta certa de uma pessoa vale mais do que dez respostas
+// rápidas de um robô — sobretudo quando o assunto é dinheiro.
 //
 // O realtime do Supabase entrega as respostas sem recarregar nada.
-// A subscrição é por conversa, não por tabela: um parceiro nunca
-// recebe eventos da conversa de outro.
+// A subscrição é por conversa: um parceiro nunca recebe eventos da
+// conversa de outro.
+// ============================================================
 var chat = {
   id: null, messages: [], open: false, channel: null,
   support: {}, waitTimer: null, waitStarted: null
 };
 
-// Ao fim de dez minutos sem ninguém pegar, a mensagem muda. Deixar
-// "waiting for an agent" a rodar meia hora é como se perde a
-// confiança de quem está do outro lado.
+// Ao fim de dez minutos sem ninguém pegar, a mensagem muda de tom.
 var WAIT_PATIENCE_MINUTES = 10;
 
-// As respostas do bot vivem só no browser: não vão para a base de
-// dados nem entram na fila do admin. Quando alguém pega a conversa,
-// o histórico que lê é o que o parceiro escreveu — não uma parede de
-// respostas automáticas.
-var botSaid = [];
-
-// Ordem de chegada ao ecrã. Ver renderChat para o porquê.
+// Ordem de chegada ao ecrã. O carimbo do servidor pode ser posterior
+// ao da mensagem provisória, e sem isto a ordem baralhava-se.
 var msgSeq = 0;
 
-function chatTime(iso) {
-  var d = new Date(iso);
+function chatTime(when) {
+  var d = new Date(when);
   if (isNaN(d.getTime())) return '';
-  var today = new Date().toDateString() === d.toDateString();
-  return today
-    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-    : d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' ' +
-      d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-/** Mostra os atalhos das perguntas mais comuns. */
-function renderTips() {
-  var box = $('chatTips');
+function dayLabel(when) {
+  var d = new Date(when);
+  if (isNaN(d.getTime())) return '';
 
-  // Só enquanto não houver mensagem nenhuma. Depois da primeira,
-  // atalhos no fundo do ecrã são ruído.
-  if (!window.AirportlinkHelpBot || chat.messages.length || chat.support.assigned) {
-    box.classList.add('hidden');
-    return;
-  }
+  var today = new Date();
+  var yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
 
-  box.innerHTML = window.AirportlinkHelpBot.suggestions.map(function (sug) {
-    return '<button class="chat-tip" data-tip="' + esc(sug.topic) + '" type="button">' +
-      esc(sug.label) + '</button>';
-  }).join('');
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
 
-  box.classList.remove('hidden');
-
-  qsa('#chatTips [data-tip]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var sug = window.AirportlinkHelpBot.suggestions.find(function (x) {
-        return x.topic === b.getAttribute('data-tip');
-      });
-      if (sug) { $('chatInput').value = sug.label; $('chatSend').click(); }
-    });
+  return d.toLocaleDateString(undefined, {
+    day: 'numeric', month: 'long',
+    year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric'
   });
-}
-
-/**
- * A resposta automática, se houver.
- *
- * Devolve true quando passou a conversa para a fila — quer por não
- * ter percebido, quer por ser um assunto que nunca responde sozinho.
- */
-function botReply(text) {
-  if (!window.AirportlinkHelpBot) return true;
-
-  var result = window.AirportlinkHelpBot.answer(text);
-  if (!result) return true;
-
-  // Um instante antes de responder. Uma resposta instantânea a uma
-  // pergunta escrita denuncia o robô mais do que o próprio texto.
-  setTimeout(function () {
-    botSaid.push({
-      id: 'bot-' + Date.now(),
-      sender: 'bot',
-      body: result.reply,
-      created_at: new Date().toISOString(),
-      seq: ++msgSeq
-    });
-
-    renderChat();
-    renderTips();
-
-    if (result.handoff) {
-      chat.support.waiting_minutes = 0;
-      paintPresence();
-    }
-  }, 550);
-
-  return result.handoff;
 }
 
 function renderChat() {
   var box = $('chatBody');
 
-  // Ordem por sequência, não por data.
-  //
-  // O carimbo do servidor pode ser posterior ao da resposta do bot,
-  // e nesse caso a resposta aparecia ANTES da pergunta. Um contador
-  // atribuído no momento em que cada mensagem entra no ecrã garante
-  // a ordem em que realmente aconteceram.
-  var all = chat.messages.concat(botSaid).sort(function (a, b) {
+  var all = chat.messages.slice().sort(function (a, b) {
     return (a.seq || 0) - (b.seq || 0);
   });
 
   if (!all.length) {
     box.innerHTML = '<div class="chat-empty">' +
-      '<strong style="display:block;color:var(--text);font-family:var(--display);' +
-      'font-size:15px;margin-bottom:8px">How can we help?</strong>' +
-      'Ask us anything &mdash; a ride, a document, a payment. ' +
-      'We read every message.</div>';
+      '<span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-3.6-.7L3 21l1.9-5a8.2 8.2 0 0 1-.9-3.8 ' +
+      '8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg></span>' +
+      '<strong>How can we help?</strong>' +
+      '<span>A ride, a document, a payment &mdash; ask and a person answers. ' +
+      'Everything you write stays here.</span></div>';
     return;
   }
 
-  box.innerHTML = all.map(function (m) {
-    var mine = m.sender === 'partner';
-    var bot = m.sender === 'bot';
+  // Guardar a posição ANTES de redesenhar: se a pessoa subiu para
+  // reler, não a atiramos para o fim. Ser levado para baixo a meio
+  // de uma leitura é dos comportamentos mais irritantes que há.
+  var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 90;
 
-    return '<div class="msg-row ' + (mine ? 'mine' : 'theirs') + '"><div>' +
-      '<div class="bubble' + (bot ? ' bot' : '') + (m.failed ? ' failed' : '') + '">' +
-      esc(m.body || '[attachment]') + '</div>' +
-      (m.failed
-        ? '<div class="msg-fail">Not sent \u00b7 ' + esc(m.error || 'unknown error') +
-          ' <button class="msg-retry" data-retry="' + esc(m.id) + '" type="button">Try again</button></div>'
-        : '<div class="msg-meta">' +
-          (mine ? '' : esc(bot ? 'Automatic answer' : (m.sender_name || 'Airportlink')) + ' \u00b7 ') +
-          esc(chatTime(m.created_at)) + '</div>') +
-      '</div></div>';
-  }).join('');
+  var html = '';
+  var lastDay = '';
+
+  all.forEach(function (m, i) {
+    var previous = all[i - 1];
+    var next = all[i + 1];
+    var mine = m.sender === 'partner';
+
+    // Separador de dia. Sem isto, uma conversa de três semanas
+    // parece uma parede sem tempo nenhum.
+    var day = dayLabel(m.created_at);
+    if (day && day !== lastDay) {
+      html += '<div class="chat-day">' + esc(day) + '</div>';
+      lastDay = day;
+    }
+
+    // Agrupar o que é da mesma pessoa e separar o que não é: só a
+    // última de uma sequência leva a hora e o canto cortado.
+    var turn = !previous || previous.sender !== m.sender || dayLabel(previous.created_at) !== day;
+    var last = !next || next.sender !== m.sender || dayLabel(next.created_at) !== day;
+    var sending = String(m.id).indexOf('pending-') === 0 && !m.failed;
+
+    html += '<div class="msg-row ' + (mine ? 'mine' : 'theirs') +
+      (turn ? ' turn' : '') + (last ? ' last' : '') + '"><div>' +
+      '<div class="bubble' + (m.failed ? ' failed' : '') + (sending ? ' sending' : '') + '">' +
+      esc(m.body || '[attachment]') + '</div>';
+
+    if (m.failed) {
+      html += '<div class="msg-fail">Not sent \u00b7 ' + esc(m.error || 'unknown error') +
+        ' <button class="msg-retry" data-retry="' + esc(m.id) + '" type="button">Try again</button></div>';
+    } else if (last) {
+      html += '<div class="msg-meta">' +
+        (mine ? '' : esc(m.sender_name || 'Airportlink') + ' \u00b7 ') +
+        esc(chatTime(m.created_at)) + '</div>';
+    }
+
+    html += '</div></div>';
+  });
+
+  box.innerHTML = html;
+
+  if (atBottom) {
+    box.scrollTop = box.scrollHeight;
+    $('chatJump').classList.add('hidden');
+  }
 
   qsa('#chatBody [data-retry]').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -2395,44 +2422,67 @@ function renderChat() {
       $('chatSend').click();
     });
   });
-
-  box.scrollTop = box.scrollHeight;
 }
 
+$('chatBody').addEventListener('scroll', function () {
+  var box = $('chatBody');
+  if (box.scrollHeight - box.scrollTop - box.clientHeight < 90) {
+    $('chatJump').classList.add('hidden');
+  }
+});
+
+$('chatJump').addEventListener('click', function () {
+  var box = $('chatBody');
+  box.scrollTop = box.scrollHeight;
+  $('chatJump').classList.add('hidden');
+});
+
 /**
- * O que o parceiro vê no topo.
+ * O topo do painel.
  *
  * Nunca dizemos se há ou não alguém ao serviço. Dizer "ninguém está
  * aqui" à uma da manhã convida a pessoa a fechar a janela sem
  * escrever — e nós preferimos a mensagem escrita, mesmo que só seja
  * lida de manhã.
- *
- * O que fazemos é ser honestos sobre o TEMPO: à espera enquanto
- * espera, e ao fim de dez minutos a verdade de que hoje ninguém vai
- * pegar já.
  */
 function paintPresence() {
-  var el = $('chatPresence');
+  var title = $('chatTitle');
+  var state = $('chatPresence');
+  var avatar = $('chatAvatar');
   var note = $('chatWaiting');
 
   note.classList.add('hidden');
 
+  var agent = chat.support && chat.support.agent_name;
+
   if ((chat.support || {}).assigned) {
-    el.textContent = 'You are being helped';
-    el.className = 'live';
+    // Com nome e iniciais: falar com uma pessoa é diferente de
+    // falar com "o apoio".
+    title.textContent = agent || 'Airportlink';
+    state.textContent = 'Here with you now';
+    state.className = 'live';
+    avatar.className = 'chat-av human';
+    avatar.textContent = agent ? initials(agent) : 'A';
     stopWaitTimer();
     return;
   }
+
+  title.textContent = 'Airportlink';
+  avatar.className = 'chat-av';
+  avatar.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-3.6-.7L3 21l1.9-5a8.2 8.2 0 0 1-.9-3.8 ' +
+    '8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg>';
 
   if (!chat.messages.length) {
-    el.textContent = 'Support';
-    el.className = '';
+    state.textContent = 'Support';
+    state.className = '';
     stopWaitTimer();
     return;
   }
 
-  el.textContent = 'Waiting for an available agent';
-  el.className = '';
+  state.textContent = 'Waiting for an available agent';
+  state.className = 'wait';
   startWaitTimer((chat.support || {}).waiting_minutes || 0);
 }
 
@@ -2453,21 +2503,22 @@ function startWaitTimer(alreadyWaited) {
       // Aos dez minutos passamos à verdade. Deixar "à espera" a
       // rodar meia hora é como se perde a confiança de quem espera.
       $('chatPresence').textContent = 'We will come back to you';
+      $('chatPresence').className = '';
       note.className = 'chat-note warn';
       note.textContent = 'Nobody is free to take this right now. Leave your message here ' +
         'and someone gets back to you as soon as they can — you can close this window, ' +
         'nothing is lost. If it is about a ride happening in the next few hours, say so ' +
         'and it goes to the top of the queue.';
+      note.classList.remove('hidden');
       stopWaitTimer();
       return;
     }
 
-    // Sem contador. Dizer "à espera há 3 minutos" não ajuda ninguém
-    // e só chama a atenção para o tempo que passa.
+    // Sem contador de minutos. Dizer "à espera há 3 minutos" não
+    // ajuda ninguém e só chama a atenção para o tempo que passa.
     note.className = 'chat-note';
     note.textContent = 'You are in the queue. Nothing is lost if you close this window — ' +
       'your message is here when someone picks it up.';
-
     note.classList.remove('hidden');
   };
 
@@ -2481,7 +2532,6 @@ async function loadChat() {
     if (!data || !data.chat) throw new Error('The server did not return a conversation.');
 
     chat.id = data.chat.id;
-    // As do histórico ficam pela ordem em que vieram do servidor.
     chat.messages = (data.messages || []).map(function (m) {
       m.seq = ++msgSeq;
       return m;
@@ -2489,21 +2539,18 @@ async function loadChat() {
     chat.support = data.support || {};
 
     renderChat();
-    renderTips();
     paintPresence();
     subscribeChat();
     paintChatBadge(0);
   } catch (e) {
-    // A mensagem real, com um botão para tentar de novo.
-    //
-    // O botão de enviar NÃO fica desativado: estava, e nunca mais
-    // voltava a ligar-se — clicar não fazia nada e não havia forma
-    // de perceber porquê.
+    // A mensagem real, com um botão para tentar de novo. O botão de
+    // enviar NÃO fica desativado: estava, e nunca mais voltava a
+    // ligar-se — clicar não fazia nada e não havia como perceber.
     $('chatBody').innerHTML = '<div class="chat-empty">' +
-      '<strong style="display:block;color:var(--err-text);margin-bottom:8px">' +
-      'Chat is not available right now</strong>' + esc(e.message) +
-      '<br><br><button class="btn line sm" id="chatRetryBtn" type="button">Try again</button>' +
-      '</div>';
+      '<strong style="color:var(--err-text)">Chat is not available right now</strong>' +
+      '<span>' + esc(e.message) + '</span>' +
+      '<button class="btn line sm" id="chatRetryBtn" type="button" ' +
+      'style="margin-top:16px">Try again</button></div>';
 
     $('chatPresence').textContent = 'Unavailable';
     $('chatPresence').className = '';
@@ -2512,7 +2559,7 @@ async function loadChat() {
     var retry = document.getElementById('chatRetryBtn');
     if (retry) {
       retry.addEventListener('click', function () {
-        $('chatBody').innerHTML = '<div class="chat-empty">Loading...</div>';
+        $('chatBody').innerHTML = '<div class="chat-empty"><span>Loading&hellip;</span></div>';
         loadChat().catch(function () {});
       });
     }
@@ -2542,14 +2589,23 @@ function subscribeChat() {
       // A nossa própria mensagem já foi acrescentada ao enviar.
       if (chat.messages.some(function (x) { return x.id === m.id; })) return;
 
+      var box = $('chatBody');
+      var wasAtBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 90;
+
       m.seq = ++msgSeq;
       chat.messages.push(m);
-      renderChat();
 
       // Se um agente respondeu, é porque pegou a conversa.
       if (m.sender === 'admin') {
         chat.support.assigned = true;
+        if (m.sender_name) chat.support.agent_name = m.sender_name;
         paintPresence();
+      }
+
+      renderChat();
+
+      if (m.sender === 'admin' && !wasAtBottom && chat.open) {
+        $('chatJump').classList.remove('hidden');
       }
 
       if (m.sender === 'admin' && !chat.open) {
@@ -2566,8 +2622,8 @@ function openChat() {
   $('chatPanel').classList.remove('hidden');
   $('chatFab').classList.add('hidden');
   paintChatBadge(0);
-  loadChat();
-  setTimeout(function () { $('chatInput').focus(); }, 120);
+  loadChat().catch(function () {});
+  setTimeout(function () { $('chatInput').focus(); }, 140);
 }
 
 function closeChat() {
@@ -2583,7 +2639,7 @@ $('chatInput').addEventListener('input', function () {
   // Cresce com o texto, até um limite. Uma caixa de uma linha para
   // uma mensagem de cinco esconde o que se está a escrever.
   this.style.height = 'auto';
-  this.style.height = Math.min(110, this.scrollHeight) + 'px';
+  this.style.height = Math.min(118, this.scrollHeight) + 'px';
 });
 
 $('chatInput').addEventListener('keydown', function (e) {
@@ -2628,29 +2684,21 @@ $('chatSend').addEventListener('click', async function () {
 
   chat.messages.push(pending);
   renderChat();
-  renderTips();
   $('chatInput').value = '';
   $('chatInput').style.height = 'auto';
-
-  // O bot responde primeiro. Se resolveu, a mensagem fica na base de
-  // dados na mesma — o admin tem de poder ver o que foi perguntado,
-  // mesmo quando não teve de responder.
-  var needsHuman = chat.support.assigned ? true : botReply(body);
 
   try {
     var res = await api('/api/partner/chat/send', { body: body });
 
-    // Só entra na fila quando o bot não resolveu. Uma pergunta a que
-    // já foi respondida não deve fazer soar o alarme do outro lado.
-    if (needsHuman && !chat.support.assigned && !chat.waitTimer) {
+    // A primeira mensagem arranca o relógio da espera.
+    if (!chat.support.assigned && !chat.waitTimer) {
       chat.support.waiting_minutes = 0;
       paintPresence();
     }
 
-    // Trocar a provisória pela real, para o realtime não a duplicar.
-    var i = chat.messages.indexOf(pending);
     // A sequência da provisória fica com a real, senão a mensagem
     // saltava para o fim ao ser substituída.
+    var i = chat.messages.indexOf(pending);
     if (i !== -1 && res.message) {
       res.message.seq = pending.seq;
       chat.messages[i] = res.message;
@@ -2658,15 +2706,11 @@ $('chatSend').addEventListener('click', async function () {
     renderChat();
   } catch (e) {
     // A mensagem FICA, marcada como falhada, com um botão para
-    // tentar de novo.
-    //
-    // Antes era apagada e o texto voltava à caixa — o que à vista é
-    // igual a não ter acontecido nada, e leva a carregar outra vez
-    // sem perceber que já falhou uma.
+    // tentar de novo. Antes era apagada e o texto voltava à caixa —
+    // o que à vista é igual a não ter acontecido nada.
     pending.failed = true;
     pending.error = e.message;
     renderChat();
-
     console.error('[chat] send failed:', e);
   } finally {
     $('chatSend').disabled = false;
@@ -2678,8 +2722,7 @@ $('chatSend').addEventListener('click', async function () {
 //
 // O parceiro vê o que há para fazer nos aeroportos que serve e pega
 // o que quiser. Substituiu o calendário: quem não quer trabalhar num
-// dia simplesmente não pega nada, e um calendário para dizer isso
-// era trabalho a mais para o mesmo resultado.
+// dia simplesmente não pega nada.
 
 async function loadBoard() {
   $('boardList').innerHTML = '<div class="empty">Loading...</div>';
@@ -2688,7 +2731,7 @@ async function loadBoard() {
     board = await api('/api/partner/rides');
   } catch (e) {
     $('boardList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>';
-    return;
+    throw e;
   }
 
   renderBoard();
@@ -2764,7 +2807,7 @@ function rideCard(r, mine) {
       ? (hours >= 24
           ? '<button class="btn line sm" data-release="' + esc(r.id) + '" type="button">Release this ride</button>' +
             '<span class="ride-note">You can release it until 24 hours before pick-up.</span>'
-          : '<span class="ride-note">Too close to pick-up to release. Contact support if you cannot make it.</span>')
+          : '<span class="ride-note">Too close to pick-up to release. Tell us in the chat if you cannot make it.</span>')
       : '<button class="btn teal sm" data-claim="' + esc(r.id) + '" type="button">Take this ride</button>' +
         '<span class="ride-note">First to take it gets it.</span>') +
     '</div></div>';
@@ -2772,7 +2815,7 @@ function rideCard(r, mine) {
 
 function renderBoard() {
   var gate = $('boardGate');
-  var partner = S.partner || {};
+  var partner = (S && S.partner) || {};
 
   // Quatro razões possíveis para o quadro estar vazio, e cada uma
   // pede uma ação diferente. "Sem viagens" para todas seria enviar
@@ -2822,7 +2865,7 @@ function renderBoard() {
   html += (board.available || []).length
     ? board.available.map(function (r) { return rideCard(r, false); }).join('')
     : '<div class="empty">' + (
-        (S.partner || {}).status === 'approved'
+        partner.status === 'approved'
           ? 'Nothing available right now at your airports. New transfers appear here as they are booked.'
           : 'Rides will appear here once your account is live.'
       ) + '</div>';
@@ -2852,14 +2895,16 @@ async function claimRide(id, button) {
   try {
     await api('/api/partner/rides/claim', { ride_id: id });
     await loadBoard();
+    loadRides();
     renderOverview();
+    renderRides();
   } catch (e) {
     // "Outro parceiro chegou primeiro" não é um erro do sistema, é
     // o resultado normal de duas pessoas quererem a mesma viagem.
     show($('boardMsg'), null, esc(e.message));
     button.disabled = false;
     button.textContent = 'Take this ride';
-    await loadBoard();
+    try { await loadBoard(); } catch (err) {}
   }
 }
 
@@ -2875,7 +2920,9 @@ async function releaseRide(id, button) {
   try {
     await api('/api/partner/rides/release', { ride_id: id });
     await loadBoard();
+    loadRides();
     renderOverview();
+    renderRides();
   } catch (e) {
     show($('boardMsg'), null, esc(e.message));
     button.disabled = false;
@@ -2884,40 +2931,27 @@ async function releaseRide(id, button) {
 }
 
 // ---------- viagens ----------
-/**
- * As viagens do parceiro.
- *
- * A variável e o carregamento perderam-se quando o calendário deu
- * lugar ao quadro — ficaram as chamadas sem a função, e o boot
- * rebentava com "loadRides is not defined".
- *
- * A fonte é a mesma do quadro: board.mine já traz as viagens desta
- * empresa. Uma segunda chamada ao servidor para os mesmos dados
- * seria trabalho a dobrar.
- */
-var rides = [];
-
+//
+// A fonte é a mesma do quadro: board.mine já traz as viagens desta
+// empresa. Uma segunda chamada ao servidor seria trabalho a dobrar.
 function loadRides() {
   rides = (board.mine || []).filter(function (r) { return r.status !== 'cancelled'; });
   return rides;
 }
 
 function renderRides() {
-  // Se o quadro ainda não carregou, não há nada a desenhar — e
-  // tentar rebentaria a função.
-  if (!rides.length && board.mine && board.mine.length) loadRides();
-
   var today = iso(new Date());
   var upcoming = rides.filter(function (r) { return r.booking_date >= today; });
   var past = rides.filter(function (r) { return r.booking_date < today; }).reverse();
 
-  var html = '';
-  html += '<div class="card"><h2>Upcoming</h2><p class="note">Rides confirmed to your company.</p>' +
+  var html = '<div class="card"><h2>Upcoming</h2>' +
+    '<p class="note">Rides confirmed to your company.</p>' +
     (upcoming.length ? upcoming.map(rideRow).join('')
       : '<div class="empty">Nothing upcoming. Offers appear here once you are live.</div>') + '</div>';
 
   if (past.length) {
-    html += '<div class="card"><h2>Completed</h2><p class="note">Everything you have driven for us.</p>' +
+    html += '<div class="card"><h2>Completed</h2>' +
+      '<p class="note">Everything you have driven for us.</p>' +
       past.slice(0, 25).map(rideRow).join('') + '</div>';
   }
 
@@ -2946,5 +2980,6 @@ function renderRides() {
 })();
 })();
 </script>
+
 </body>
 </html>
