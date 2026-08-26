@@ -206,15 +206,35 @@ app.use(express.static('public', { extensions: ['html'] }));
  * falta, e perde-se meia hora a perceber que é só um ficheiro que
  * não foi publicado.
  */
-app.get(/\.(js|css|map|png|jpg|jpeg|svg|webp|ico|json|txt|woff2?)$/, (req, res) => {
-  console.warn('Static file not found:', req.path);
-  res.status(404).type('text/plain').send('Not found: ' + req.path);
+app.use((req, res, next) => {
+  // Middleware em vez de app.get com expressão regular: o Express 5
+  // mudou a sintaxe das rotas e um padrão inválido rebenta no
+  // arranque — o serviço nem sobe, e o browser vê 502.
+  if (req.method !== 'GET') return next();
+
+  if (/\.(js|css|map|png|jpg|jpeg|svg|webp|ico|json|txt|woff2?)$/.test(req.path)) {
+    console.warn('Static file not found:', req.path);
+    return res.status(404).type('text/plain').send('Not found: ' + req.path);
+  }
+
+  return next();
 });
 
-app.get('*', (req, res) => {
+/**
+ * Tudo o resto vai para o portal.
+ *
+ * Middleware em vez de app.get('*'): o Express 5 removeu o asterisco
+ * como padrão de rota e rebenta no ARRANQUE com "Missing parameter
+ * name". O serviço nem sobe, e do lado do browser vê-se 502 — que
+ * não aponta para lado nenhum.
+ *
+ * Um middleware sem caminho funciona nas duas versões.
+ */
+app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: `No such endpoint: ${req.path}` });
   }
+
   res.sendFile('index.html', { root: 'public' });
 });
 
