@@ -1737,10 +1737,26 @@ function renderOverview() {
     });
   var openNearby = (board.available || []).length;
 
-  var docState = expired.length
-    ? { cls: 'bad', v: expired.length, s: 'expired · offers paused' }
-    : (soon.length ? { cls: '', v: soon.length, s: 'expiring within 30 days' }
-                   : { cls: 'good', v: 'OK', s: 'All valid' });
+  // Sem documentos não há nada válido. Dizia "OK · All valid" a
+  // quem não tinha carregado nenhum — a métrica olhava só para as
+  // validades, e sem documentos não há validades nenhumas.
+  var needed = S.requirements.filter(function (r) {
+    return r.mandatory && r.scope === 'company' && r.stage === 'signup';
+  }).length;
+
+  var uploaded = S.documents.filter(function (d) {
+    return !d.driver_id && !d.vehicle_id && d.status !== 'rejected';
+  }).length;
+
+  var rejectedDocs = S.documents.filter(function (d) { return d.status === 'rejected'; });
+
+  var docState =
+      rejectedDocs.length ? { cls: 'bad', v: rejectedDocs.length, s: 'rejected · replace them' }
+    : expired.length      ? { cls: 'bad', v: expired.length, s: 'expired · offers paused' }
+    : uploaded === 0      ? { cls: 'bad', v: '0 / ' + (needed || 3), s: 'None uploaded yet' }
+    : uploaded < needed   ? { cls: '', v: uploaded + ' / ' + needed, s: 'Still missing some' }
+    : soon.length         ? { cls: '', v: soon.length, s: 'expiring within 30 days' }
+    :                       { cls: 'good', v: 'OK', s: 'All valid' };
 
   // ---------- dinheiro ----------
   //
