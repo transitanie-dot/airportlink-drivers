@@ -913,6 +913,41 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
   </div>
 </div>
 
+<!-- Botão flutuante. Vive fora do <main> de propósito: acompanha o
+     parceiro em qualquer página do portal. -->
+<button class="chat-fab hidden" id="chatFab" type="button" aria-label="Open support chat">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-3.6-.7L3 21l1.9-5a8.2 8.2 0 0 1-.9-3.8 8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg>
+  <span class="chat-badge hidden" id="chatBadge">0</span>
+</button>
+
+<div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Support chat">
+  <div class="chat-head">
+    <div>
+      <strong>Support</strong>
+      <span id="chatPresence">Checking...</span>
+    </div>
+    <button class="chat-x" id="chatClose" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <div class="chat-body" id="chatBody">
+    <div class="chat-empty">Loading...</div>
+  </div>
+
+  <div class="chat-tips hidden" id="chatTips"></div>
+  <div class="chat-note hidden" id="chatWaiting"></div>
+
+  <div class="chat-foot">
+    <textarea id="chatInput" rows="1" placeholder="Write your message" maxlength="4000"></textarea>
+    <button class="chat-send" id="chatSend" type="button" aria-label="Send">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+    </button>
+  </div>
+  <div class="chat-err" id="chatErr"></div>
+</div>
+
+
 <script>
 (function () {
 'use strict';
@@ -1031,7 +1066,21 @@ function initials(name) {
 async function authHeaders() {
   var s = await db.auth.getSession();
   var token = s.data && s.data.session && s.data.session.access_token;
+
+  // Um token expirado devolve sessão nula. Tentar renovar antes de
+  // desistir evita mandar o parceiro entrar outra vez a meio de uma
+  // tarefa — que é quando isto costuma acontecer.
+  if (!token) {
+    try {
+      var refreshed = await db.auth.refreshSession();
+      token = refreshed.data && refreshed.data.session && refreshed.data.session.access_token;
+    } catch (e) {
+      console.warn('[portal] refresh failed:', e.message);
+    }
+  }
+
   if (!token) throw new Error('Your session expired. Please sign in again.');
+
   return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
 }
 
@@ -1366,6 +1415,21 @@ $('wizSubmit').addEventListener('click', async function () {
 // ============================================================
 // PAINEL
 // ============================================================
+/**
+ * A sessão acabou a meio.
+ *
+ * Aparece como 401 em qualquer chamada. Sem isto, o portal ficava a
+ * mostrar dados velhos e cada botão falhava em silêncio.
+ */
+function sessionLost() {
+  $('statusBanner').innerHTML =
+    '<div class="banner bad"><span class="mk">&#9679;</span><span>' +
+    '<strong>Your session has ended</strong>' +
+    'Sign in again to carry on. Nothing you have done is lost.' +
+    '<br><button class="btn amber sm" onclick="location.reload()" type="button">Sign in again</button>' +
+    '</span></div>';
+}
+
 async function boot() {
   try {
     S = await api('/api/partner/me');
@@ -1413,6 +1477,7 @@ async function boot() {
     loadRides();
   } catch (e) {
     console.error('board:', e.message);
+    if (/signed in|session/i.test(e.message)) sessionLost();
   }
 
   try {
@@ -2855,39 +2920,5 @@ function renderRides() {
 })();
 })();
 </script>
-<!-- Botão flutuante. Vive fora do <main> de propósito: acompanha o
-     parceiro em qualquer página do portal. -->
-<button class="chat-fab hidden" id="chatFab" type="button" aria-label="Open support chat">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-3.6-.7L3 21l1.9-5a8.2 8.2 0 0 1-.9-3.8 8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg>
-  <span class="chat-badge hidden" id="chatBadge">0</span>
-</button>
-
-<div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Support chat">
-  <div class="chat-head">
-    <div>
-      <strong>Support</strong>
-      <span id="chatPresence">Checking...</span>
-    </div>
-    <button class="chat-x" id="chatClose" type="button" aria-label="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-    </button>
-  </div>
-
-  <div class="chat-body" id="chatBody">
-    <div class="chat-empty">Loading...</div>
-  </div>
-
-  <div class="chat-tips hidden" id="chatTips"></div>
-  <div class="chat-note hidden" id="chatWaiting"></div>
-
-  <div class="chat-foot">
-    <textarea id="chatInput" rows="1" placeholder="Write your message" maxlength="4000"></textarea>
-    <button class="chat-send" id="chatSend" type="button" aria-label="Send">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-    </button>
-  </div>
-  <div class="chat-err" id="chatErr"></div>
-</div>
-
 </body>
 </html>
