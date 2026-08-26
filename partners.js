@@ -12,6 +12,7 @@
  */
 
 import { Router } from 'express';
+import { createClient } from '@supabase/supabase-js';
 
 export function createPartnerRoutes({
   supabase,
@@ -28,6 +29,30 @@ export function createPartnerRoutes({
   // emailService vive no outro serviço, e importá-lo daqui obrigaria
   // a manter duas cópias. Sem elas o portal funciona na mesma —
   // apenas não avisa ninguém.
+  /**
+   * Um cliente que age como o utilizador do pedido.
+   *
+   * O terceiro argumento do .rpc() do supabase-js são opções de
+   * contagem, NÃO cabeçalhos — passar Authorization ali é ignorado
+   * em silêncio. O resultado era auth.uid() a null dentro da função,
+   * is_admin() a devolver falso, e "Administrator access required"
+   * a um administrador autenticado.
+   *
+   * Um cliente próprio com o token no cabeçalho global resolve.
+   */
+  function asUser(req) {
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+
+    return createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { persistSession: false, autoRefreshToken: false }
+      }
+    );
+  }
+
   const notify = {
     received: email.sendPartnerApplicationReceived || (async () => {}),
     decision: email.sendPartnerDecision || (async () => {}),
@@ -1143,19 +1168,44 @@ export function createPartnerRoutes({
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
 
-    const online = req.body?.online !== false;
+    // Três estados, não um interruptor. Quem vai almoçar não fica
+    // offline: fica em pausa, e continua a contar como pessoa ao
+    // serviço para efeitos de escala.
+    const allowed = ['live', 'break', 'offline'];
+    const state = allowed.includes(req.body?.state) ? req.body.state : null;
 
-    const { error } = await supabase.from('support_presence').upsert({
+    const patch = {
       user_id: admin.id,
       display_name: req.body?.display_name || admin.email.split('@')[0],
-      online,
       last_seen_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' });
+    };
+
+    // Sem 'state' é só a batida do ponto: não muda o estado de quem
+    // entretanto foi almoçar.
+    if (state) {
+      patch.state = state;
+      patch.state_since = new Date().toISOString();
+      patch.online = state !== 'offline';
+      patch.note = req.body?.note || null;
+    }
+
+    const { error } = await supabase.from('support_presence')
+      .upsert(patch, { onConflict: 'user_id' });
 
     if (error) return res.status(500).json({ error: error.message });
 
-    return res.json({ success: true, online });
+    return res.json({ success: true, state });
+  });
+
+  router.get('/api/admin/team', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { data, error } = await supabase.from('support_team').select('*');
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ team: data || [] });
   });
 
   /**
@@ -1172,12 +1222,9 @@ export function createPartnerRoutes({
     const { chat_id } = req.body || {};
     if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
 
-    // Chamada com o token do administrador, não com service_role: a
-    // função usa auth.uid() para saber quem está a pegar.
-    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-
-    const { data, error } = await supabase.rpc('claim_chat', { p_chat_id: chat_id },
-      { headers: { Authorization: `Bearer ${token}` } });
+    // Com o token do administrador, não com service_role: a função
+    // usa auth.uid() para saber quem está a pegar.
+    const { data, error } = await asUser(req).rpc('claim_chat', { p_chat_id: chat_id });
 
     if (error) return res.status(500).json({ error: error.message });
 
@@ -1186,6 +1233,8 @@ export function createPartnerRoutes({
         at_capacity: `You already have ${data?.open || 2} chats open. ` +
           'Close one before taking another — two at a time is the limit for a reason.',
         already_taken: 'Someone else got to that one first.',
+        on_break: 'You are on a break. Set yourself to Live to take new chats — ' +
+          'the ones you already have still work.',
         not_admin: 'Administrator access required.'
       };
       return res.status(409).json({ error: reasons[data?.reason] || 'Could not take that chat.' });
@@ -1201,11 +1250,8 @@ export function createPartnerRoutes({
     const { chat_id, close } = req.body || {};
     if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
 
-    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-
-    const { data, error } = await supabase.rpc('release_chat',
-      { p_chat_id: chat_id, p_close: close === true },
-      { headers: { Authorization: `Bearer ${token}` } });
+    const { data, error } = await asUser(req).rpc('release_chat',
+      { p_chat_id: chat_id, p_close: close === true });
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, ...data });
