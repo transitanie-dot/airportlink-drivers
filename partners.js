@@ -961,33 +961,22 @@ export function createPartnerRoutes({
   // ============================================================
 
   /** A conversa do parceiro, criada na primeira vez que faz falta. */
-  async function chatFor(partnerId) {
-    const { data: existing } = await supabase
-      .from('partner_chats')
-      .select('*')
-      .eq('partner_id', partnerId)
-      .maybeSingle();
-
-    if (existing) return existing;
-
-    const { data, error } = await supabase
-      .from('partner_chats')
-      .insert({ partner_id: partnerId })
-      .select()
-      .single();
+  async function chatFor(partnerId, subject, topic) {
+    // Uma função do Postgres, não duas consultas daqui.
+    //
+    // Antes havia um índice único no partner_id e o parceiro tinha
+    // uma conversa para sempre. Agora tem tickets: muitos ao longo
+    // do tempo, um só aberto de cada vez. O índice passou a parcial,
+    // e a corrida entre dois separadores tem de ser resolvida dentro
+    // da mesma transação — daí a função.
+    const { data, error } = await supabase.rpc('open_partner_chat', {
+      p_partner_id: partnerId,
+      p_subject: subject || null,
+      p_topic: topic || 'general'
+    });
 
     if (error) {
-      // Corrida: dois separadores abertos ao mesmo tempo. O unique
-      // no partner_id impede o segundo, e nós apanhamos o primeiro.
-      const { data: retry } = await supabase
-        .from('partner_chats').select('*').eq('partner_id', partnerId).maybeSingle();
-
-      if (retry) return retry;
-
-      // Não foi corrida: foi mesmo recusado. A mensagem do Postgres
-      // é o que diz porquê — engoli-la deixava um "could not open
-      // your chat" que não ajuda ninguém.
-      console.error('chatFor insert failed:', error.code, error.message);
+      console.error('open_partner_chat failed:', error.code, error.message);
       throw new Error(
         error.code === '42501'
           ? 'The drivers service does not have permission to open a chat. ' +
@@ -996,7 +985,34 @@ export function createPartnerRoutes({
       );
     }
 
-    return data;
+    // A função devolve a linha inteira. O Supabase embrulha o
+    // resultado num array quando o tipo de retorno é uma tabela.
+    return Array.isArray(data) ? data[0] : data;
+  }
+
+  /**
+   * O histórico de um parceiro: todos os tickets, do mais recente
+   * ao mais antigo.
+   *
+   * Serve os dois lados. No portal, o parceiro vê as suas conversas
+   * anteriores. No painel, o agente vê o que já foi dito antes de
+   * responder — a diferença entre "quem é este?" e "vejo que
+   * escreveu na semana passada sobre a fatura".
+   */
+  async function historyFor(partnerId, limit = 30) {
+    const { data, error } = await supabase
+      .from('partner_chat_history')
+      .select('*')
+      .eq('partner_id', partnerId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('history query failed:', error.message);
+      return [];
+    }
+
+    return data || [];
   }
 
   router.get('/api/partner/chat', async (req, res) => {
@@ -1009,7 +1025,9 @@ export function createPartnerRoutes({
       // precisa de ajuda. Se faltar a linha de empresa, cria-se.
       await ensurePartnerRow(user);
 
-      const chat = await chatFor(user.id);
+      // Um assunto vindo do portal abre um ticket com título. Sem
+      // ele, continua a servir a conversa aberta que houver.
+      const chat = await chatFor(user.id, req.query.subject, req.query.topic);
       if (!chat) return res.status(500).json({ error: 'Could not open your chat.' });
 
       const [messagesRes, capacityRes] = await Promise.all([
@@ -1032,9 +1050,14 @@ export function createPartnerRoutes({
           .eq('id', chat.id);
       }
 
+      // O histórico vai junto: o portal mostra as conversas
+      // anteriores ao lado da atual, sem um segundo pedido.
+      const history = await historyFor(user.id, 20);
+
       return res.json({
         chat,
         messages: messagesRes.data || [],
+        history: history.filter((h) => h.chat_id !== chat.id),
         // O parceiro precisa de saber três coisas diferentes: se há
         // alguém, se já está a ser atendido, e há quanto tempo
         // espera. Uma só bandeira "online" não distinguia nada disso.
@@ -1051,6 +1074,81 @@ export function createPartnerRoutes({
     } catch (error) {
       console.error('partner/chat error:', error);
       return res.status(500).json({ error: error.message || 'Could not load your chat.' });
+    }
+  });
+
+  /**
+   * Uma conversa antiga do próprio parceiro.
+   *
+   * Só de leitura: para responder tem de usar a conversa aberta,
+   * ou reabrir esta. Sem isto, o portal mostrava a lista mas não
+   * deixava abrir nenhuma.
+   */
+  router.get('/api/partner/chat/:id', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      const { data: chat } = await supabase
+        .from('partner_chats')
+        .select('*')
+        .eq('id', req.params.id)
+        // A verificação que interessa: é dele ou não é.
+        .eq('partner_id', user.id)
+        .maybeSingle();
+
+      if (!chat) return res.status(404).json({ error: 'Conversation not found.' });
+
+      const { data: messages } = await supabase
+        .from('partner_messages')
+        .select('*')
+        .eq('chat_id', chat.id)
+        .eq('internal', false)
+        .order('created_at')
+        .limit(300);
+
+      return res.json({ chat, messages: messages || [] });
+    } catch (error) {
+      console.error('partner/chat/:id error:', error);
+      return res.status(500).json({ error: 'Could not load that conversation.' });
+    }
+  });
+
+  /**
+   * Reabrir uma conversa fechada.
+   *
+   * Até 14 dias depois de fechada, e só se não houver outra aberta.
+   * As regras estão no Postgres para valerem venha o pedido de onde
+   * vier.
+   */
+  router.post('/api/partner/chat/reopen', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      const { data: chat } = await supabase
+        .from('partner_chats')
+        .select('id')
+        .eq('id', req.body?.chat_id)
+        .eq('partner_id', user.id)
+        .maybeSingle();
+
+      if (!chat) return res.status(404).json({ error: 'Conversation not found.' });
+
+      const { data: ok } = await supabase.rpc('reopen_partner_chat', {
+        p_chat_id: chat.id
+      });
+
+      if (!ok) {
+        return res.status(409).json({
+          error: 'That conversation cannot be reopened. Start a new one instead.'
+        });
+      }
+
+      return res.json({ ok: true, chat_id: chat.id });
+    } catch (error) {
+      console.error('reopen error:', error);
+      return res.status(500).json({ error: 'Could not reopen that conversation.' });
     }
   });
 
@@ -1496,6 +1594,88 @@ export function createPartnerRoutes({
     } catch (error) {
       console.error('support-tick error:', error.message);
       return res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * O histórico de um parceiro, para quem está a atendê-lo.
+   *
+   * É a diferença entre responder às cegas e responder a alguém
+   * cuja última conversa foi sobre a mesma coisa há três dias.
+   */
+  router.get('/api/admin/partner/:id/history', async (req, res) => {
+    const { user, error } = await requireAdmin(req);
+    if (error) return res.status(403).json({ error });
+
+    try {
+      const historia = await historyFor(req.params.id, 50);
+      return res.json({ history: historia });
+    } catch (err) {
+      console.error('admin history error:', err.message);
+      return res.status(500).json({ error: 'Could not load the history.' });
+    }
+  });
+
+  /**
+   * As mensagens de uma conversa antiga, incluindo notas internas.
+   *
+   * O agente vê as notas que ficaram; o parceiro nunca as vê. É por
+   * isso que este endpoint existe separado do do parceiro em vez de
+   * partilharem código.
+   */
+  router.get('/api/admin/chat/:id/full', async (req, res) => {
+    const { user, error } = await requireAdmin(req);
+    if (error) return res.status(403).json({ error });
+
+    try {
+      const { data: chat } = await supabase
+        .from('partner_chat_history')
+        .select('*')
+        .eq('chat_id', req.params.id)
+        .maybeSingle();
+
+      if (!chat) return res.status(404).json({ error: 'Conversation not found.' });
+
+      const { data: messages } = await supabase
+        .from('partner_messages')
+        .select('*')
+        .eq('chat_id', req.params.id)
+        .order('created_at')
+        .limit(500);
+
+      return res.json({ chat, messages: messages || [] });
+    } catch (err) {
+      console.error('admin chat full error:', err.message);
+      return res.status(500).json({ error: 'Could not load that conversation.' });
+    }
+  });
+
+  /**
+   * As respostas rápidas.
+   *
+   * Partilhadas por toda a equipa de propósito: se cada agente
+   * tiver as suas, a voz da empresa desfaz-se em cinco vozes
+   * diferentes conforme quem atende.
+   */
+  router.get('/api/admin/snippets', async (req, res) => {
+    const { user, error } = await requireAdmin(req);
+    if (error) return res.status(403).json({ error });
+
+    try {
+      const { data, error: err } = await supabase
+        .from('support_snippets')
+        .select('*')
+        .eq('active', true)
+        .order('sort_order');
+
+      if (err) throw err;
+
+      return res.json({ snippets: data || [] });
+    } catch (err) {
+      console.error('snippets error:', err.message);
+      // Sem respostas rápidas o painel funciona na mesma. Devolver
+      // lista vazia é melhor do que partir a abertura do separador.
+      return res.json({ snippets: [] });
     }
   });
 
