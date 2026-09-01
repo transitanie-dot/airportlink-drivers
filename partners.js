@@ -1341,10 +1341,37 @@ export function createPartnerRoutes({
 
     const patch = {
       user_id: admin.id,
-      display_name: req.body?.display_name || admin.email.split('@')[0],
       last_seen_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
+
+    /**
+     * O nome NÃO entra em todas as batidas.
+     *
+     * Este upsert corre de dois em dois minutos. Se puséssemos aqui
+     * `display_name: req.body.display_name || email`, uma batida sem
+     * corpo apagava o nome escolhido e punha o email no lugar — de
+     * dois em dois minutos, para sempre.
+     *
+     * Só se escreve quando vem um nome no pedido. Se não vier, a
+     * coluna fica como está. E se ainda não existir linha nenhuma,
+     * o email serve de valor inicial.
+     */
+    const enviado = String(req.body?.display_name || '').trim();
+
+    if (enviado) {
+      patch.display_name = enviado;
+    } else {
+      const { data: atual } = await supabase
+        .from('support_presence')
+        .select('display_name')
+        .eq('user_id', admin.id)
+        .maybeSingle();
+
+      if (!atual?.display_name) {
+        patch.display_name = admin.email.split('@')[0];
+      }
+    }
 
     // Sem 'state' é só a batida do ponto: não muda o estado de quem
     // entretanto foi almoçar.
