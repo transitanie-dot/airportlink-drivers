@@ -21,7 +21,8 @@ import {
   sendPartnerApplicationReceived,
   sendPartnerDecision,
   sendRideConfirmedToPartner,
-  sendVerification
+  sendVerification,
+  sendSupportEscalation
 } from './emailclient.js';
 
 const app = express();
@@ -161,6 +162,10 @@ app.use(cors({
     return callback(new Error('Origin not allowed'));
   },
   methods: ['GET', 'POST', 'OPTIONS'],
+  // O x-cron-secret NÃO entra aqui de propósito. É um segredo de
+  // servidor para servidor: se o browser o pudesse enviar, qualquer
+  // página conseguiria disparar as tarefas internas. O cron-job.org
+  // não passa por CORS, por isso não precisa desta lista.
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -169,7 +174,8 @@ app.use(express.json({ limit: '1mb' }));
 if (!process.env.CRON_SECRET) {
   console.warn(
     'CRON_SECRET is not set. The portal works, but no partner emails will be sent — ' +
-    'they go through the main API and that is the shared secret.'
+    'they go through the main API and that is the shared secret. The support tick ' +
+    'will also refuse to run.'
   );
 }
 
@@ -186,7 +192,11 @@ app.use(createPartnerRoutes({
     sendPartnerApplicationReceived,
     sendPartnerDecision,
     sendRideConfirmedToPartner,
-    sendVerification
+    sendVerification,
+    // A escalada ao supervisor quando um parceiro espera dez
+    // minutos por resposta. Pedida pelo /api/tasks/support-tick,
+    // não por uma ação de ninguém.
+    sendSupportEscalation
   },
   config: {
     defaultCountry: process.env.DEFAULT_PARTNER_COUNTRY || 'PT'
