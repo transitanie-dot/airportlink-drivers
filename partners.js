@@ -57,7 +57,11 @@ export function createPartnerRoutes({
     received: email.sendPartnerApplicationReceived || (async () => {}),
     decision: email.sendPartnerDecision || (async () => {}),
     ride: email.sendRideConfirmedToPartner || (async () => {}),
-    verify: email.sendVerification || (async () => {})
+    verify: email.sendVerification || (async () => {}),
+    // Sem função de escalada configurada, o aviso fica no registo.
+    // O painel continua a mostrá-lo — o email é o segundo caminho,
+    // para quando ninguém tem o painel aberto.
+    escalation: email.sendSupportEscalation || (async () => {})
   };
 
   const router = Router();
@@ -1434,6 +1438,65 @@ export function createPartnerRoutes({
     if (error) return res.status(500).json({ error: error.message });
 
     return res.json({ days, rows: data || [] });
+  });
+
+  // ============================================================
+  // O RELÓGIO DO APOIO
+  //
+  // Chamado de minuto a minuto por um cron externo:
+  //
+  //   POST https://<drivers>/api/tasks/support-tick
+  //   cabeçalho: x-cron-secret: <CRON_SECRET>
+  //
+  // Existe porque a rotação das ofertas só avançava quando alguém
+  // abria o painel. Sem painel aberto — de madrugada, ao almoço —
+  // uma conversa ficava pendurada sem ninguém saber.
+  // ============================================================
+  router.post('/api/tasks/support-tick', async (req, res) => {
+    if (!process.env.CRON_SECRET) {
+      return res.status(500).json({ error: 'CRON_SECRET is not configured.' });
+    }
+    if (req.headers['x-cron-secret'] !== process.env.CRON_SECRET) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('support_tick');
+      if (error) throw error;
+
+      const resumo = data || {};
+      const avisos = resumo.warnings || [];
+
+      // Só escreve nos registos quando aconteceu alguma coisa. Um
+      // cron de minuto a minuto que regista sempre torna os
+      // registos ilegíveis e esconde o que interessa.
+      if (resumo.closed_no_agent > 0) {
+        console.warn('Support: closed', resumo.closed_no_agent,
+          'chat(s) with nobody available.');
+      }
+
+      // A escalada ao supervisor é a única que sai daqui por email:
+      // as de 3 e 5 minutos aparecem no painel do agente, e mandar
+      // email de cada uma seria ruído.
+      const escaladas = avisos.filter((a) => a.level === 3);
+
+      for (const e of escaladas) {
+        console.warn('Support escalation:', {
+          chat: e.chat_id, partner: e.partner_name, minutes: e.waiting_minutes
+        });
+
+        try {
+          await notify.escalation(e);
+        } catch (err) {
+          console.error('Escalation email failed:', err.message);
+        }
+      }
+
+      return res.json({ ok: true, ...resumo });
+    } catch (error) {
+      console.error('support-tick error:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
   });
 
   router.get('/api/admin/team', async (req, res) => {
