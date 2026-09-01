@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Airportlink — Partner Portal</title>
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#0E1C2B">
 <script>
   (function () {
     try {
@@ -115,6 +120,23 @@ html[data-theme="dark"] .linkish{color:var(--amber)}
 .pill.bad{background:var(--err-bg);color:var(--err-text);border-color:var(--err-rule)}
 .empty{padding:34px;text-align:center;color:var(--muted);font-size:14px;
   border:1px dashed var(--rule-strong);border-radius:18px}
+
+/* ============================================================
+   CAIXAS DE DIÁLOGO
+
+   O prompt(), o confirm() e o alert() do browser são bloqueados
+   dentro de um iframe com sandbox, e nalguns browsers móveis. O
+   pior é que não falham com erro: devolvem null em silêncio, como
+   se a pessoa tivesse carregado em cancelar.
+   ============================================================ */
+.ask-back{position:fixed;inset:0;z-index:200;background:rgba(10,14,22,.55);
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.ask-back[hidden]{display:none!important}
+.ask{background:var(--surface);border-radius:20px;padding:26px;max-width:430px;width:100%;
+  box-shadow:0 24px 60px -12px rgba(0,0,0,.4)}
+.ask h3{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:-.02em;margin:0 0 10px}
+.ask p{margin:0 0 20px;font-size:14px;line-height:1.65;color:var(--muted);white-space:pre-line}
+.ask-btns{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
 
 /* ============================================================
    ECRÃ DE ENTRADA
@@ -297,6 +319,42 @@ html[data-theme="dark"] .chat-av.human{background:var(--amber);color:#141A28}
 .chat-x:hover{background:rgba(255,255,255,.09);color:#EEF1F6}
 .chat-x svg{width:18px;height:18px;display:block}
 
+/* ---------- conversas anteriores ----------
+
+   O parceiro tinha uma conversa eterna: faturação de março e uma
+   viagem de setembro no mesmo fio interminável. Agora cada assunto
+   é uma conversa própria, com o seu número, e as antigas ficam
+   aqui em vez de continuarem abertas para sempre. */
+.chat-list{position:absolute;inset:0;background:var(--surface);z-index:4;
+  display:flex;flex-direction:column;border-radius:inherit}
+.chat-list[hidden]{display:none!important}
+.cl-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:15px 16px;background:var(--ink);color:#EEF1F6;flex:0 0 auto}
+.cl-head strong{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:-.015em}
+.cl-body{flex:1;overflow-y:auto;padding:10px}
+.cl-item{display:block;width:100%;text-align:left;padding:14px;border:0;border-radius:14px;
+  background:transparent;cursor:pointer;font-family:inherit;
+  border-bottom:1px solid var(--rule)}
+.cl-item:last-child{border-bottom:0}
+.cl-item:hover{background:var(--surface-2)}
+.cl-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:5px}
+.cl-subj{font-family:var(--display);font-weight:700;font-size:14.5px;letter-spacing:-.015em;
+  color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-when{font-family:var(--mono);font-size:10.5px;color:var(--muted);flex:0 0 auto}
+.cl-snip{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cl-meta{display:flex;gap:7px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.cl-num{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--teal)}
+html[data-theme="dark"] .cl-num{color:var(--amber)}
+.cl-foot{padding:12px;border-top:1px solid var(--rule);flex:0 0 auto}
+
+/* Uma conversa antiga aberta em leitura. Sem caixa de escrita: para
+   responder, reabre-se — e reabrir tem regras. */
+.chat-read{padding:11px 16px;background:var(--warn-bg);color:var(--warn-text);
+  border-top:1px solid var(--warn-rule);font-size:12.5px;line-height:1.55;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.chat-read[hidden]{display:none!important}
+
 /* ---------- corpo ---------- */
 .chat-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:18px 16px 8px;
   display:flex;flex-direction:column;gap:3px;scroll-behavior:smooth}
@@ -381,6 +439,7 @@ html[data-theme="dark"] .chat-jump{background:var(--amber);color:#141A28}
 
 .chat-foot{display:flex;gap:9px;align-items:flex-end;padding:12px;
   border-top:1px solid var(--rule);background:var(--surface);flex:0 0 auto}
+.chat-foot[hidden]{display:none!important}
 .chat-foot textarea{flex:1;resize:none;max-height:118px;padding:12px 15px;
   border:1px solid var(--rule-strong);border-radius:19px;background:var(--surface-2);
   color:var(--text);font-family:var(--body);font-size:14.5px;line-height:1.5;outline:none;
@@ -565,6 +624,21 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
 </style>
 </head>
 <body>
+
+<!-- As caixas de diálogo do portal. Substituem o confirm() do
+     browser, que é bloqueado em iframes com sandbox e nalguns
+     browsers móveis — e que quando é bloqueado devolve "cancelar"
+     em silêncio, sem erro nenhum. -->
+<div class="ask-back" id="askBack" hidden>
+  <div class="ask" role="dialog" aria-modal="true" aria-labelledby="askTitle">
+    <h3 id="askTitle">Confirm</h3>
+    <p id="askText"></p>
+    <div class="ask-btns">
+      <button class="btn line sm" id="askNo" type="button">Cancel</button>
+      <button class="btn teal sm" id="askYes" type="button">OK</button>
+    </div>
+  </div>
+</div>
 
 <!-- ============================================================
      ENTRADA: login e questionário
@@ -774,10 +848,10 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
         <button class="icon-btn mob-nav" id="menuBtn" type="button" aria-label="Menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
         </button>
-        <div class="avatar" id="tbAvatar">—</div>
+        <div class="avatar" id="tbAvatar">&mdash;</div>
         <div style="min-width:0">
-          <div class="co" id="tbCompany">—</div>
-          <div class="sub" id="tbStatus">—</div>
+          <div class="co" id="tbCompany">&mdash;</div>
+          <div class="sub" id="tbStatus">&mdash;</div>
         </div>
       </div>
       <div class="acts">
@@ -826,7 +900,7 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
 
       <!-- DOCUMENTS -->
       <div class="page" id="pgDocs">
-        <div class="page-head"><h1>Documents</h1><p>Three documents, and that is all we ask. Where an expiry date is requested, it is what keeps you in the dispatch list — offers pause on the day a document runs out, and we remind you 30 days before.</p></div>
+        <div class="page-head"><h1>Documents</h1><p>Three documents, and that is all we ask. Where an expiry date is requested, it is what keeps you in the dispatch list &mdash; offers pause on the day a document runs out, and we remind you 30 days before.</p></div>
         <div id="docsList"></div>
         <div id="docsErr" class="msg err"></div>
         <div id="docsOk" class="msg ok"></div>
@@ -915,7 +989,7 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
 
       <!-- PAYOUTS -->
       <div class="page" id="pgPayouts">
-        <div class="page-head"><h1>Payouts</h1><p>You are paid once a month for every ride completed the month before. The fee on each offer is what reaches you — we take no commission on top.</p></div>
+        <div class="page-head"><h1>Payouts</h1><p>You are paid once a month for every ride completed the month before. The fee on each offer is what reaches you &mdash; we take no commission on top.</p></div>
         <div class="card">
           <h2>Where we send your money</h2>
           <div class="grid2">
@@ -1020,6 +1094,22 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
 </button>
 
 <div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Support chat">
+
+  <!-- As conversas anteriores. Desliza por cima da atual: fecha-se
+       e volta-se ao sítio onde se estava. -->
+  <div class="chat-list" id="chatList" hidden>
+    <div class="cl-head">
+      <strong>Your conversations</strong>
+      <button class="chat-x" id="clClose" type="button" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="cl-body" id="clBody"></div>
+    <div class="cl-foot">
+      <button class="btn teal block sm" id="clNew" type="button">Start a new conversation</button>
+    </div>
+  </div>
+
   <div class="chat-head">
     <div class="chat-who">
       <span class="chat-av" id="chatAvatar">
@@ -1031,6 +1121,9 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
       </div>
     </div>
     <div class="chat-head-acts">
+      <button class="chat-x" id="chatHistory" type="button" title="Past conversations" aria-label="Past conversations">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+      </button>
       <button class="chat-x" id="chatResolve" type="button" title="Mark as resolved" aria-label="Mark as resolved">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
       </button>
@@ -1051,7 +1144,13 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
 
   <div class="chat-note hidden" id="chatWaiting"></div>
 
-  <div class="chat-foot">
+  <!-- A barra de uma conversa fechada que se está a ler. -->
+  <div class="chat-read" id="chatReadBar" hidden>
+    <span id="chatReadText">This conversation is closed.</span>
+    <button class="btn line sm" id="chatReopen" type="button">Reopen</button>
+  </div>
+
+  <div class="chat-foot" id="chatFoot">
     <input type="file" id="chatFile" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp" hidden>
     <button class="chat-clip" id="chatAttach" type="button" aria-label="Attach a file">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.3 20.2a5.5 5.5 0 0 1-7.8-7.8l9.2-9.1a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.1a1.8 1.8 0 0 1-2.6-2.6l8.5-8.4"/></svg>
@@ -1063,7 +1162,6 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
   </div>
   <div class="chat-err" id="chatErr"></div>
 </div>
-
 
 <script>
 (function () {
@@ -1093,7 +1191,7 @@ var qsa = function (s) { return Array.prototype.slice.call(document.querySelecto
  */
 var MISSING = { __missing: true, style: {}, dataset: {}, files: null,
   value: '', textContent: '', innerHTML: '', className: '', disabled: false, checked: false,
-  scrollHeight: 0, scrollTop: 0, clientHeight: 0,
+  hidden: true, scrollHeight: 0, scrollTop: 0, clientHeight: 0,
   classList: { add: function () {}, remove: function () {}, toggle: function () {},
                contains: function () { return false; } },
   addEventListener: function () {}, removeEventListener: function () {},
@@ -1177,6 +1275,59 @@ function initials(name) {
   return String(name || '?').trim().split(/\s+/).slice(0,2)
     .map(function (w) { return w[0]; }).join('').toUpperCase() || '?';
 }
+
+// ============================================================
+// CAIXAS DE DIÁLOGO
+//
+// O confirm() do browser é bloqueado dentro de um iframe com
+// sandbox e nalguns browsers móveis. Não falha com erro: devolve
+// false em silêncio, exatamente como se a pessoa tivesse
+// carregado em cancelar — e o botão parece não funcionar.
+// ============================================================
+var ask = { resolver: null };
+
+function perguntar(titulo, texto, botao) {
+  $('askTitle').textContent = titulo;
+  $('askText').textContent = texto;
+  $('askYes').textContent = botao || 'OK';
+  $('askNo').hidden = false;
+  $('askBack').hidden = false;
+  setTimeout(function () { $('askYes').focus(); }, 30);
+
+  return new Promise(function (resolve) {
+    ask.resolver = function (v) {
+      $('askBack').hidden = true;
+      ask.resolver = null;
+      resolve(v);
+    };
+  });
+}
+
+function avisar(titulo, texto) {
+  $('askTitle').textContent = titulo;
+  $('askText').textContent = texto;
+  $('askYes').textContent = 'OK';
+  $('askNo').hidden = true;
+  $('askBack').hidden = false;
+
+  return new Promise(function (resolve) {
+    ask.resolver = function () {
+      $('askBack').hidden = true;
+      ask.resolver = null;
+      resolve(true);
+    };
+  });
+}
+
+$('askYes').addEventListener('click', function () { if (ask.resolver) ask.resolver(true); });
+$('askNo').addEventListener('click', function () { if (ask.resolver) ask.resolver(false); });
+$('askBack').addEventListener('click', function (e) {
+  // Clicar fora cancela, como qualquer caixa de diálogo.
+  if (e.target === $('askBack') && ask.resolver) ask.resolver(false);
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && !$('askBack').hidden && ask.resolver) ask.resolver(false);
+});
 
 async function authHeaders() {
   var s = await db.auth.getSession();
@@ -1340,7 +1491,7 @@ $('siForgot').addEventListener('click', async function () {
 });
 
 $('navSignOut').addEventListener('click', async function () {
-  if (!window.confirm('Sign out of the partner portal?')) return;
+  if (!await perguntar('Sign out', 'Sign out of the partner portal?', 'Sign out')) return;
   try { await db.auth.signOut(); } catch (e) {}
   window.location.reload();
 });
@@ -2337,13 +2488,15 @@ $('stSave').addEventListener('click', function () {
 // resposta certa de uma pessoa vale mais do que dez respostas
 // rápidas de um robô — sobretudo quando o assunto é dinheiro.
 //
-// O realtime do Supabase entrega as respostas sem recarregar nada.
-// A subscrição é por conversa: um parceiro nunca recebe eventos da
-// conversa de outro.
+// Cada assunto é uma conversa própria, com o seu número. Antes era
+// uma só, eterna: faturação de março e uma viagem de setembro no
+// mesmo fio interminável, e nada que se pudesse dar por concluído.
 // ============================================================
 var chat = {
-  id: null, messages: [], open: false, channel: null,
-  support: {}, waitTimer: null, waitStarted: null
+  id: null, ticket: null, subject: null, status: 'open',
+  messages: [], open: false, channel: null,
+  support: {}, waitTimer: null, waitStarted: null,
+  history: [], reading: null
 };
 
 // Ao fim de dez minutos sem ninguém pegar, a mensagem muda de tom.
@@ -2374,6 +2527,12 @@ function dayLabel(when) {
     day: 'numeric', month: 'long',
     year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric'
   });
+}
+
+function shortDate(when) {
+  var d = new Date(when);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 function renderChat() {
@@ -2468,7 +2627,7 @@ function renderChat() {
         if (res.error) throw new Error(res.error.message);
         window.open(res.data.signedUrl, '_blank', 'noopener');
       } catch (err) {
-        window.alert('We could not open that file: ' + err.message);
+        avisar('Could not open the file', err.message);
       }
     });
   });
@@ -2516,13 +2675,28 @@ function paintPresence() {
 
   note.classList.add('hidden');
 
+  // A ler uma conversa antiga: o cabeçalho mostra o assunto e o
+  // número, não a presença de ninguém.
+  if (chat.reading) {
+    title.textContent = chat.reading.subject || chat.reading.ticket_number || 'Past conversation';
+    state.textContent = chat.reading.ticket_number || '';
+    state.className = '';
+    avatar.className = 'chat-av';
+    avatar.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/>' +
+      '<path d="M12 7v5l4 2"/></svg>';
+    stopWaitTimer();
+    return;
+  }
+
   var agent = chat.support && chat.support.agent_name;
 
   if ((chat.support || {}).assigned) {
     // Com nome e iniciais: falar com uma pessoa é diferente de
     // falar com "o apoio".
     title.textContent = agent || 'Airportlink';
-    state.textContent = 'Here with you now';
+    state.textContent = chat.ticket ? chat.ticket + ' · here with you now' : 'Here with you now';
     state.className = 'live';
     avatar.className = 'chat-av human';
     avatar.textContent = agent ? initials(agent) : 'A';
@@ -2530,7 +2704,7 @@ function paintPresence() {
     return;
   }
 
-  title.textContent = 'Airportlink';
+  title.textContent = chat.subject || 'Airportlink';
   avatar.className = 'chat-av';
   avatar.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
     'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
@@ -2538,7 +2712,7 @@ function paintPresence() {
     '8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg>';
 
   if (!chat.messages.length) {
-    state.textContent = 'Support';
+    state.textContent = chat.ticket || 'Support';
     state.className = '';
     stopWaitTimer();
     return;
@@ -2589,12 +2763,200 @@ function startWaitTimer(alreadyWaited) {
   chat.waitTimer = setInterval(tick, 30000);
 }
 
+// ============================================================
+// CONVERSAS ANTERIORES
+//
+// Cada assunto é um ticket com número próprio. Uma conversa
+// fechada sai da frente e fica aqui — em vez de continuar aberta
+// para sempre, que era o que acontecia antes.
+// ============================================================
+function renderHistory() {
+  var box = $('clBody');
+
+  // A atual entra na lista também, para se ver onde se está.
+  var todas = [];
+
+  if (chat.id) {
+    todas.push({
+      chat_id: chat.id,
+      ticket_number: chat.ticket,
+      subject: chat.subject,
+      status: chat.status,
+      atual: true,
+      last_message_text: chat.messages.length
+        ? (chat.messages[chat.messages.length - 1].body || 'Attachment')
+        : 'No messages yet',
+      created_at: chat.messages.length ? chat.messages[0].created_at : new Date().toISOString()
+    });
+  }
+
+  (chat.history || []).forEach(function (h) { todas.push(h); });
+
+  if (!todas.length) {
+    box.innerHTML = '<div class="chat-empty"><strong>Nothing here yet</strong>' +
+      '<span>Conversations you have with us appear in this list, each with its own ' +
+      'number so you can refer to it later.</span></div>';
+    return;
+  }
+
+  box.innerHTML = todas.map(function (h) {
+    var aberta = h.status === 'open';
+
+    return '<button class="cl-item" data-open="' + esc(h.chat_id) + '" type="button">' +
+      '<div class="cl-top">' +
+      '<span class="cl-subj">' + esc(h.subject || 'No subject') + '</span>' +
+      '<span class="cl-when">' + esc(shortDate(h.last_message_at || h.created_at)) + '</span>' +
+      '</div>' +
+      '<p class="cl-snip">' + esc(h.last_message_text || 'No messages') + '</p>' +
+      '<div class="cl-meta">' +
+      (h.ticket_number ? '<span class="cl-num">' + esc(h.ticket_number) + '</span>' : '') +
+      '<span class="pill ' + (aberta ? 'ok' : '') + '">' +
+      (h.atual ? 'this one' : (aberta ? 'open' : 'closed')) + '</span>' +
+      (h.reopened_count > 0
+        ? '<span class="pill">reopened ' + h.reopened_count + '&times;</span>' : '') +
+      '</div></button>';
+  }).join('');
+
+  qsa('#clBody [data-open]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var id = b.getAttribute('data-open');
+      $('chatList').hidden = true;
+
+      // A atual não se carrega outra vez: já está no ecrã.
+      if (id === chat.id) { chat.reading = null; paintFoot(); paintPresence(); return; }
+
+      lerConversa(id);
+    });
+  });
+}
+
+/** Uma conversa antiga, só de leitura. */
+async function lerConversa(id) {
+  $('chatBody').innerHTML = '<div class="chat-empty"><span>Loading&hellip;</span></div>';
+
+  try {
+    var data = await api('/api/partner/chat/' + encodeURIComponent(id));
+
+    chat.reading = {
+      id: id,
+      subject: data.chat.subject,
+      ticket_number: data.chat.ticket_number,
+      status: data.chat.status,
+      closed_at: data.chat.closed_at
+    };
+
+    chat.messages = (data.messages || []).map(function (m) {
+      m.seq = ++msgSeq;
+      return m;
+    });
+
+    renderChat();
+    paintPresence();
+    paintFoot();
+  } catch (e) {
+    $('chatBody').innerHTML = '<div class="chat-empty">' +
+      '<strong style="color:var(--err-text)">Could not open that conversation</strong>' +
+      '<span>' + esc(e.message) + '</span></div>';
+  }
+}
+
+/**
+ * A caixa de escrita só existe onde faz sentido.
+ *
+ * Numa conversa antiga não há onde escrever: para responder,
+ * reabre-se — e reabrir tem regras, que o servidor verifica.
+ */
+function paintFoot() {
+  var lendo = Boolean(chat.reading);
+  var fechada = lendo && chat.reading.status !== 'open';
+
+  $('chatFoot').hidden = lendo;
+  $('chatReadBar').hidden = !lendo;
+  $('chatResolve').classList.toggle('hidden', lendo);
+
+  if (!lendo) return;
+
+  // Passados 14 dias é assunto novo, e o servidor recusa reabrir.
+  // Dizê-lo aqui poupa um clique que ia dar erro.
+  var dias = chat.reading.closed_at
+    ? (Date.now() - new Date(chat.reading.closed_at).getTime()) / 864e5
+    : 0;
+
+  var podeReabrir = fechada && dias <= 14;
+
+  $('chatReadText').textContent = !fechada
+    ? 'This conversation is open.'
+    : (podeReabrir
+        ? 'This conversation is closed. Reopen it to carry on.'
+        : 'Closed more than two weeks ago. Start a new conversation instead.');
+
+  $('chatReopen').textContent = podeReabrir ? 'Reopen' : 'New conversation';
+}
+
+$('chatHistory').addEventListener('click', function () {
+  renderHistory();
+  $('chatList').hidden = false;
+});
+
+$('clClose').addEventListener('click', function () {
+  $('chatList').hidden = true;
+});
+
+$('clNew').addEventListener('click', async function () {
+  $('chatList').hidden = true;
+  chat.reading = null;
+
+  // Já há uma aberta? Então é essa. Um parceiro com cinco tickets
+  // abertos ocupa cinco lugares na fila, e nenhum é atendido mais
+  // depressa por isso.
+  if (chat.id && chat.status === 'open') {
+    await loadChat();
+    return avisar('You already have one open',
+      'Your current conversation is still open. Ask here — or mark it as resolved ' +
+      'first, and then start a new one.');
+  }
+
+  await loadChat();
+});
+
+$('chatReopen').addEventListener('click', async function () {
+  var lendo = chat.reading;
+  if (!lendo) return;
+
+  var dias = lendo.closed_at
+    ? (Date.now() - new Date(lendo.closed_at).getTime()) / 864e5
+    : 0;
+
+  if (lendo.status === 'open' || dias > 14) {
+    chat.reading = null;
+    await loadChat();
+    return;
+  }
+
+  try {
+    await api('/api/partner/chat/reopen', { chat_id: lendo.id });
+    chat.reading = null;
+    await loadChat();
+  } catch (e) {
+    // O servidor recusa se já houver outra aberta. A mensagem dele
+    // é a que explica porquê.
+    avisar('Could not reopen', e.message);
+  }
+});
+
 async function loadChat() {
+  chat.reading = null;
+
   try {
     var data = await api('/api/partner/chat');
     if (!data || !data.chat) throw new Error('The server did not return a conversation.');
 
     chat.id = data.chat.id;
+    chat.ticket = data.chat.ticket_number || null;
+    chat.subject = data.chat.subject || null;
+    chat.status = data.chat.status || 'open';
+    chat.history = data.history || [];
+
     chat.messages = (data.messages || []).map(function (m) {
       m.seq = ++msgSeq;
       return m;
@@ -2603,6 +2965,7 @@ async function loadChat() {
 
     renderChat();
     paintPresence();
+    paintFoot();
     subscribeChat();
     paintChatBadge(0);
   } catch (e) {
@@ -2638,7 +3001,15 @@ function paintChatBadge(n) {
 }
 
 function subscribeChat() {
-  if (!chat.id || chat.channel) return;
+  // A subscrição é por conversa. Ao mudar de ticket, a antiga tem
+  // de cair — senão o parceiro continuava a receber mensagens de
+  // uma conversa que já fechou.
+  if (chat.channel) {
+    try { db.removeChannel(chat.channel); } catch (e) {}
+    chat.channel = null;
+  }
+
+  if (!chat.id) return;
 
   chat.channel = db.channel('partner-chat-' + chat.id)
     .on('postgres_changes', {
@@ -2648,6 +3019,10 @@ function subscribeChat() {
       filter: 'chat_id=eq.' + chat.id
     }, function (payload) {
       var m = payload.new;
+
+      // A ler uma conversa antiga: o que chega é da atual e não
+      // deve saltar para o ecrã por cima do que se está a ler.
+      if (chat.reading) return;
 
       // A nossa própria mensagem já foi acrescentada ao enviar.
       if (chat.messages.some(function (x) { return x.id === m.id; })) return;
@@ -2684,6 +3059,7 @@ function openChat() {
   chat.open = true;
   $('chatPanel').classList.remove('hidden');
   $('chatFab').classList.add('hidden');
+  $('chatList').hidden = true;
   paintChatBadge(0);
   loadChat().catch(function () {});
   setTimeout(function () { $('chatInput').focus(); }, 140);
@@ -2767,19 +3143,23 @@ $('chatFile').addEventListener('change', async function () {
 /**
  * O parceiro fecha a conversa quando o assunto estiver resolvido.
  *
- * Fechar não apaga nada — reabre na próxima mensagem, com todo o
- * histórico. É o que se diz na confirmação, senão ninguém carrega
+ * Fechar não apaga nada: fica na lista de conversas anteriores, com
+ * o seu número, e reabre se ele escrever nos catorze dias
+ * seguintes. É o que se diz na confirmação, senão ninguém carrega
  * com medo de perder o que escreveu.
  */
 $('chatResolve').addEventListener('click', async function () {
   if (!chat.id || !chat.messages.length) return;
 
-  if (!window.confirm('Mark this conversation as resolved?\n\n' +
-      'Nothing is deleted — write again any time and it picks up where it left off.')) return;
+  if (!await perguntar('Mark as resolved',
+      'Nothing is deleted. This conversation moves to your list of past ' +
+      'conversations, and you can reopen it or start a new one any time.',
+      'Mark as resolved')) return;
 
   try {
     await api('/api/partner/chat/close', {});
     chat.support.assigned = false;
+    chat.status = 'closed';
     stopWaitTimer();
     paintPresence();
 
@@ -2788,10 +3168,14 @@ $('chatResolve').addEventListener('click', async function () {
       'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
       '<path d="M20 6 9 17l-5-5"/></svg></span>' +
       '<strong>Marked as resolved</strong>' +
-      '<span>Thanks. Write again whenever you need &mdash; this conversation reopens ' +
-      'with everything still here.</span></div>';
+      '<span>Thanks. ' + (chat.ticket ? esc(chat.ticket) + ' is ' : 'It is ') +
+      'in your past conversations now &mdash; open it from the history button above, ' +
+      'or start a new one whenever you need.</span></div>';
 
     chat.messages = [];
+    chat.id = null;
+    chat.ticket = null;
+    chat.subject = null;
   } catch (e) {
     $('chatErr').textContent = e.message;
     $('chatErr').style.display = 'block';
@@ -3077,8 +3461,9 @@ async function claimRide(id, button) {
 async function releaseRide(id, button) {
   hideMsgs();
 
-  if (!window.confirm('Release this ride?\n\nIt goes back on the board for another partner. ' +
-      'Doing this often affects how much work we send you.')) return;
+  if (!await perguntar('Release this ride',
+      'It goes back on the board for another partner. Doing this often affects how ' +
+      'much work we send you.', 'Release')) return;
 
   button.disabled = true;
   button.textContent = 'Releasing...';
