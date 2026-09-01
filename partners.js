@@ -1493,6 +1493,23 @@ export function createPartnerRoutes({
   });
 
   /** O nome que o parceiro vê quando este agente responde. */
+  /**
+   * Diz que versão deste ficheiro está a correr.
+   *
+   * Existe porque "corrigi e continua igual" é quase sempre uma
+   * versão antiga em produção, e não havia forma de o confirmar
+   * sem adivinhar.
+   */
+  router.get('/api/admin/version', async (req, res) => {
+    const { user, error } = await requireAdmin(req);
+    if (error) return res.status(403).json({ error });
+
+    return res.json({
+      version: '2026-09-01-tickets',
+      features: ['tickets', 'history', 'snippets', 'name-persist', 'claim-own']
+    });
+  });
+
   router.post('/api/admin/display-name', async (req, res) => {
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
@@ -1705,6 +1722,25 @@ export function createPartnerRoutes({
 
     // Com o token do administrador, não com service_role: a função
     // usa auth.uid() para saber quem está a pegar.
+    /**
+     * Já é dele? Então não há nada a pegar.
+     *
+     * O claim_chat olha só para o assigned_to estar preenchido e
+     * responde 'already_taken' — mesmo quando quem pede é o dono.
+     * Isso acontecia sempre depois de recarregar a página: a oferta
+     * ainda no ecrã, um clique em atender, e o painel a dizer que
+     * outro agente tinha ficado com ela.
+     */
+    const { data: atual } = await supabase
+      .from('partner_chats')
+      .select('assigned_to, status')
+      .eq('id', chat_id)
+      .maybeSingle();
+
+    if (atual?.assigned_to === admin.id) {
+      return res.json({ success: true, already_mine: true });
+    }
+
     const { data, error } = await asUser(req).rpc('claim_chat', { p_chat_id: chat_id });
 
     if (error) return res.status(500).json({ error: error.message });
