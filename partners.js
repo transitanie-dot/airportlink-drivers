@@ -1435,10 +1435,20 @@ export function createPartnerRoutes({
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
 
-    // Três estados, não um interruptor. Quem vai almoçar não fica
-    // offline: fica em pausa, e continua a contar como pessoa ao
-    // serviço para efeitos de escala.
-    const allowed = ['live', 'break', 'offline'];
+    /**
+     * Oito estados, não um interruptor.
+     *
+     * Quem vai almoçar não fica offline: fica em pausa, e continua
+     * a contar como pessoa ao serviço. E "duas horas em break" é
+     * uma coisa diferente de "duas horas em formação" — distinguir
+     * é o que torna o relatório do dia útil.
+     *
+     * Só live e active recebem chats novos. O escalating fica de
+     * fora de propósito: quem está a resolver um caso com o
+     * supervisor não deve ser interrompido.
+     */
+    const allowed = ['live', 'active', 'escalating', 'follow-up',
+                     'training', 'admin', 'break', 'offline'];
     const state = allowed.includes(req.body?.state) ? req.body.state : null;
 
     const patch = {
@@ -1475,13 +1485,29 @@ export function createPartnerRoutes({
       }
     }
 
-    // Sem 'state' é só a batida do ponto: não muda o estado de quem
-    // entretanto foi almoçar.
+    /**
+     * Mudar de estado passa pela função do Postgres.
+     *
+     * Ela fecha o período anterior, abre o novo e atualiza a
+     * presença — três escritas que têm de acontecer juntas. Feitas
+     * daqui uma a uma, uma falha a meio deixava um período aberto
+     * para sempre e o relatório do dia passava a mentir.
+     *
+     * Sem 'state' no corpo é só a batida do ponto, e essa continua
+     * a ser um upsert simples: não muda o estado de quem entretanto
+     * foi almoçar.
+     */
     if (state) {
-      patch.state = state;
-      patch.state_since = new Date().toISOString();
-      patch.online = state !== 'offline';
-      patch.note = req.body?.note || null;
+      const { data, error: rpcError } = await supabase.rpc('set_agent_state', {
+        p_user_id: admin.id,
+        p_state: state,
+        p_display_name: enviado || null,
+        p_automatic: Boolean(req.body?.automatic)
+      });
+
+      if (rpcError) return res.status(500).json({ error: rpcError.message });
+
+      return res.json({ success: true, state, ...(data || {}) });
     }
 
     const { error } = await supabase.from('support_presence')
@@ -1772,6 +1798,40 @@ export function createPartnerRoutes({
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ success: true, ...data });
+  });
+
+  /**
+   * Quanto tempo hoje em cada estado.
+   *
+   * Sem agent_id devolve o do próprio; com ele, e sendo supervisor,
+   * o de outra pessoa. Por agora todos os administradores podem ver
+   * todos — quando houver supervisores a sério, esta é a linha a
+   * apertar.
+   */
+  router.get('/api/admin/my-day', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const { data, error } = await supabase.rpc('agent_day_states', {
+        p_user_id: req.query.agent_id || admin.id,
+        p_day: req.query.day || null
+      });
+
+      if (error) throw error;
+
+      const linhas = data || [];
+
+      return res.json({
+        states: linhas,
+        total_seconds: linhas.reduce((t, r) => t + (r.seconds || 0), 0)
+      });
+    } catch (err) {
+      console.error('my-day error:', err.message);
+      // Lista vazia e não erro: o painel mostra o resto na mesma, e
+      // um relatório em falta não deve tirar o agente de serviço.
+      return res.json({ states: [], total_seconds: 0 });
+    }
   });
 
   router.get('/api/admin/capacity', async (req, res) => {
