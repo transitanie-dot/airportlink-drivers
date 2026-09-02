@@ -1404,6 +1404,21 @@ export function createPartnerRoutes({
       displayName = presence?.display_name || admin.email.split('@')[0];
     }
 
+    // O avatar vai na mensagem, não é lido da presença ao mostrar.
+    // Um agente que mude de fotografia não deve reescrever o
+    // passado — tal como o nome já não reescreve.
+    let avatar = null;
+
+    if (!internal) {
+      const { data: pres } = await supabase
+        .from('support_presence')
+        .select('avatar_path')
+        .eq('user_id', admin.id)
+        .maybeSingle();
+
+      avatar = pres?.avatar_path || null;
+    }
+
     const { data, error } = await supabase
       .from('partner_messages')
       .insert({
@@ -1411,6 +1426,7 @@ export function createPartnerRoutes({
         sender: 'admin',
         sender_id: admin.id,
         sender_name: displayName || admin.email.split('@')[0],
+        sender_avatar: avatar,
         body: String(body).trim(),
         internal,
         attachment_path: req.body.attachment_path || null,
@@ -1534,6 +1550,41 @@ export function createPartnerRoutes({
       version: '2026-09-01-tickets',
       features: ['tickets', 'history', 'snippets', 'name-persist', 'claim-own']
     });
+  });
+
+  /**
+   * O avatar do agente.
+   *
+   * O ficheiro sobe do browser para o storage; aqui só se guarda a
+   * referência. A função no Postgres verifica que o caminho começa
+   * pelo uuid de quem pede — sem isso, alguém podia apontar o seu
+   * registo para o ficheiro de outra pessoa.
+   *
+   * Enviar path a null limpa e volta às iniciais.
+   */
+  router.post('/api/admin/avatar', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const caminho = req.body?.path === null ? null : String(req.body?.path || '').trim();
+
+    if (caminho && !caminho.startsWith(admin.id + '/')) {
+      return res.status(400).json({ error: 'That path does not belong to you.' });
+    }
+
+    try {
+      const { error } = await supabase.rpc('set_agent_avatar', {
+        p_user_id: admin.id,
+        p_path: caminho || null
+      });
+
+      if (error) throw error;
+
+      return res.json({ success: true, avatar_path: caminho || null });
+    } catch (err) {
+      console.error('avatar error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   router.post('/api/admin/display-name', async (req, res) => {
