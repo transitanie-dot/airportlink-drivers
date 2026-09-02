@@ -115,7 +115,7 @@ async function requireAdmin(req) {
 
   const { data, error } = await supabase
     .from('contacts')
-    .select('id, email, is_admin')
+    .select('id, email, is_admin, role')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -125,6 +125,35 @@ async function requireAdmin(req) {
     return {
       error: `You are signed in as ${user.email}, which is not an administrator account.`
     };
+  }
+
+  /**
+   * O cargo viaja com o utilizador.
+   *
+   * Dois níveis: agent vê o apoio, supervisor vê tudo. O is_admin
+   * continua a ser a porta de entrada; o cargo decide o que se vê
+   * lá dentro.
+   */
+  user.role = data.role || 'agent';
+  user.isSupervisor = user.role === 'supervisor';
+
+  return { user };
+}
+
+/**
+ * Só supervisores.
+ *
+ * A verificação está aqui e não no painel: esconder um separador
+ * no browser não protege nada, porque quem quiser chama a rota
+ * diretamente.
+ */
+async function requireSupervisor(req) {
+  const { user, error } = await requireAdmin(req);
+
+  if (error) return { error };
+
+  if (!user.isSupervisor) {
+    return { error: 'This area is for supervisors only.' };
   }
 
   return { user };
@@ -203,6 +232,7 @@ app.use(createPartnerRoutes({
   supabase,
   getUserFromRequest,
   requireAdmin,
+  requireSupervisor,
   email: {
     sendPartnerApplicationReceived,
     sendPartnerDecision,
