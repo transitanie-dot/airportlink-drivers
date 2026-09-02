@@ -136,8 +136,15 @@ const ALLOWED_ORIGINS = [
   'https://drivers.airportlink.app',
   'https://www.airportlink.app',
   'https://airportlink.app',
+  // O call centre. Vive noutra origem e chama as rotas de admin
+  // daqui — sem esta linha, o browser recusa cada pedido antes
+  // sequer de o enviar.
+  'https://support.airportlink.app',
   /\.filesusr\.com$/,
-  /\.wixsite\.com$/
+  /\.wixsite\.com$/,
+  // O domínio provisório do Render, até o domínio próprio estar
+  // apontado. Uma vez lá, esta linha pode sair.
+  /^callcentre[a-z0-9-]*\.onrender\.com$/
 ];
 
 function originAllowed(origin) {
@@ -158,7 +165,15 @@ function originAllowed(origin) {
 app.use(cors({
   origin(origin, callback) {
     if (originAllowed(origin)) return callback(null, true);
-    console.warn('CORS blocked:', origin);
+
+    // A mensagem diz o que fazer, não só o que falhou. Um "CORS
+    // blocked" sozinho manda quem lê à procura no sítio errado —
+    // e a origem bloqueada aparece só no browser, não aqui.
+    console.warn(
+      'CORS blocked: ' + origin + '\n' +
+      '  If this is a service of ours, add it to ALLOWED_ORIGINS in server.js.'
+    );
+
     return callback(new Error('Origin not allowed'));
   },
   methods: ['GET', 'POST', 'OPTIONS'],
