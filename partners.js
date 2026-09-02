@@ -18,6 +18,9 @@ export function createPartnerRoutes({
   supabase,
   getUserFromRequest,
   requireAdmin,
+  // Sem supervisor configurado, ninguém entra nas áreas dele. É o
+  // valor seguro: recusar por omissão em vez de deixar passar.
+  requireSupervisor = async () => ({ error: 'Supervisor check is not configured.' }),
   email = {},
   config = {}
 }) {
@@ -1542,6 +1545,25 @@ export function createPartnerRoutes({
    * versão antiga em produção, e não havia forma de o confirmar
    * sem adivinhar.
    */
+  /**
+   * Quem está autenticado, e com que cargo.
+   *
+   * O painel precisa disto antes de desenhar o menu: o separador de
+   * finanças só aparece a supervisores. A garantia real está nas
+   * rotas, não aqui — isto é só para não mostrar portas fechadas.
+   */
+  router.get('/api/admin/me', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    return res.json({
+      id: admin.id,
+      email: admin.email,
+      role: admin.role,
+      is_supervisor: admin.isSupervisor
+    });
+  });
+
   router.get('/api/admin/version', async (req, res) => {
     const { user, error } = await requireAdmin(req);
     if (error) return res.status(403).json({ error });
@@ -1864,19 +1886,27 @@ export function createPartnerRoutes({
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
 
     try {
-      const { data, error } = await supabase.rpc('agent_day_states', {
-        p_user_id: req.query.agent_id || admin.id,
+      /**
+       * Um só pedido para os tempos e as métricas.
+       *
+       * Eram dois, e cada chamada custa cerca de dois segundos de
+       * latência. Vão para a mesma barra do painel, por isso não há
+       * razão para os separar.
+       *
+       * Um agente vê o seu dia; um supervisor vê o de qualquer um.
+       */
+      const alvo = req.query.agent_id && admin.isSupervisor
+        ? req.query.agent_id
+        : admin.id;
+
+      const { data, error } = await supabase.rpc('agent_day_summary', {
+        p_user_id: alvo,
         p_day: req.query.day || null
       });
 
       if (error) throw error;
 
-      const linhas = data || [];
-
-      return res.json({
-        states: linhas,
-        total_seconds: linhas.reduce((t, r) => t + (r.seconds || 0), 0)
-      });
+      return res.json(data || { states: {}, metrics: {} });
     } catch (err) {
       console.error('my-day error:', err.message);
       // Lista vazia e não erro: o painel mostra o resto na mesma, e
