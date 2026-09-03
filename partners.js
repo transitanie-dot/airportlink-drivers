@@ -1283,6 +1283,29 @@ export function createPartnerRoutes({
 
   // ---------- lado do admin ----------
 
+  /**
+   * Marca as mensagens do parceiro como lidas.
+   *
+   * Chamado quando o agente abre a conversa. O parceiro passa a ver
+   * que o que escreveu chegou — é daí que vêm as mensagens
+   * repetidas quando não há resposta imediata.
+   */
+  router.post('/api/admin/chat/read', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const { data, error } = await supabase.rpc('mark_partner_messages_read', {
+      p_chat_id: chat_id
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ success: true, marked: data || 0 });
+  });
+
   router.get('/api/admin/chats', async (req, res) => {
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
@@ -2033,6 +2056,135 @@ export function createPartnerRoutes({
       console.error('closed chats:', err.message);
       return res.json({ chats: [] });
     }
+  });
+
+  /**
+   * A fila de escaladas.
+   *
+   * Só supervisores. Uma conversa escalada sai da fila normal —
+   * deixá-la lá significa que um agente a pode pegar outra vez, e o
+   * parceiro explica tudo pela terceira vez à mesma pessoa que já
+   * não sabia responder.
+   */
+  router.get('/api/admin/escalations', async (req, res) => {
+    const { user: admin, error: supError } = await requireSupervisor(req);
+    if (!admin) return res.status(403).json({ error: supError || 'Supervisors only.' });
+
+    try {
+      const { data, error } = await supabase
+        .from('escalation_queue')
+        .select('*')
+        .limit(100);
+
+      if (error) throw error;
+
+      return res.json({ chats: data || [] });
+    } catch (err) {
+      console.error('escalations:', err.message);
+      return res.json({ chats: [] });
+    }
+  });
+
+  /**
+   * Um parceiro, por inteiro.
+   *
+   * O que submeteu, o que falta, os motoristas, as viaturas, as
+   * zonas e as últimas reservas. O painel mostrava o nome e o email;
+   * tudo o resto estava na base sem ninguém o ver — incluindo se ele
+   * já tinha entregado o seguro.
+   */
+  router.get('/api/admin/partner/:id/full', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const { data, error } = await supabase.rpc('partner_full', {
+        p_partner_id: req.params.id
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(404).json({ error: 'Partner not found.' });
+      }
+
+      return res.json(data || {});
+    } catch (err) {
+      console.error('partner full:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * Atalhos: os da casa mais os meus.
+   *
+   * A RLS já filtra — cada agente vê os públicos e os próprios. Aqui
+   * é só devolver o que ela deixar passar.
+   */
+  router.get('/api/admin/snippets', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { data, error } = await asUser(req)
+      .from('support_snippets')
+      .select('*')
+      .order('uses', { ascending: false })
+      .order('shortcut');
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ snippets: data || [] });
+  });
+
+  router.post('/api/admin/snippets', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { id, shortcut, title, body, remove, shared } = req.body || {};
+
+    if (remove && id) {
+      const { error } = await asUser(req).from('support_snippets').delete().eq('id', id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true, removed: true });
+    }
+
+    const atalho = String(shortcut || '').trim().replace(/^\/+/, '');
+
+    if (!atalho || !body) {
+      return res.status(400).json({ error: 'A shortcut and the text are both needed.' });
+    }
+
+    // Partilhar com a equipa é decisão de supervisor. Um atalho da
+    // casa aparece a toda a gente, e nem tudo o que serve a uma
+    // pessoa serve às outras.
+    const dono = shared && admin.isSupervisor ? null : admin.id;
+
+    const linha = {
+      shortcut: atalho,
+      title: title || atalho,
+      body: String(body).trim(),
+      owner_id: dono
+    };
+
+    if (id) {
+      const { error } = await asUser(req)
+        .from('support_snippets').update(linha).eq('id', id);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json({ success: true, updated: true });
+    }
+
+    const { data, error } = await asUser(req)
+      .from('support_snippets').insert(linha).select().maybeSingle();
+
+    if (error) {
+      return res.status(500).json({
+        error: /duplicate|unique/i.test(error.message)
+          ? 'You already have a shortcut with that name.'
+          : error.message
+      });
+    }
+
+    return res.json({ success: true, snippet: data });
   });
 
   /**
