@@ -2059,6 +2059,100 @@ export function createPartnerRoutes({
   });
 
   /**
+   * As filas de clientes e de agências.
+   *
+   * Mesma forma da dos parceiros, para o painel poder tratar as três
+   * com o mesmo código. O que muda é a coluna audience.
+   */
+  router.get('/api/admin/support-queue', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const publico = req.query.audience === 'agency' ? 'agency' : 'customer';
+
+    try {
+      const [fila, cap] = await Promise.all([
+        supabase.from('support_chat_queue')
+          .select('*')
+          .eq('audience', publico)
+          .limit(200),
+        supabase.rpc('support_capacity')
+      ]);
+
+      if (fila.error) throw fila.error;
+
+      const meus = await supabase
+        .from('support_chats')
+        .select('id')
+        .eq('assigned_to', admin.id)
+        .eq('status', 'open');
+
+      return res.json({
+        chats: fila.data || [],
+        capacity: {
+          ...((cap.data && cap.data[0]) || {}),
+          my_open_chats: (meus.data || []).length
+        }
+      });
+    } catch (err) {
+      console.error('support queue:', err.message);
+      return res.json({ chats: [], capacity: {} });
+    }
+  });
+
+  /** Pegar uma conversa de cliente ou de agência. */
+  router.post('/api/admin/support/claim', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const { data, error } = await asUser(req).rpc('claim_support_chat', {
+      p_chat_id: chat_id
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (data && data.ok === false) {
+      const mensagens = {
+        already_taken: 'Somebody else got there first.',
+        at_capacity: 'You already have three conversations open. Close one first.'
+      };
+      return res.status(409).json({ error: mensagens[data.reason] || 'Could not take it.' });
+    }
+
+    return res.json({ success: true, ...(data || {}) });
+  });
+
+  /** Fechar, com motivo. */
+  router.post('/api/admin/support/close', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id, reason, note } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const { data, error } = await asUser(req).rpc('close_support_chat', {
+      p_chat_id: chat_id,
+      p_reason: reason || 'resolved',
+      p_note: note || null
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (data && data.ok === false) {
+      return res.status(409).json({
+        error: data.reason === 'not_yours'
+          ? 'That conversation is not yours to close.'
+          : 'Could not close it.'
+      });
+    }
+
+    return res.json({ success: true, ...(data || {}) });
+  });
+
+  /**
    * A fila de escaladas.
    *
    * Só supervisores. Uma conversa escalada sai da fila normal —
