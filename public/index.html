@@ -57,6 +57,16 @@ button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--teal)}
 html[data-theme="dark"] a{color:var(--amber)}
 
+.boot-wait{position:fixed;inset:0;z-index:300;background:var(--bg);
+  display:flex;align-items:center;justify-content:center}
+.boot-wait.hidden{display:none!important}
+.boot-mark{font-family:var(--display);font-weight:800;font-size:20px;
+  letter-spacing:-.02em;color:var(--text);opacity:.35;
+  animation:bootFade 1.2s ease-in-out infinite}
+.boot-mark span{color:var(--amber)}
+@keyframes bootFade{0%,100%{opacity:.35}50%{opacity:.7}}
+@media (prefers-reduced-motion:reduce){.boot-mark{animation:none}}
+
 @keyframes riseIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @keyframes slideL{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:none}}
 .rise{animation:riseIn .5s cubic-bezier(.22,.68,.35,1) both}
@@ -643,7 +653,15 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
 <!-- ============================================================
      ENTRADA: login e questionário
      ============================================================ -->
-<div class="gate" id="gate">
+<!-- Um ecrã de espera enquanto se verifica a sessão.
+     Sem ele, o formulário de entrada aparecia durante o segundo que
+     a verificação demora — e quem já estava autenticado via a página
+     de login a piscar a cada refresh. -->
+<div class="boot-wait" id="bootWait">
+  <div class="boot-mark">AIRPORT<span>LINK</span></div>
+</div>
+
+<div class="gate hidden" id="gate">
   <div class="gate-art">
     <div class="brand">AIRPORT<span>LINK</span> &middot; partners</div>
     <div>
@@ -1698,6 +1716,10 @@ async function boot() {
   try {
     S = await api('/api/partner/me');
   } catch (e) {
+    // O ecrã de espera tem de sair, mesmo quando isto falha —
+    // senão fica-se a olhar para ele sem nada acontecer.
+    $('bootWait').classList.add('hidden');
+    $('gate').classList.remove('hidden');
     return show($('siErr'), $('siOk'), esc(e.message));
   }
 
@@ -2699,7 +2721,21 @@ function paintPresence() {
     state.textContent = chat.ticket ? chat.ticket + ' · here with you now' : 'Here with you now';
     state.className = 'live';
     avatar.className = 'chat-av human';
-    avatar.textContent = agent ? initials(agent) : 'A';
+
+    // A fotografia do agente, se tiver uma. As iniciais são a
+    // reserva e funcionam bem — a fotografia é o que torna óbvio
+    // que está uma pessoa do outro lado.
+    var foto = chat.support && chat.support.agent_avatar;
+
+    if (foto) {
+      avatar.innerHTML = '<img src="' +
+        esc(SUPABASE_URL + '/storage/v1/object/public/avatars/' + foto) +
+        '" alt="" style="width:100%;height:100%;border-radius:999px;' +
+        'object-fit:cover">';
+    } else {
+      avatar.textContent = agent ? initials(agent) : 'A';
+    }
+
     stopWaitTimer();
     return;
   }
@@ -3513,21 +3549,49 @@ function renderRides() {
 // ARRANQUE
 // ============================================================
 (async function start() {
-  // O link vindo do site de marketing abre já no questionário.
-  if (/[?&]signup=1/.test(window.location.search)) $('siJoin').click();
+  /**
+   * O ecrã de espera sai no fim, saiba-se o que se souber.
+   *
+   * Enquanto não se sabe se há sessão, mostrar o formulário de
+   * entrada é uma afirmação errada — e quem já estava autenticado
+   * via a página de login a piscar a cada refresh.
+   */
+  var pronto = function () {
+    $('bootWait').classList.add('hidden');
+    $('gate').classList.remove('hidden');
+  };
+
+  // Rede de segurança: se a verificação encravar, ao fim de oito
+  // segundos mostra-se o formulário na mesma. Melhor pedir a
+  // password outra vez do que deixar a pessoa a olhar para um ecrã
+  // parado.
+  var limite = setTimeout(pronto, 8000);
 
   try {
     var s = await db.auth.getSession();
+
     if (s.data && s.data.session) {
       var u = await db.auth.getUser();
+
       if (!u.error && u.data && u.data.user) {
         user = u.data.user;
+        clearTimeout(limite);
+        $('bootWait').classList.add('hidden');
         await boot();
+        return;
       }
     }
   } catch (e) {
     console.error('start:', e);
   }
+
+  clearTimeout(limite);
+  pronto();
+
+  // O link vindo do site de marketing abre já no questionário.
+  // Depois de o ecrã estar montado, senão o clique não encontra
+  // nada para clicar.
+  if (/[?&]signup=1/.test(window.location.search)) $('siJoin').click();
 })();
 })();
 </script>
