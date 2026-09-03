@@ -964,7 +964,7 @@ export function createPartnerRoutes({
   // ============================================================
 
   /** A conversa do parceiro, criada na primeira vez que faz falta. */
-  async function chatFor(partnerId, subject, topic) {
+  async function chatFor(partnerId, subject, topic, brand) {
     // Uma função do Postgres, não duas consultas daqui.
     //
     // Antes havia um índice único no partner_id e o parceiro tinha
@@ -972,11 +972,40 @@ export function createPartnerRoutes({
     // do tempo, um só aberto de cada vez. O índice passou a parcial,
     // e a corrida entre dois separadores tem de ser resolvida dentro
     // da mesma transação — daí a função.
-    const { data, error } = await supabase.rpc('open_partner_chat', {
+    /**
+     * O p_brand vai sempre, mesmo com uma marca só.
+     *
+     * O Supabase resolve a função pelo NOME e pelos argumentos que
+     * lhe damos, não pela assinatura. Chamá-la com três quando ela
+     * tem quatro dá "could not find the function in the schema
+     * cache" — mesmo com o quarto a ter valor por omissão.
+     *
+     * Quando houver mais marcas, este valor passa a vir do pedido.
+     */
+    let { data, error } = await supabase.rpc('open_partner_chat', {
       p_partner_id: partnerId,
       p_subject: subject || null,
-      p_topic: topic || 'general'
+      p_topic: topic || 'general',
+      p_brand: brand || 'airportlink'
     });
+
+    /**
+     * Se a base ainda não tiver a versão com marca, tenta sem ela.
+     *
+     * O SQL das marcas pode não ter corrido, e o chat não deve parar
+     * por isso — foi exatamente o que aconteceu: o servidor pedia
+     * três argumentos, a função tinha quatro, e ninguém conseguia
+     * abrir conversa nenhuma.
+     */
+    if (error && /schema cache|does not exist|could not find/i.test(error.message)) {
+      console.warn('open_partner_chat: retrying without brand.');
+
+      ({ data, error } = await supabase.rpc('open_partner_chat', {
+        p_partner_id: partnerId,
+        p_subject: subject || null,
+        p_topic: topic || 'general'
+      }));
+    }
 
     if (error) {
       console.error('open_partner_chat failed:', error.code, error.message);
@@ -1899,9 +1928,25 @@ export function createPartnerRoutes({
         ? req.query.agent_id
         : admin.id;
 
+      /**
+       * O dia e o fuso vêm do browser.
+       *
+       * O current_date do Postgres é UTC. Às 23h45 no Brasil já são
+       * 02h45 em UTC, e o painel mostrava tudo a zero enquanto o
+       * agente ainda estava a trabalhar.
+       *
+       * O offset é em minutos face a UTC, com o sinal do
+       * getTimezoneOffset invertido — o browser dá +180 para UTC-3,
+       * e nós queremos -180.
+       */
+      const offset = Number.isFinite(Number(req.query.offset))
+        ? Math.max(-840, Math.min(840, Number(req.query.offset)))
+        : 0;
+
       const { data, error } = await supabase.rpc('agent_day_summary', {
         p_user_id: alvo,
-        p_day: req.query.day || null
+        p_day: req.query.day || null,
+        p_offset: offset
       });
 
       if (error) throw error;
