@@ -1939,6 +1939,103 @@ export function createPartnerRoutes({
   });
 
   /**
+   * Fechar uma conversa, com motivo.
+   *
+   * Era um botão sem pergunta: "resolvido" e "o parceiro
+   * desapareceu" contavam o mesmo no relatório, e não são a mesma
+   * coisa de todo.
+   */
+  router.post('/api/admin/chat/close', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id, reason, note } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const { data, error } = await asUser(req).rpc('close_chat', {
+      p_chat_id: chat_id,
+      p_reason: reason || 'resolved',
+      p_note: note || null
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (data && data.ok === false) {
+      const mensagens = {
+        not_yours: 'That conversation is not yours to close.',
+        not_found: 'That conversation no longer exists.'
+      };
+      return res.status(409).json({ error: mensagens[data.reason] || 'Could not close it.' });
+    }
+
+    return res.json({ success: true, ...(data || {}) });
+  });
+
+  /**
+   * Escalar. NÃO é fechar.
+   *
+   * A conversa continua aberta e passa para outra pessoa. Fechar
+   * por não saber responder seria a pior saída: o parceiro fica sem
+   * resposta e o problema desaparece do relatório.
+   */
+  router.post('/api/admin/chat/escalate', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id, note, to } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const { data, error } = await asUser(req).rpc('escalate_chat', {
+      p_chat_id: chat_id,
+      p_note: note || '',
+      p_to: to || null
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (data && data.ok === false) {
+      const mensagens = {
+        note_required: 'Say what the supervisor needs to know. Escalating without ' +
+          'context means whoever picks it up starts from nothing.',
+        not_yours: 'That conversation is not yours to escalate.',
+        not_found: 'That conversation no longer exists.'
+      };
+      return res.status(400).json({ error: mensagens[data.reason] || 'Could not escalate.' });
+    }
+
+    return res.json({ success: true, ...(data || {}) });
+  });
+
+  /**
+   * As conversas que este agente fechou.
+   *
+   * A fila só traz as abertas e as das últimas 24 horas — uma
+   * conversa fechada ontem desaparecia do separador "completed".
+   */
+  router.get('/api/admin/chats/closed', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const alvo = req.query.agent_id && admin.isSupervisor
+        ? req.query.agent_id
+        : admin.id;
+
+      const { data, error } = await supabase.rpc('agent_closed_chats', {
+        p_user_id: alvo,
+        p_days: Math.min(180, Number(req.query.days) || 30)
+      });
+
+      if (error) throw error;
+
+      return res.json({ chats: data || [] });
+    } catch (err) {
+      console.error('closed chats:', err.message);
+      return res.json({ chats: [] });
+    }
+  });
+
+  /**
    * Quanto tempo hoje em cada estado.
    *
    * Sem agent_id devolve o do próprio; com ele, e sendo supervisor,
