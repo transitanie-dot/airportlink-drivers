@@ -1573,6 +1573,24 @@ export function createPartnerRoutes({
 
       if (rpcError) return res.status(500).json({ error: rpcError.message });
 
+      /**
+       * A função pode recusar a mudança.
+       *
+       * Sair de serviço com conversas abertas deixa pessoas à espera
+       * de quem já não está lá — e as conversas não voltam à fila
+       * sozinhas, ficam com o nome dele para sempre.
+       *
+       * A recusa vem com a razão e a contagem, para o painel poder
+       * dizer o que fazer em vez de só dizer que não.
+       */
+      if (data && data.ok === false) {
+        return res.status(409).json({
+          error: data.message || 'That change was refused.',
+          reason: data.reason,
+          open_chats: data.open_chats
+        });
+      }
+
       return res.json({ success: true, state, ...(data || {}) });
     }
 
