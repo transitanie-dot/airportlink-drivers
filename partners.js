@@ -1062,17 +1062,28 @@ export function createPartnerRoutes({
       const chat = await chatFor(user.id, req.query.subject, req.query.topic);
       if (!chat) return res.status(500).json({ error: 'Could not open your chat.' });
 
-      const [messagesRes, capacityRes] = await Promise.all([
+      const [messagesRes, capacityRes, agenteRes] = await Promise.all([
         supabase.from('partner_messages')
           .select('*').eq('chat_id', chat.id)
           // Aqui também, além da RLS. Duas barreiras: se uma falhar
           // por engano numa migração, a outra segura.
           .eq('internal', false)
           .order('created_at').limit(200),
-        supabase.rpc('support_capacity')
+        supabase.rpc('support_capacity'),
+
+        // Quem está a atender, se houver alguém. Vai na mesma volta
+        // que o resto: uma consulta a mais em série custaria outra
+        // ida ao servidor.
+        chat.assigned_to
+          ? supabase.from('support_presence')
+              .select('display_name, avatar_path')
+              .eq('user_id', chat.assigned_to)
+              .maybeSingle()
+          : Promise.resolve({ data: null })
       ]);
 
       const capacity = (capacityRes.data && capacityRes.data[0]) || {};
+      const agente = agenteRes?.data || null;
 
       // Ao abrir, o que o admin escreveu passa a lido. Não o
       // contrário: o admin marca as dele quando abre a conversa.
@@ -1098,6 +1109,13 @@ export function createPartnerRoutes({
           free_slots: capacity.free_slots || 0,
           waiting: capacity.waiting || 0,
           assigned: Boolean(chat.assigned_to),
+          // Quem está do outro lado, com nome e fotografia.
+          //
+          // O portal mostrava "Airportlink" mesmo com um agente
+          // atribuído — falar com uma pessoa é diferente de falar
+          // com uma marca, e o nome já estava em cada mensagem.
+          agent_name: agente?.display_name || null,
+          agent_avatar: agente?.avatar_path || null,
           waiting_minutes: chat.waiting_since
             ? Math.round((Date.now() - new Date(chat.waiting_since).getTime()) / 60000)
             : 0
