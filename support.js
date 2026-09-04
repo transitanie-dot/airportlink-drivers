@@ -1090,6 +1090,75 @@ export function createSupportRoutes({
   });
 
   /**
+   * Quem sou eu, e tudo o que o painel precisa para arrancar.
+   *
+   * Nome, cargo, avatar, estado, há quanto tempo, preferências e
+   * atalhos — numa chamada só. O painel deixa de guardar seja o que
+   * for entre sessões: arranca sem saber nada e pergunta.
+   *
+   * Isso importa com vários agentes. Dois no mesmo computador
+   * partilhavam o localStorage, e o segundo a entrar via o nome do
+   * primeiro.
+   */
+  router.get('/api/admin/session', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { data, error } = await asUser(req).rpc('agent_session');
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (!data || data.ok === false) {
+      return res.status(401).json({ error: 'Session could not be read.' });
+    }
+
+    return res.json(data);
+  });
+
+  /** Guardar uma preferência. Só o que mudou. */
+  router.post('/api/admin/prefs', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { audience, brand, sound_on, tab } = req.body || {};
+
+    const { data, error } = await asUser(req).rpc('set_agent_prefs', {
+      p_audience: audience || null,
+      p_brand: brand || null,
+      p_sound_on: typeof sound_on === 'boolean' ? sound_on : null,
+      p_tab: tab || null
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ success: true, ...(data || {}) });
+  });
+
+  /**
+   * O nome do agente.
+   *
+   * Gravado na presença, que é onde a equipa o vê. Sem cópia no
+   * browser: mudar o nome num computador muda-o em todos, incluindo
+   * no painel do supervisor.
+   */
+  router.post('/api/admin/name', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { name } = req.body || {};
+
+    const { data, error } = await asUser(req).rpc('set_agent_name', { p_name: name || '' });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (data && data.ok === false) {
+      return res.status(400).json({ error: 'A name is needed.' });
+    }
+
+    return res.json({ success: true, ...(data || {}) });
+  });
+
+  /**
    * Entrar numa conversa que já tem alguém.
    *
    * Não tira nada a ninguém: os dois ficam, os dois podem escrever,
