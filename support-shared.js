@@ -16,7 +16,6 @@
  * ---------------------------------------------------------------
  */
 
-import { Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
 
 
@@ -36,19 +35,7 @@ export function createShared({
   config = {}
 }) {
   if (!supabase) throw new Error('createShared: supabase is required');
-
-  supabase,
-  getUserFromRequest,
-  requireAdmin,
-  // Sem supervisor configurado, ninguém entra nas áreas dele. É o
-  // valor seguro: recusar por omissão em vez de deixar passar.
-  requireSupervisor = async () => ({ error: 'Supervisor check is not configured.' }),
-  email = {},
-  config = {}
-}) {
-  if (!supabase) throw new Error('createPartnerRoutes: supabase is required');
-  if (!getUserFromRequest) throw new Error('createPartnerRoutes: getUserFromRequest is required');
-  if (!requireAdmin) throw new Error('createPartnerRoutes: requireAdmin is required');
+  if (!getUserFromRequest) throw new Error('createShared: getUserFromRequest is required');
 
   // As funções de email vêm por injeção, não por import: o
   // emailService vive no outro serviço, e importá-lo daqui obrigaria
@@ -88,8 +75,6 @@ export function createShared({
     // para quando ninguém tem o painel aberto.
     escalation: email.sendSupportEscalation || (async () => {})
   };
-
-  const router = Router();
 
   /**
    * Os requisitos do país do parceiro. Se ainda não tivermos uma
@@ -201,7 +186,8 @@ export function createShared({
       airports: airports.data || [],
       compliance: compliance.data || null
     };
-  
+  }
+
   async function chatFor(partnerId, subject, topic, brand) {
     // Uma função do Postgres, não duas consultas daqui.
     //
@@ -276,16 +262,6 @@ export function createShared({
     return data || [];
   }
 
-  const notify = {
-    received: email.sendPartnerApplicationReceived || (async () => {}),
-    decision: email.sendPartnerDecision || (async () => {}),
-    ride: email.sendRideConfirmedToPartner || (async () => {}),
-    verify: email.sendVerification || (async () => {}),
-    // Sem função de escalada configurada, o aviso fica no registo.
-    // O painel continua a mostrá-lo — o email é o segundo caminho,
-    // para quando ninguém tem o painel aberto.
-    escalation: email.sendSupportEscalation || (async () => {})
-  };
 
   return {
     notify,
