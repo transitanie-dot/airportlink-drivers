@@ -14,7 +14,9 @@
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
+import { createShared } from './support-shared.js';
 import { createPartnerRoutes } from './partners.js';
+import { createSupportRoutes } from './support.js';
 // Os emails são pedidos à API principal, onde o emailService vive.
 // Este serviço não tem cópia nenhuma dele nem chaves do Resend.
 import {
@@ -228,21 +230,54 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'drivers', time: new Date().toISOString() });
 });
 
+/**
+ * As peças partilhadas, criadas UMA vez.
+ *
+ * O portal e o call centre usam ambos o chatFor e o asUser. Cada um
+ * a criar a sua cópia seriam duas verdades sobre o que é uma
+ * conversa — e um dia divergiam sem ninguém dar por isso.
+ */
+const emailFns = {
+  sendPartnerApplicationReceived,
+  sendPartnerDecision,
+  sendRideConfirmedToPartner,
+  sendVerification,
+  // A escalada ao supervisor quando um parceiro espera dez minutos
+  // por resposta. Pedida pelo /api/tasks/support-tick, não por uma
+  // ação de ninguém.
+  sendSupportEscalation
+};
+
+const shared = createShared({
+  supabase,
+  getUserFromRequest,
+  email: emailFns,
+  config: {
+    defaultCountry: process.env.DEFAULT_PARTNER_COUNTRY || 'PT'
+  }
+});
+
+
+// O portal de motoristas: registo, documentos, frota, agenda.
 app.use(createPartnerRoutes({
   supabase,
   getUserFromRequest,
   requireAdmin,
+  shared,
+  email: emailFns,
+  config: {
+    defaultCountry: process.env.DEFAULT_PARTNER_COUNTRY || 'PT'
+  }
+}));
+
+// O call centre: filas, estados de agente, métricas, escalada.
+app.use(createSupportRoutes({
+  supabase,
+  getUserFromRequest,
+  requireAdmin,
   requireSupervisor,
-  email: {
-    sendPartnerApplicationReceived,
-    sendPartnerDecision,
-    sendRideConfirmedToPartner,
-    sendVerification,
-    // A escalada ao supervisor quando um parceiro espera dez
-    // minutos por resposta. Pedida pelo /api/tasks/support-tick,
-    // não por uma ação de ninguém.
-    sendSupportEscalation
-  },
+  shared,
+  email: emailFns,
   config: {
     defaultCountry: process.env.DEFAULT_PARTNER_COUNTRY || 'PT'
   }
