@@ -1090,6 +1090,50 @@ export function createSupportRoutes({
   });
 
   /**
+   * Dizer que estou nesta conversa.
+   *
+   * Chamado ao abrir e a cada batida do ponto. Distingue quem
+   * ATENDE de quem só LÊ — duas coisas diferentes que o painel
+   * mostrava como uma, e o agente não sabia se podia escrever ou
+   * se atrapalhava.
+   */
+  router.post('/api/admin/chat/presence', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id, kind, mode } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const { error } = await asUser(req).rpc('chat_presence_ping', {
+      p_chat_id: chat_id,
+      p_kind: kind === 'support' ? 'support' : 'partner',
+      p_mode: mode === 'handling' ? 'handling' : 'viewing'
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ success: true });
+  });
+
+  /**
+   * O trabalho de fundo está a correr?
+   *
+   * Uma pergunta que o painel faz de vez em quando. Sem ela, um
+   * cron parado passa despercebido até alguém notar que ninguém é
+   * avisado de nada há três dias.
+   */
+  router.get('/api/admin/health', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { data, error } = await supabase.rpc('tick_health');
+
+    if (error) return res.json({ healthy: null });
+
+    return res.json(data || { healthy: null });
+  });
+
+  /**
    * Quem sou eu, e tudo o que o painel precisa para arrancar.
    *
    * Nome, cargo, avatar, estado, há quanto tempo, preferências e
@@ -1537,6 +1581,22 @@ export function createSupportRoutes({
         } catch (err) {
           console.error('Escalation email failed:', err.message);
         }
+      }
+
+      /**
+       * Deixar registo de que correu.
+       *
+       * Se o cron parar — a conta expira, o segredo muda, o serviço
+       * fica em baixo — todo o trabalho de fundo para. E nada avisa:
+       * o painel continua a funcionar, por isso ninguém repara.
+       *
+       * O painel lê isto e mostra um aviso se passarem cinco
+       * minutos sem batida.
+       */
+      try {
+        await supabase.rpc('tick_ran', { p_result: resumo });
+      } catch (e) {
+        console.error('tick_ran failed:', e.message);
       }
 
       return res.json({ ok: true, ...resumo });
