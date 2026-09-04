@@ -17,7 +17,6 @@
  */
 
 import { Router } from 'express';
-import { createClient } from '@supabase/supabase-js';
 
 
 export function createPartnerRoutes({
