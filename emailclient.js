@@ -117,6 +117,13 @@ export async function sendRideOffer(partner, booking, offer) {
 }
 
 
+/** O empurrão a meio do prazo. */
+export async function sendRideOfferReminder(partner, booking, offer) {
+  if (!partner?.email || !booking) return { sent: false, reason: 'missing-data' };
+  return pedirEmail('ride_offer_reminder', { partner, booking, offer });
+}
+
+
 export async function sendRideConfirmedToPartner(partner, booking) {
   if (!partner?.email || !booking) {
     console.warn('[email] ride_confirmed: missing partner or booking');
