@@ -1090,6 +1090,62 @@ export function createSupportRoutes({
   });
 
   /**
+   * Quantos estão à espera em cada fila.
+   *
+   * O painel contava só a fila ABERTA e atribuía o número aos
+   * motoristas — as outras duas abas mostravam zero mesmo com onze
+   * clientes à espera.
+   *
+   * Uma chamada leve, feita com a fila: três contagens em vez de
+   * três listas inteiras.
+   */
+  router.get('/api/admin/queue-counts', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const [parceiros, apoio, escaladas] = await Promise.all([
+        supabase.from('partner_chats')
+          .select('assigned_to, unread_for_admin', { count: 'exact' })
+          .eq('status', 'open'),
+
+        supabase.from('support_chats')
+          .select('audience, assigned_to, unread_for_admin')
+          .eq('status', 'open'),
+
+        supabase.from('partner_chats')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'open')
+          .eq('escalated', true)
+      ]);
+
+      const conta = (lista, filtro) => (lista || []).filter(filtro);
+
+      const p = parceiros.data || [];
+      const a = apoio.data || [];
+
+      const clientes = a.filter((c) => c.audience === 'customer');
+      const agencias = a.filter((c) => c.audience === 'agency');
+
+      // "À espera" é sem dono. O unread não entra: uma conversa
+      // aberta sem ninguém está à espera mesmo que a última
+      // mensagem já esteja lida.
+      const espera = (l) => conta(l, (c) => !c.assigned_to).length;
+      const curso = (l) => conta(l, (c) => c.assigned_to).length;
+
+      return res.json({
+        drivers: { espera: espera(p), curso: curso(p) },
+        customers: { espera: espera(clientes), curso: curso(clientes) },
+        agents: { espera: espera(agencias), curso: curso(agencias) },
+        escalated: { espera: escaladas.count || 0, curso: 0 }
+      });
+    } catch (err) {
+      console.error('queue counts:', err.message);
+      return res.json({});
+    }
+  });
+
+  /**
    * Quem é o cliente ou a agência, e o que já fez connosco.
    *
    * A coluna da direita pedia o contexto de PARCEIRO para todas as
