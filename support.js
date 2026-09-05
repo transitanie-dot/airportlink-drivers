@@ -1927,6 +1927,44 @@ export function createSupportRoutes({
       }
 
       /**
+       * Os emails das ofertas novas.
+       *
+       * O sweep_ride_offers avança a cascata, mas o Postgres não
+       * envia emails. Sem isto, só o PRIMEIRO parceiro de cada
+       * viagem era avisado — os seguintes recebiam a oferta em
+       * silêncio e ela expirava sempre.
+       */
+      try {
+        const { data: novas } = await supabase
+          .from('ride_offers')
+          .select('*, driver_partners(id, email, trading_name), bookings(*)')
+          .eq('outcome', 'pending')
+          .is('responded_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .order('offered_at', { ascending: false })
+          .limit(20);
+
+        for (const o of novas || []) {
+          const parceiro = o.driver_partners;
+          const reserva = o.bookings;
+
+          if (!parceiro?.email || !reserva) continue;
+
+          // O sendOnce trava os repetidos: a chave inclui a
+          // posição na cascata, por isso cada oferta é avisada uma
+          // vez e só uma.
+          await notify.rideOffer(parceiro, reserva, {
+            rank: o.rank,
+            reason: o.match_reason,
+            expires_in_minutes: Math.max(1,
+              Math.round((new Date(o.expires_at) - Date.now()) / 60000))
+          });
+        }
+      } catch (e) {
+        console.error('ride offer emails:', e.message);
+      }
+
+      /**
        * Deixar registo de que correu.
        *
        * Se o cron parar — a conta expira, o segredo muda, o serviço
