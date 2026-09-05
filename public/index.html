@@ -631,6 +631,17 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
   .backdrop{position:fixed;inset:0;background:rgba(20,26,40,.5);z-index:55;display:none}
   .backdrop.on{display:block}
 }
+
+/* ---------- uma viagem oferecida a mim ----------
+   Diferente de uma no quadro aberto: tem prazo, e é minha durante
+   esse tempo. O relógio diz quanto falta. */
+.offer-head{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;margin-bottom:10px;padding:8px 12px;border-radius:11px;
+  background:var(--teal-soft)}
+.offer-head b{font-size:13.5px;font-weight:600}
+.offer-clock{font-family:var(--mono);font-size:12px;font-weight:600;
+  color:var(--teal);white-space:nowrap}
+html[data-theme="dark"] .offer-clock{color:var(--amber)}
 </style>
 </head>
 <body>
@@ -3394,8 +3405,28 @@ function rideCard(r, mine) {
           ? '<button class="btn line sm" data-release="' + esc(r.id) + '" type="button">Release this ride</button>' +
             '<span class="ride-note">You can release it until 24 hours before pick-up.</span>'
           : '<span class="ride-note">Too close to pick-up to release. Tell us in the chat if you cannot make it.</span>')
-      : '<button class="btn teal sm" data-claim="' + esc(r.id) + '" type="button">Take this ride</button>' +
-        '<span class="ride-note">First to take it gets it.</span>') +
+      /**
+       * Uma viagem OFERECIDA a mim é diferente de uma no quadro.
+       *
+       * A oferta tem prazo e é minha durante esse tempo — não há
+       * corrida com ninguém. E tem um botão para recusar, que o
+       * quadro aberto não precisa.
+       */
+      : (r.offer
+          ? '<div class="offer-head">' +
+              '<b>Offered to you</b>' +
+              '<span class="offer-clock">' + esc(String(r.offer.minutes_left)) +
+              ' min left</span>' +
+            '</div>' +
+            '<button class="btn teal sm" data-accept="' + esc(r.id) +
+              '" type="button">Take this ride</button>' +
+            '<button class="btn line sm" data-decline="' + esc(r.id) +
+              '" type="button">Not this one</button>' +
+            '<span class="ride-note">Yours until the clock runs out. ' +
+            'Declining costs you nothing.</span>'
+          : '<button class="btn teal sm" data-claim="' + esc(r.id) +
+              '" type="button">Take this ride</button>' +
+            '<span class="ride-note">First to take it gets it.</span>')) +
     '</div></div>';
 }
 
@@ -3468,9 +3499,85 @@ function renderBoard() {
   qsa('[data-release]').forEach(function (b) {
     b.addEventListener('click', function () { releaseRide(b.getAttribute('data-release'), b); });
   });
+  qsa('[data-accept]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      acceptOffer(b.getAttribute('data-accept'), b);
+    });
+  });
+
+  qsa('[data-decline]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      declineOffer(b.getAttribute('data-decline'), b);
+    });
+  });
+
   qsa('#boardGate [data-go]').forEach(function (b) {
     b.addEventListener('click', function () { goPage(b.getAttribute('data-go')); });
   });
+}
+
+/**
+ * Aceitar uma viagem oferecida a mim.
+ *
+ * Diferente do claim: aquele é o quadro aberto, onde quem chega
+ * primeiro fica. Este é a oferta dirigida, com prazo — durante
+ * esses minutos a viagem é minha se a quiser.
+ */
+async function acceptOffer(id, button) {
+  hideMsgs();
+  button.disabled = true;
+  button.textContent = 'Taking...';
+
+  try {
+    await api('/api/partner/rides/accept', { booking_id: id });
+    await loadBoard();
+    loadRides();
+    renderOverview();
+    renderRides();
+  } catch (e) {
+    button.disabled = false;
+    button.textContent = 'Take this ride';
+    show($('boardErr'), null, esc(e.message));
+  }
+}
+
+/**
+ * Recusar. Não penaliza.
+ *
+ * Se penalizasse, ensinávamos os parceiros a aceitar tudo e a
+ * cancelar depois — muito pior para o cliente. Recusar cedo é
+ * honesto e passa a viagem ao seguinte mais depressa.
+ *
+ * O que conta contra é IGNORAR até expirar.
+ */
+async function declineOffer(id, button) {
+  var motivo = prompt(
+    'Why not this one? Optional — it helps us send you better ones.\n\n' +
+    'Declining does not count against you.'
+  );
+
+  // O prompt devolve null se cancelarem. Aí não se faz nada.
+  if (motivo === null) return;
+
+  hideMsgs();
+  button.disabled = true;
+  button.textContent = 'Passing...';
+
+  try {
+    await api('/api/partner/rides/decline', {
+      booking_id: id,
+      reason: motivo.trim() || null
+    });
+
+    await loadBoard();
+    loadRides();
+    renderOverview();
+    renderRides();
+  } catch (e) {
+    button.disabled = false;
+    button.textContent = 'Not this one';
+    show($('boardErr'), null, esc(e.message));
+  }
 }
 
 async function claimRide(id, button) {
