@@ -28,7 +28,8 @@ import {
   // A oferta de viagem com prazo. É o email que faz a atribuição
   // automática funcionar: sem ele o parceiro não sabe que tem uma
   // viagem à espera.
-  sendRideOffer
+  sendRideOffer,
+  sendRideOfferReminder
 } from './emailclient.js';
 
 const app = express();
@@ -250,7 +251,8 @@ const emailFns = {
   // por resposta. Pedida pelo /api/tasks/support-tick, não por uma
   // ação de ninguém.
   sendSupportEscalation,
-  sendRideOffer
+  sendRideOffer,
+  sendRideOfferReminder
 };
 
 const shared = createShared({
