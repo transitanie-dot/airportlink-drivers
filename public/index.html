@@ -642,6 +642,32 @@ html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
 .offer-clock{font-family:var(--mono);font-size:12px;font-weight:600;
   color:var(--teal);white-space:nowrap}
 html[data-theme="dark"] .offer-clock{color:var(--amber)}
+
+/* ---------- como me estou a portar ----------
+   A cor diz o estado sem se ler nada. Verde não chama; âmbar
+   pede atenção; vermelho diz que já há consequência. */
+.standing{border-radius:16px;padding:16px 18px;margin-bottom:16px;
+  border:1px solid var(--rule)}
+.standing.green{background:var(--ok-soft,rgba(22,163,74,.08));
+  border-color:rgba(22,163,74,.25)}
+.standing.amber{background:rgba(217,119,6,.09);border-color:rgba(217,119,6,.3)}
+.standing.red{background:rgba(220,38,38,.09);border-color:rgba(220,38,38,.32)}
+
+.st-head{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;margin-bottom:6px}
+.st-head b{font-size:15px;font-weight:600}
+.st-dot{width:10px;height:10px;border-radius:999px;flex:0 0 auto}
+.standing.green .st-dot{background:#16A34A}
+.standing.amber .st-dot{background:#D97706}
+.standing.red .st-dot{background:#DC2626}
+
+.standing p{margin:0 0 14px;font-size:13.5px;line-height:1.6;
+  color:var(--muted)}
+
+.st-nums{display:flex;gap:22px;flex-wrap:wrap}
+.st-nums span{display:flex;flex-direction:column;gap:1px}
+.st-nums b{font-family:var(--mono);font-size:20px;font-weight:600}
+.st-nums small{font-size:11.5px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -896,6 +922,12 @@ html[data-theme="dark"] .offer-clock{color:var(--amber)}
       <div class="page on" id="pgOverview">
         <div id="statusBanner"></div>
         <div id="activation"></div>
+
+        <!-- Como me estou a portar.
+             Um número que o parceiro vê muda o comportamento dele;
+             escondido, não muda nada. -->
+        <div id="standing"></div>
+
         <div class="metrics" id="metrics"></div>
 
         <div class="qa-grid" id="quickActions"></div>
@@ -1774,6 +1806,7 @@ async function boot() {
 
   try {
     renderOverview();
+  loadStanding();
   } catch (e) {
     // Visível, não escondido na consola. Um painel vazio sem
     // explicação é o pior resultado possível.
@@ -3578,6 +3611,68 @@ async function declineOffer(id, button) {
     button.textContent = 'Not this one';
     show($('boardErr'), null, esc(e.message));
   }
+}
+
+/**
+ * Como me estou a portar.
+ *
+ * A taxa de CONCLUSÃO é o que conta, não a de aceitação. Recusar
+ * cedo é honesto e não penaliza; ignorar até expirar é o que
+ * estraga a viagem de alguém.
+ *
+ * Um número que o parceiro vê muda o comportamento dele. Escondido,
+ * não muda nada.
+ */
+async function loadStanding() {
+  var caixa = $('standing');
+  if (!caixa) return;
+
+  var d;
+
+  try {
+    d = await api('/api/partner/standing');
+  } catch (e) {
+    caixa.innerHTML = '';
+    return;
+  }
+
+  // Um parceiro novo não tem nada a mostrar, e um aviso vazio só
+  // preocuparia sem razão.
+  if (!d || d.standing === 'new') {
+    caixa.innerHTML = '';
+    return;
+  }
+
+  var textos = {
+    green: ['You are in good standing',
+      'You take what you accept and answer what we send. Keep it up.'],
+    amber: ['Worth a look',
+      'Either some rides you took did not happen, or offers are ' +
+      'expiring without an answer. Declining is fine — ignoring is what counts.'],
+    red: ['Your account is at risk',
+      'You are no longer first in line for new rides. You still see the ' +
+      'open board. Completing what you accept is what brings this back.']
+  };
+
+  var t = textos[d.standing] || textos.green;
+
+  caixa.innerHTML =
+    '<div class="standing ' + esc(d.standing) + '">' +
+      '<div class="st-head">' +
+        '<b>' + esc(t[0]) + '</b>' +
+        '<span class="st-dot"></span>' +
+      '</div>' +
+      '<p>' + esc(t[1]) + '</p>' +
+      '<div class="st-nums">' +
+        '<span><b>' + (d.completion_rate != null ? d.completion_rate : 100) + '%</b>' +
+          '<small>rides completed</small></span>' +
+        '<span><b>' + (d.response_rate != null ? d.response_rate : 100) + '%</b>' +
+          '<small>offers answered</small></span>' +
+        (d.rides_completed != null
+          ? '<span><b>' + d.rides_completed + '</b><small>in 90 days</small></span>'
+          : '') +
+      '</div>' +
+    '</div>';
 }
 
 async function claimRide(id, button) {
