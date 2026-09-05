@@ -1117,18 +1117,41 @@ export function createSupportRoutes({
       .eq('user_id', admin.id)
       .maybeSingle();
 
-    const { error } = await supabase.from('support_messages').insert({
+    const { data, error } = await supabase.from('support_messages').insert({
       chat_id,
       sender_type: 'admin',
       sender_name: (presence && presence.display_name) || 'Airportlink',
       sender_avatar: presence && presence.avatar_path,
       message: String(body).trim(),
-      internal
-    });
+      internal,
+      file_path: req.body.attachment_path || null,
+      file_url: req.body.attachment_name || null
+    }).select().maybeSingle();
 
     if (error) return res.status(500).json({ error: error.message });
 
-    return res.json({ success: true });
+    /**
+     * A mensagem volta traduzida.
+     *
+     * O painel põe-a na conversa sem esperar pelo próximo
+     * carregamento — e lê sender e body, que é como a tabela dos
+     * parceiros lhes chama. Sem esta tradução vinha undefined e o
+     * ecrã dava "Cannot read properties of undefined".
+     */
+    const message = data && {
+      id: data.id,
+      chat_id: data.chat_id,
+      sender: data.sender_type,
+      sender_name: data.sender_name,
+      sender_avatar: data.sender_avatar,
+      body: data.message,
+      internal: data.internal,
+      file_url: data.file_url,
+      file_path: data.file_path,
+      created_at: data.created_at
+    };
+
+    return res.json({ success: true, message });
   });
 
   /**
