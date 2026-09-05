@@ -294,6 +294,101 @@ export function createPartnerRoutes({
   });
 
 
+  /**
+   * Aceitar uma viagem oferecida.
+   *
+   * Diferente do claim: aquele é o quadro aberto, este é a oferta
+   * dirigida. Aceita se tiver oferta válida OU se a viagem já
+   * passou ao quadro aberto — que é o que acontece quando ninguém
+   * da cascata a quis.
+   */
+  router.post('/api/partner/rides/accept', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('accept_ride_offer', {
+        p_booking_id: booking_id
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        const mensagens = {
+          already_taken: 'Somebody else took this one.',
+          not_offered: 'This ride is not open to you.'
+        };
+        return res.status(409).json({ error: mensagens[data.reason] || 'Could not accept.' });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('rides/accept:', error);
+      return res.status(500).json({ error: 'Could not accept the ride.' });
+    }
+  });
+
+  /**
+   * Recusar, com motivo opcional.
+   *
+   * Recusar NÃO penaliza. Se penalizasse, ensinávamos os parceiros
+   * a aceitar tudo e a cancelar depois — muito pior para o cliente.
+   *
+   * O que conta contra é ignorar, e isso mede-se sozinho.
+   */
+  router.post('/api/partner/rides/decline', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id, reason } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('decline_ride_offer', {
+        p_booking_id: booking_id,
+        p_reason: reason || null
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(409).json({ error: 'That offer is no longer open.' });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('rides/decline:', error);
+      return res.status(500).json({ error: 'Could not decline the ride.' });
+    }
+  });
+
+  /**
+   * Como estou a portar-me.
+   *
+   * A taxa de conclusão e a de resposta, com o semáforo. Um número
+   * que o parceiro vê muda o comportamento dele; escondido, não
+   * muda nada.
+   */
+  router.get('/api/partner/standing', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { data } = await supabase
+        .from('partner_reputation')
+        .select('*')
+        .eq('partner_id', user.id)
+        .maybeSingle();
+
+      return res.json(data || { standing: 'new', completion_rate: 100, response_rate: 100 });
+    } catch (error) {
+      return res.json({ standing: 'new' });
+    }
+  });
+
   router.post('/api/partner/rides/release', async (req, res) => {
     try {
       const user = await getUserFromRequest(req);
