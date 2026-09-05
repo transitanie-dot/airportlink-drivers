@@ -69,6 +69,9 @@ export function createShared({
     received: email.sendPartnerApplicationReceived || (async () => {}),
     decision: email.sendPartnerDecision || (async () => {}),
     ride: email.sendRideConfirmedToPartner || (async () => {}),
+    // A oferta com prazo. Sem ela, o parceiro não sabe que tem uma
+    // viagem à espera e a cascata expira sempre.
+    rideOffer: email.sendRideOffer || (async () => {}),
     verify: email.sendVerification || (async () => {}),
     // Sem função de escalada configurada, o aviso fica no registo.
     // O painel continua a mostrá-lo — o email é o segundo caminho,
