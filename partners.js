@@ -199,8 +199,58 @@ export function createPartnerRoutes({
       if (available.error) throw available.error;
       if (mine.error) throw mine.error;
 
+      /**
+       * As ofertas dirigidas a mim, com o tempo que falta.
+       *
+       * Uma viagem oferecida é diferente de uma no quadro aberto:
+       * tem prazo, e é minha durante esse tempo. Sem isto, o portal
+       * mostrava as duas iguais e o parceiro não sabia que tinha
+       * minutos contados.
+       */
+      const { data: ofertas } = await supabase
+        .from('ride_offers')
+        .select('booking_id, expires_at, match_reason, rank')
+        .eq('partner_id', user.id)
+        .eq('outcome', 'pending')
+        .gt('expires_at', new Date().toISOString());
+
+      const porReserva = {};
+
+      (ofertas || []).forEach((o) => {
+        porReserva[o.booking_id] = {
+          minutes_left: Math.max(1,
+            Math.round((new Date(o.expires_at) - Date.now()) / 60000)),
+          reason: o.match_reason,
+          rank: o.rank
+        };
+      });
+
+      // As ofertas aparecem na lista de disponíveis, marcadas.
+      const disponiveis = (available.data || []).map((r) => ({
+        ...r,
+        offer: porReserva[r.id] || null
+      }));
+
+      // E as que só existem como oferta — ainda não estão no quadro
+      // aberto — entram na mesma lista.
+      const jaListadas = new Set(disponiveis.map((r) => r.id));
+      const soOferta = Object.keys(porReserva).filter((id) => !jaListadas.has(id));
+
+      if (soOferta.length) {
+        const { data: extra } = await supabase
+          .from('bookings')
+          .select('*')
+          .in('id', soOferta);
+
+        (extra || []).forEach((r) => {
+          disponiveis.unshift({ ...r, offer: porReserva[r.id] });
+        });
+      }
+
       return res.json({
-        available: available.data || [],
+        // As ofertas primeiro: são as que têm relógio a correr.
+        available: disponiveis.sort((a, b) =>
+          (b.offer ? 1 : 0) - (a.offer ? 1 : 0)),
         mine: mine.data || [],
         airports: partner.data?.operating_airports || [],
         ready: partner.data?.status === 'approved' && Boolean(partner.data?.payout_iban)
