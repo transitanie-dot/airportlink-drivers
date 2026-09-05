@@ -1090,6 +1090,104 @@ export function createSupportRoutes({
   });
 
   /**
+   * Enviar para um cliente ou uma agência.
+   *
+   * A rota dos parceiros escreve na partner_messages, que estas
+   * conversas não usam. Sem esta, escrever numa conversa de cliente
+   * não fazia nada — a mensagem ia para a tabela errada e o gatilho
+   * de tempos nunca corria.
+   */
+  router.post('/api/admin/support/send', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id, body } = req.body || {};
+
+    if (!chat_id || !String(body || '').trim()) {
+      return res.status(400).json({ error: 'Send chat_id and a message.' });
+    }
+
+    const internal = req.body.internal === true;
+
+    // O nome que o cliente lê vem da presença, não do browser.
+    // Assim é o mesmo em todas as conversas.
+    const { data: presence } = await supabase
+      .from('support_presence')
+      .select('display_name, avatar_path')
+      .eq('user_id', admin.id)
+      .maybeSingle();
+
+    const { error } = await supabase.from('support_messages').insert({
+      chat_id,
+      sender_type: 'admin',
+      sender_name: (presence && presence.display_name) || 'Airportlink',
+      sender_avatar: presence && presence.avatar_path,
+      message: String(body).trim(),
+      internal
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json({ success: true });
+  });
+
+  /**
+   * As mensagens de uma conversa de cliente ou de agência.
+   *
+   * Não existia. O painel chamava a rota dos PARCEIROS para tudo,
+   * e nas outras duas filas a conversa não abria — a resposta vinha
+   * vazia e o ecrã ficava em branco.
+   */
+  router.get('/api/admin/support-chat/:chatId', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const chatId = req.params.chatId;
+
+    const [msgs, chat] = await Promise.all([
+      supabase.from('support_messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at')
+        .limit(400),
+      supabase.from('support_chat_queue')
+        .select('*')
+        .eq('chat_id', chatId)
+        .maybeSingle()
+    ]);
+
+    if (msgs.error) return res.status(500).json({ error: msgs.error.message });
+
+    /**
+     * As duas tabelas usam nomes diferentes para o mesmo.
+     *
+     * A partner_messages tem sender e body; a support_messages tem
+     * sender_type e message. Traduz-se aqui, uma vez, em vez de o
+     * painel ter de saber a diferença em vinte sítios.
+     */
+    const messages = (msgs.data || []).map((m) => ({
+      id: m.id,
+      chat_id: m.chat_id,
+      sender: m.sender_type,
+      sender_name: m.sender_name,
+      sender_avatar: m.sender_avatar,
+      body: m.message,
+      internal: m.internal,
+      file_url: m.file_url,
+      file_path: m.file_path,
+      created_at: m.created_at,
+      read_at: m.read_at
+    }));
+
+    // Ao abrir, o que o cliente escreveu passa a lido.
+    await supabase.from('support_chats')
+      .update({ unread_for_admin: 0 })
+      .eq('id', chatId);
+
+    return res.json({ messages, chat: chat.data || null });
+  });
+
+  /**
    * Dizer que estou nesta conversa.
    *
    * Chamado ao abrir e a cada batida do ponto. Distingue quem
