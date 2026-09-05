@@ -668,6 +668,13 @@ html[data-theme="dark"] .offer-clock{color:var(--amber)}
 .st-nums span{display:flex;flex-direction:column;gap:1px}
 .st-nums b{font-family:var(--mono);font-size:20px;font-weight:600}
 .st-nums small{font-size:11.5px;color:var(--muted)}
+
+/* O custo de ignorar, em números concretos. Uma percentagem de
+   noventa dias é abstrata; "3 das últimas 10" corrige-se esta
+   semana. */
+.st-ignored{margin-top:14px;padding:11px 13px;border-radius:11px;
+  background:rgba(217,119,6,.12);font-size:13px;line-height:1.55;
+  color:var(--text)}
 </style>
 </head>
 <body>
@@ -3656,6 +3663,24 @@ async function loadStanding() {
 
   var t = textos[d.standing] || textos.green;
 
+  /**
+   * O custo de ignorar, em números concretos.
+   *
+   * Uma percentagem de noventa dias é abstrata. "Ignoraste 3 das
+   * últimas 10" é uma coisa que se pode corrigir esta semana.
+   */
+  var recentes = null;
+
+  try {
+    recentes = await api('/api/partner/recent-offers');
+  } catch (e) {}
+
+  var aviso = (recentes && recentes.show)
+    ? '<div class="st-ignored">You let ' + recentes.ignored +
+      ' of your last ' + recentes.total + ' offers run out. ' +
+      'Declining is free and gets them to somebody else faster.</div>'
+    : '';
+
   caixa.innerHTML =
     '<div class="standing ' + esc(d.standing) + '">' +
       '<div class="st-head">' +
@@ -3672,6 +3697,7 @@ async function loadStanding() {
           ? '<span><b>' + d.rides_completed + '</b><small>in 90 days</small></span>'
           : '') +
       '</div>' +
+      aviso +
     '</div>';
 }
 
