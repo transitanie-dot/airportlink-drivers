@@ -1090,6 +1090,74 @@ export function createSupportRoutes({
   });
 
   /**
+   * Quem é o cliente ou a agência, e o que já fez connosco.
+   *
+   * A coluna da direita pedia o contexto de PARCEIRO para todas as
+   * conversas — e nas de cliente respondia "Could not load", porque
+   * o id não existe na driver_partners.
+   */
+  router.get('/api/admin/support-chat/:chatId/context', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const { data: chat } = await supabase
+        .from('support_chats')
+        .select('user_id, email, audience')
+        .eq('id', req.params.chatId)
+        .maybeSingle();
+
+      if (!chat) return res.json({ context: null });
+
+      // Uma agência tem nome comercial e comissão; um cliente tem
+      // reservas. São duas perguntas diferentes.
+      const [contacto, agencia, reservas] = await Promise.all([
+        supabase.from('contacts')
+          .select('full_name, email, phone_number, created_at')
+          .eq('email', chat.email)
+          .maybeSingle(),
+
+        chat.audience === 'agency'
+          ? supabase.from('travel_agents')
+              .select('agency_name, commission, status, created_at')
+              .eq('id', chat.user_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+
+        supabase.from('bookings')
+          .select('booking_reference, booking_date, pickup, dropoff, status, amount_paid')
+          .eq('email', chat.email)
+          .order('booking_date', { ascending: false })
+          .limit(5)
+      ]);
+
+      const ct = contacto.data || {};
+      const ag = agencia.data;
+      const lista = reservas.data || [];
+
+      return res.json({
+        context: {
+          audience: chat.audience,
+          name: (ag && ag.agency_name) || ct.full_name || chat.email,
+          email: chat.email,
+          phone: ct.phone_number,
+          joined_at: (ag && ag.created_at) || ct.created_at,
+
+          agency_status: ag && ag.status,
+          commission: ag && ag.commission,
+
+          bookings_total: lista.length,
+          bookings: lista,
+          spent: lista.reduce((t, b) => t + Number(b.amount_paid || 0), 0)
+        }
+      });
+    } catch (err) {
+      console.error('support context:', err.message);
+      return res.json({ context: null });
+    }
+  });
+
+  /**
    * Enviar para um cliente ou uma agência.
    *
    * A rota dos parceiros escreve na partner_messages, que estas
