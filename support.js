@@ -1522,7 +1522,16 @@ export function createSupportRoutes({
 
     const patch = { updated_at: new Date().toISOString() };
     if (typeof urgent === 'boolean') patch.urgent = urgent;
-    if (status === 'open' || status === 'closed') patch.status = status;
+    /**
+     * As duas tabelas usam palavras diferentes para o mesmo.
+     *
+     * A partner_chats fecha com 'closed'; a support_chats, que
+     * nasceu antes, com 'resolved'. Aceitar só uma delas fazia esta
+     * rota recusar metade dos pedidos sem dizer porquê.
+     */
+    if (['open', 'closed', 'resolved', 'pending'].includes(status)) {
+      patch.status = status;
+    }
 
     const { error } = await supabase.from('partner_chats').update(patch).eq('id', chat_id);
     if (error) return res.status(500).json({ error: error.message });
