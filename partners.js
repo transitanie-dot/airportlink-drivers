@@ -422,6 +422,31 @@ export function createPartnerRoutes({
    * que o parceiro vê muda o comportamento dele; escondido, não
    * muda nada.
    */
+  /**
+   * As últimas dez ofertas, e quantas ignorei.
+   *
+   * "Ignoraste 3 das últimas 10" muda mais o comportamento do que
+   * qualquer penalização — e sem ensinar ninguém a aceitar tudo
+   * para depois cancelar.
+   *
+   * Dez e não noventa dias: um número que se pode corrigir esta
+   * semana move mais do que um que demora três meses a mudar.
+   */
+  router.get('/api/partner/recent-offers', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { data } = await asUser(req).rpc('partner_recent_offers', {
+        p_partner_id: user.id
+      });
+
+      return res.json(data || { show: false });
+    } catch (error) {
+      return res.json({ show: false });
+    }
+  });
+
   router.get('/api/partner/standing', async (req, res) => {
     try {
       const user = await getUserFromRequest(req);
