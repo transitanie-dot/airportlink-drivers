@@ -1965,6 +1965,49 @@ export function createSupportRoutes({
       }
 
       /**
+       * Os lembretes, a meio do prazo.
+       *
+       * A coisa que mais reduz o ignorar. Um parceiro que não
+       * respondeu ao primeiro email muitas vezes não o viu — não é
+       * que não queira a viagem.
+       */
+      try {
+        const { data: lembrar } = await supabase.rpc('offers_needing_reminder');
+
+        for (const o of lembrar || []) {
+          const { data: reserva } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('id', o.booking_id)
+            .maybeSingle();
+
+          if (!reserva || !o.partner_email) continue;
+
+          await notify.rideOfferReminder(
+            { id: o.partner_id, email: o.partner_email, trading_name: o.partner_name },
+            reserva,
+            { minutes_left: o.minutes_left }
+          );
+
+          /**
+           * Marcar depois de enviar, não antes.
+           *
+           * Se o email falhar, a oferta fica por lembrar e a
+           * próxima passagem tenta outra vez. Marcar antes perderia
+           * o lembrete de vez.
+           */
+          await supabase.rpc('mark_offer_reminded', {
+            p_offer_id: o.offer_id,
+            // O SMS fica para quando houver: a coluna existe e o
+            // caminho está aberto.
+            p_sms: false
+          });
+        }
+      } catch (e) {
+        console.error('offer reminders:', e.message);
+      }
+
+      /**
        * Deixar registo de que correu.
        *
        * Se o cron parar — a conta expira, o segredo muda, o serviço
