@@ -99,6 +99,24 @@ export async function sendPartnerDecision(partner, decision, reason) {
 }
 
 /** Uma viagem que o parceiro acabou de aceitar. */
+/**
+ * A oferta de viagem, com prazo.
+ *
+ * A cascata oferece a um parceiro de cada vez e dá-lhe minutos
+ * para responder. Sem este email, ele não sabe que tem uma oferta
+ * — ela expira sempre, e cada viagem percorre a lista inteira sem
+ * ninguém responder.
+ */
+export async function sendRideOffer(partner, booking, offer) {
+  if (!partner?.email || !booking) {
+    console.warn('[email] ride_offer: missing partner or booking');
+    return { sent: false, reason: 'missing-data' };
+  }
+
+  return pedirEmail('ride_offer', { partner, booking, offer });
+}
+
+
 export async function sendRideConfirmedToPartner(partner, booking) {
   if (!partner?.email || !booking) {
     console.warn('[email] ride_confirmed: missing partner or booking');
