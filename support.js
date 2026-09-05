@@ -1090,6 +1090,67 @@ export function createSupportRoutes({
   });
 
   /**
+   * O mapa de cobertura.
+   *
+   * A peça mais importante disto tudo, e a que ninguém pede.
+   *
+   * Uma zona onde ninguém se registou vende na mesma. A viagem
+   * fica parada e ninguém a recusa — porque ninguém a vê. Isto
+   * mostra onde estamos a vender sem servir, antes de o cliente
+   * escrever.
+   */
+  router.get('/api/admin/coverage', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const { data, error } = await supabase
+        .from('zone_coverage')
+        .select('*')
+        .limit(200);
+
+      if (error) throw error;
+
+      const zonas = data || [];
+
+      return res.json({
+        zones: zonas,
+        // O resumo que o painel mostra no topo, sem ter de contar.
+        summary: {
+          selling_blind: zonas.filter((z) => z.state === 'selling_blind').length,
+          thin: zonas.filter((z) => z.state === 'thin').length,
+          empty: zonas.filter((z) => z.state === 'empty').length,
+          ok: zonas.filter((z) => z.state === 'ok').length
+        }
+      });
+    } catch (err) {
+      console.error('coverage:', err.message);
+      return res.json({ zones: [], summary: {} });
+    }
+  });
+
+  /**
+   * A cascata de uma reserva: a quem foi oferecida e o que
+   * responderam.
+   *
+   * Quando uma viagem fica sem ninguém, é aqui que se percebe
+   * porquê — se ninguém foi ofertado, se todos recusaram, ou se
+   * todos ignoraram.
+   */
+  router.get('/api/admin/booking/:id/offers', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { data } = await supabase
+      .from('ride_offers')
+      .select('*, driver_partners(trading_name, legal_name)')
+      .eq('booking_id', req.params.id)
+      .order('rank');
+
+    return res.json({ offers: data || [] });
+  });
+
+  /**
    * As disputas abertas.
    *
    * O evento mais caro que existe: o Stripe dá um prazo para
