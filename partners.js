@@ -352,6 +352,32 @@ export function createPartnerRoutes({
    * passou ao quadro aberto — que é o que acontece quando ninguém
    * da cascata a quis.
    */
+  /**
+   * Dizer à API principal que a viagem tem motorista.
+   *
+   * O calendário vive lá — é onde estão as credenciais do Google.
+   * Este serviço só avisa; a API trata do resto.
+   */
+  async function avisarCalendario(bookingId, partnerId) {
+    if (!config.apiUrl || !config.cronSecret) return;
+
+    try {
+      await fetch(config.apiUrl + '/api/internal/calendar-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': config.cronSecret
+        },
+        body: JSON.stringify({ booking_id: bookingId, partner_id: partnerId })
+      });
+    } catch (e) {
+      // Uma falha aqui não desfaz a aceitação. O evento fica
+      // turquesa até alguém reparar, e isso é um problema de cor,
+      // não de operação.
+      console.error('calendar sync:', e.message);
+    }
+  }
+
   router.post('/api/partner/rides/accept', async (req, res) => {
     try {
       const user = await getUserFromRequest(req);
@@ -373,6 +399,19 @@ export function createPartnerRoutes({
         };
         return res.status(409).json({ error: mensagens[data.reason] || 'Could not accept.' });
       }
+
+      /**
+       * A viagem passa a azul escuro na agenda.
+       *
+       * É o que faz o calendário contar a história sem ninguém lhe
+       * tocar: turquesa é uma viagem por resolver, azul é uma
+       * resolvida. Um mês visto de relance diz onde faltou
+       * cobertura.
+       *
+       * Sem esperar pela resposta: o parceiro já aceitou e não deve
+       * ficar à espera do Google.
+       */
+      avisarCalendario(booking_id, user.id).catch(() => {});
 
       return res.json({ success: true });
     } catch (error) {
