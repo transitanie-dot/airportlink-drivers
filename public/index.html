@@ -702,6 +702,24 @@ html[data-theme="dark"] .offer-clock{color:var(--amber)}
   .code-row{flex-direction:column;align-items:stretch}
   .code-in{width:100%}
 }
+
+/* ---------- o relógio da espera ----------
+   Discreto enquanto o tempo é grátis; a laranja quando passa.
+   Um número que vai ser cobrado tem de se ler sem dúvida. */
+.wait-clock{display:flex;flex-direction:column;gap:3px;
+  margin-bottom:12px;font-size:13px;color:var(--muted)}
+.wait-clock:empty{display:none}
+
+.wait-clock.over{padding:11px 13px;border-radius:11px;
+  background:rgba(217,119,6,.12);color:var(--text)}
+.wait-clock.over b{font-size:14.5px;font-weight:600}
+.wait-clock.over span{font-size:13px}
+.wait-hint{color:var(--muted);font-size:12px;margin-top:3px}
+
+/* O no-show fica em baixo e discreto: é a última coisa que se
+   deve fazer, não a primeira que se vê. */
+.noshow-btn{margin-top:12px;align-self:flex-start;opacity:.75}
+.noshow-btn:hover{opacity:1}
 </style>
 </head>
 <body>
@@ -3485,6 +3503,16 @@ function rideCard(r, mine) {
 
         (r.driver_arrived_at && !r.code_verified_at
           ? '<div class="code-box">' +
+
+              /**
+               * O relógio da espera.
+               *
+               * Preenchido depois pelo servidor: o portal não sabe
+               * a hora de aterragem do voo, e calcular isto no
+               * browser daria contas erradas.
+               */
+              '<div class="wait-clock" data-wait-for="' + esc(r.id) + '"></div>' +
+
               '<label>Passenger code</label>' +
               '<div class="code-row">' +
                 '<input type="text" inputmode="numeric" maxlength="4" ' +
@@ -3495,6 +3523,9 @@ function rideCard(r, mine) {
               '</div>' +
               '<span class="ride-note">Ask the passenger for their four ' +
               'digits. It confirms the trip happened.</span>' +
+
+              '<button class="btn line sm noshow-btn" data-noshow="' + esc(r.id) +
+                '" type="button">Passenger did not show</button>' +
             '</div>'
           : '') +
 
@@ -3608,6 +3639,15 @@ function renderBoard() {
   qsa('[data-release]').forEach(function (b) {
     b.addEventListener('click', function () { releaseRide(b.getAttribute('data-release'), b); });
   });
+  qsa('[data-noshow]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      markNoShow(b.getAttribute('data-noshow'), b);
+    });
+  });
+
+  // O relógio da espera, para as viagens já com o motorista lá.
+  pintarEspera();
+
   qsa('[data-arrived]').forEach(function (b) {
     b.addEventListener('click', function () {
       markArrived(b.getAttribute('data-arrived'), b);
@@ -3788,6 +3828,116 @@ async function loadStanding() {
     '</div>';
 }
 
+/**
+ * O relógio da espera, para cada viagem à espera.
+ *
+ * Vem do servidor: o portal não sabe a hora de aterragem do voo, e
+ * calcular isto no browser daria contas erradas — que é o pior que
+ * pode acontecer a um número que vai ser cobrado.
+ */
+async function pintarEspera() {
+  var caixas = qsa('[data-wait-for]');
+  if (!caixas.length) return;
+
+  for (var i = 0; i < caixas.length; i++) {
+    var caixa = caixas[i];
+    var id = caixa.getAttribute('data-wait-for');
+
+    try {
+      // Sem corpo, o api já usa GET. O terceiro argumento é um
+      // objeto de opções, não o método.
+      var w = await api('/api/partner/rides/' + id + '/waiting');
+
+      if (w.owed > 0) {
+        caixa.className = 'wait-clock over';
+        caixa.innerHTML =
+          '<b>' + esc(String(w.minutes_over)) + ' min past the free time</b>' +
+          '<span>The passenger owes ' + esc(Number(w.owed).toFixed(0)) + ' ' +
+          esc(w.currency || 'EUR') +
+          (w.capped ? ' (maximum)' : '') + '</span>' +
+          '<span class="wait-hint">Show them this before you start. ' +
+          'They pay on the card they booked with.</span>';
+
+        // Guardado para o momento do código.
+        caixa.setAttribute('data-owed', w.owed);
+        caixa.setAttribute('data-minutes', w.minutes_over);
+      } else if (w.minutes_left != null && w.minutes_left > 0) {
+        caixa.className = 'wait-clock';
+        caixa.innerHTML = '<span>Free waiting: ' +
+          esc(String(w.minutes_left)) + ' min left</span>';
+      } else {
+        caixa.className = 'wait-clock';
+        caixa.innerHTML = '';
+      }
+    } catch (e) {
+      caixa.innerHTML = '';
+    }
+  }
+}
+
+/**
+ * O cliente não apareceu.
+ *
+ * Exige fotografia do local e confirmação de que tentou ligar. Sem
+ * isso não passa — e é de propósito: numa disputa, uma fotografia
+ * com hora vale mais do que qualquer declaração nossa.
+ */
+async function markNoShow(id, button) {
+  var ligou = confirm(
+    'Did you call the passenger?\n\n' +
+    'A no-show needs proof: a call and a photo of the pick-up point. ' +
+    'Without both we cannot charge for it, and you do not get paid.'
+  );
+
+  if (!ligou) return;
+
+  // A fotografia. O campo é criado agora e não fica no ecrã: só
+  // faz falta neste momento.
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  // No telemóvel abre a câmara em vez da galeria — a fotografia
+  // tem de ser tirada ali.
+  input.capture = 'environment';
+
+  input.addEventListener('change', async function () {
+    var file = input.files && input.files[0];
+    if (!file) return;
+
+    hideMsgs();
+    button.disabled = true;
+    button.textContent = 'Uploading...';
+
+    try {
+      var caminho = 'no-show/' + id + '-' + Date.now() + '.jpg';
+
+      var up = await db.storage.from('trip-evidence')
+        .upload(caminho, file, { contentType: file.type || 'image/jpeg' });
+
+      if (up.error) throw new Error(up.error.message);
+
+      var nota = prompt('Anything worth noting? (optional)') || '';
+
+      await api('/api/partner/rides/no-show', {
+        booking_id: id,
+        photo_path: caminho,
+        called: true,
+        note: nota.trim() || null
+      });
+
+      loadRides();
+      renderRides();
+      loadStanding();
+    } catch (e) {
+      button.disabled = false;
+      button.textContent = 'Passenger did not show';
+      show($('boardErr'), null, esc(e.message));
+    }
+  });
+
+  input.click();
+}
+
 /** Cheguei ao local. Avisa o passageiro. */
 async function markArrived(id, button) {
   hideMsgs();
@@ -3821,11 +3971,45 @@ async function verifyCode(id, button) {
     return show($('boardErr'), null, 'The code has four digits.');
   }
 
+  /**
+   * Se há espera a pagar, o cliente aceita AGORA.
+   *
+   * É o momento certo: os dois estão ali, e a viagem só começa
+   * depois de resolvido. Nada fica pendente para o cliente
+   * descobrir no extrato daqui a uma semana.
+   */
+  var caixa = document.querySelector('[data-wait-for="' + id + '"]');
+  var devido = caixa ? Number(caixa.getAttribute('data-owed') || 0) : 0;
+
+  if (devido > 0) {
+    var aceita = confirm(
+      'Waiting time: ' + devido.toFixed(0) + ' EUR\n\n' +
+      'Show this to the passenger. It goes on the card they booked with.\n\n' +
+      'Have they agreed?'
+    );
+
+    if (!aceita) {
+      return show($('boardErr'), null,
+        'Without their agreement you can start the trip anyway, or mark ' +
+        'a no-show if they will not travel.');
+    }
+  }
+
   hideMsgs();
   button.disabled = true;
   button.textContent = 'Checking...';
 
   try {
+    // O aceite fica registado ANTES do código: se a cobrança
+    // falhar, sabemos na mesma que ele concordou.
+    if (devido > 0) {
+      await api('/api/partner/rides/accept-extra', {
+        booking_id: id,
+        amount: devido,
+        minutes: Number(caixa.getAttribute('data-minutes') || 0)
+      });
+    }
+
     await api('/api/partner/rides/verify-code', { booking_id: id, code: codigo });
     loadRides();
     renderRides();
