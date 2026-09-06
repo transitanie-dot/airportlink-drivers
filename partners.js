@@ -189,7 +189,10 @@ export function createPartnerRoutes({
         supabase.from('available_rides').select('*')
           .order('booking_date', { ascending: true }).limit(120),
         supabase.from('bookings')
-          .select('id, booking_id, booking_reference, pickup, dropoff, booking_date, booking_time, passengers, flight_number, notes, driver_payout, currency, status, passenger_name, passenger_phone, full_name, phone, preferred_languages, claimed_at')
+          // As etapas do dia vão junto: sem elas o portal não sabe
+          // que botão mostrar — se o "cheguei", se o código, se o
+          // "acabei".
+          .select('id, booking_id, booking_reference, pickup, dropoff, booking_date, booking_time, passengers, flight_number, notes, driver_payout, currency, status, passenger_name, passenger_phone, full_name, phone, preferred_languages, claimed_at, driver_arrived_at, code_verified_at, trip_started_at, trip_ended_at')
           .eq('assigned_partner_id', user.id)
           .order('booking_date', { ascending: true }),
         supabase.from('driver_partners')
@@ -485,6 +488,142 @@ export function createPartnerRoutes({
       return res.json({ show: false });
     }
   });
+
+  /**
+   * Cheguei ao local.
+   *
+   * Dispara o email ao cliente. É a etapa que mais reduz chamadas:
+   * "onde está o meu motorista?" deixa de fazer sentido quando ele
+   * já avisou.
+   */
+  router.post('/api/partner/rides/arrived', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('driver_arrived', {
+        p_booking_id: booking_id
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      // O email vai daqui, não do Postgres. Sem esperar: o
+      // motorista já fez a parte dele.
+      if (!data?.already) {
+        avisarChegada(booking_id, user.id).catch(() => {});
+      }
+
+      return res.json({ success: true, at: data?.at });
+    } catch (error) {
+      console.error('rides/arrived:', error);
+      return res.status(500).json({ error: 'Could not mark the arrival.' });
+    }
+  });
+
+  /**
+   * O código do passageiro.
+   *
+   * Quatro dígitos que só ele tem. Escrevê-los prova que os dois
+   * estiveram no mesmo sítio à mesma hora — e numa disputa isso
+   * vale mais do que qualquer registo nosso, porque o testemunho é
+   * do cliente.
+   *
+   * Verificar o código e começar a viagem são a mesma coisa: o
+   * motorista só o pede quando o passageiro está ali.
+   */
+  router.post('/api/partner/rides/verify-code', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id, code } = req.body || {};
+
+      if (!booking_id || !code) {
+        return res.status(400).json({ error: 'Send booking_id and the code.' });
+      }
+
+      const { data, error } = await asUser(req).rpc('verify_pickup_code', {
+        p_booking_id: booking_id,
+        p_code: String(code)
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        const mensagens = {
+          wrong_code: data.attempts_left > 0
+            ? `That code is not right. ${data.attempts_left} ` +
+              `attempt${data.attempts_left === 1 ? '' : 's'} left.`
+            : 'That code is not right.',
+          too_many_attempts:
+            'Too many tries. Call support — they will sort it out with you.',
+          not_yours: 'That ride is not yours.',
+          not_found: 'Ride not found.'
+        };
+
+        return res.status(400).json({
+          error: mensagens[data.reason] || 'Could not check the code.',
+          attempts_left: data.attempts_left
+        });
+      }
+
+      return res.json({ success: true, started_at: data?.started_at });
+    } catch (error) {
+      console.error('rides/verify-code:', error);
+      return res.status(500).json({ error: 'Could not check the code.' });
+    }
+  });
+
+  /** A viagem acabou. */
+  router.post('/api/partner/rides/completed', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('trip_completed', {
+        p_booking_id: booking_id
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('rides/completed:', error);
+      return res.status(500).json({ error: 'Could not close the ride.' });
+    }
+  });
+
+  /** Pedir à API principal que avise o cliente. */
+  async function avisarChegada(bookingId, partnerId) {
+    if (!config.apiUrl || !config.cronSecret) return;
+
+    try {
+      await fetch(config.apiUrl + '/api/internal/driver-arrived', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': config.cronSecret
+        },
+        body: JSON.stringify({ booking_id: bookingId, partner_id: partnerId })
+      });
+    } catch (e) {
+      console.error('arrival notice:', e.message);
+    }
+  }
 
   router.get('/api/partner/standing', async (req, res) => {
     try {
