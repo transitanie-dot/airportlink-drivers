@@ -514,6 +514,14 @@ export function createPartnerRoutes({
         return res.status(403).json({ error: 'That ride is not yours.' });
       }
 
+      /**
+       * E o relógio da espera começa.
+       *
+       * Calculado agora e não antes: se o motorista chegou
+       * atrasado, o atraso dele não conta contra o cliente.
+       */
+      await asUser(req).rpc('start_waiting_clock', { p_booking_id: booking_id });
+
       // O email vai daqui, não do Postgres. Sem esperar: o
       // motorista já fez a parte dele.
       if (!data?.already) {
@@ -526,6 +534,140 @@ export function createPartnerRoutes({
       return res.status(500).json({ error: 'Could not mark the arrival.' });
     }
   });
+
+  /**
+   * Quanto se deve de espera, agora.
+   *
+   * O portal pergunta enquanto o motorista espera, para lhe mostrar
+   * o relógio a contar — e outra vez no momento do código, para o
+   * valor a cobrar.
+   */
+  router.get('/api/partner/rides/:id/waiting', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { data } = await asUser(req).rpc('waiting_owed', {
+        p_booking_id: req.params.id
+      });
+
+      return res.json(data || { owed: 0 });
+    } catch (error) {
+      return res.json({ owed: 0 });
+    }
+  });
+
+  /**
+   * O cliente aceitou pagar a espera.
+   *
+   * Registado antes de cobrar. Se a cobrança falhar, o aceite fica
+   * na mesma — e é isso que permite ao apoio resolver depois sem
+   * discussão sobre se ele concordou.
+   */
+  router.post('/api/partner/rides/accept-extra', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id, amount, minutes } = req.body || {};
+
+      if (!booking_id || amount == null) {
+        return res.status(400).json({ error: 'Send booking_id and amount.' });
+      }
+
+      const { data, error } = await asUser(req).rpc('accept_waiting_charge', {
+        p_booking_id: booking_id,
+        p_amount: Number(amount),
+        p_minutes: Number(minutes) || 0
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      /**
+       * A cobrança vai para a API principal, onde vive o Stripe.
+       *
+       * Sem esperar pela resposta: se o cartão falhar, a viagem
+       * começa na mesma. Um cliente deixado no aeroporto por causa
+       * de quinze euros é uma disputa e uma avaliação de uma
+       * estrela.
+       */
+      cobrarExtra(booking_id).catch(() => {});
+
+      return res.json({ success: true, amount: Number(amount) });
+    } catch (error) {
+      console.error('accept-extra:', error);
+      return res.status(500).json({ error: 'Could not register the charge.' });
+    }
+  });
+
+  /**
+   * O cliente não apareceu.
+   *
+   * Exige prova: fotografia do local e confirmação de que tentou
+   * ligar. Isso protege o cliente de um motorista apressado, e
+   * protege-nos numa disputa — uma fotografia com hora vale mais do
+   * que qualquer declaração nossa.
+   */
+  router.post('/api/partner/rides/no-show', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id, photo_path, called, note } = req.body || {};
+
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('mark_no_show', {
+        p_booking_id: booking_id,
+        p_photo: photo_path || null,
+        p_called: called === true,
+        p_note: note || null
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        const mensagens = {
+          photo_required: 'A photo of the pick-up point is needed.',
+          call_required: 'Confirm that you tried calling the passenger.',
+          too_early: 'The free waiting time has not run out yet.',
+          not_yours: 'That ride is not yours.'
+        };
+
+        return res.status(400).json({
+          error: mensagens[data.reason] || 'Could not mark the no-show.',
+          free_until: data.free_until
+        });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('no-show:', error);
+      return res.status(500).json({ error: 'Could not mark the no-show.' });
+    }
+  });
+
+  /** Pedir à API principal que cobre o extra. */
+  async function cobrarExtra(bookingId) {
+    if (!config.apiUrl || !config.cronSecret) return;
+
+    try {
+      await fetch(config.apiUrl + '/api/internal/charge-extra', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': config.cronSecret
+        },
+        body: JSON.stringify({ booking_id: bookingId })
+      });
+    } catch (e) {
+      console.error('extra charge:', e.message);
+    }
+  }
 
   /**
    * O código do passageiro.
