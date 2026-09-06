@@ -675,6 +675,33 @@ html[data-theme="dark"] .offer-clock{color:var(--amber)}
 .st-ignored{margin-top:14px;padding:11px 13px;border-radius:11px;
   background:rgba(217,119,6,.12);font-size:13px;line-height:1.55;
   color:var(--text)}
+
+/* ---------- as etapas do dia ----------
+   Só aparecem quando a viagem está a menos de três horas. Um
+   botão de "cheguei" numa viagem de daqui a duas semanas só se
+   carrega por engano. */
+.ride-steps{display:flex;flex-direction:column;gap:8px;
+  margin-top:14px;padding-top:14px;border-top:1px solid var(--rule)}
+
+.code-box{display:flex;flex-direction:column;gap:7px}
+.code-box label{font-size:12px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em}
+
+.code-row{display:flex;gap:8px;align-items:center}
+
+/* Grande e espaçado: é lido de um telemóvel com o sol a bater e
+   escrito com o polegar. */
+.code-in{width:110px;padding:11px 13px;border-radius:11px;
+  border:1px solid var(--rule);background:var(--card);
+  font-family:var(--mono);font-size:21px;font-weight:600;
+  letter-spacing:.22em;text-align:center;color:var(--text)}
+.code-in:focus{outline:none;border-color:var(--teal);
+  box-shadow:0 0 0 3px rgba(13,148,136,.14)}
+
+@media (max-width:420px){
+  .code-row{flex-direction:column;align-items:stretch}
+  .code-in{width:100%}
+}
 </style>
 </head>
 <body>
@@ -3439,6 +3466,48 @@ function rideCard(r, mine) {
     contact +
     (r.notes ? '<div class="ride-note" style="margin-top:12px">' + esc(r.notes) + '</div>' : '') +
 
+    /**
+     * As etapas do dia.
+     *
+     * Só aparecem quando a viagem é minha e está a menos de três
+     * horas. Antes disso não fazem sentido, e um botão de "cheguei"
+     * numa viagem de daqui a duas semanas só se carrega por
+     * engano.
+     */
+    (mine && hours < 3 && hours > -6 && !r.trip_ended_at
+      ? '<div class="ride-steps">' +
+
+        (!r.driver_arrived_at
+          ? '<button class="btn teal sm" data-arrived="' + esc(r.id) +
+            '" type="button">I have arrived</button>' +
+            '<span class="ride-note">Tells the passenger you are there.</span>'
+          : '') +
+
+        (r.driver_arrived_at && !r.code_verified_at
+          ? '<div class="code-box">' +
+              '<label>Passenger code</label>' +
+              '<div class="code-row">' +
+                '<input type="text" inputmode="numeric" maxlength="4" ' +
+                  'class="code-in" data-code-for="' + esc(r.id) + '" ' +
+                  'placeholder="0000">' +
+                '<button class="btn teal sm" data-verify="' + esc(r.id) +
+                  '" type="button">Start trip</button>' +
+              '</div>' +
+              '<span class="ride-note">Ask the passenger for their four ' +
+              'digits. It confirms the trip happened.</span>' +
+            '</div>'
+          : '') +
+
+        (r.code_verified_at && !r.trip_ended_at
+          ? '<button class="btn line sm" data-completed="' + esc(r.id) +
+            '" type="button">Trip finished</button>' +
+            '<span class="ride-note">Started at ' +
+            esc(String(r.trip_started_at || '').slice(11, 16)) + '.</span>'
+          : '') +
+
+        '</div>'
+      : '') +
+
     '<div class="ride-acts">' +
     (mine
       ? (hours >= 24
@@ -3539,6 +3608,24 @@ function renderBoard() {
   qsa('[data-release]').forEach(function (b) {
     b.addEventListener('click', function () { releaseRide(b.getAttribute('data-release'), b); });
   });
+  qsa('[data-arrived]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      markArrived(b.getAttribute('data-arrived'), b);
+    });
+  });
+
+  qsa('[data-verify]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      verifyCode(b.getAttribute('data-verify'), b);
+    });
+  });
+
+  qsa('[data-completed]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      markCompleted(b.getAttribute('data-completed'), b);
+    });
+  });
+
   qsa('[data-accept]').forEach(function (b) {
     b.addEventListener('click', function () {
       acceptOffer(b.getAttribute('data-accept'), b);
@@ -3699,6 +3786,73 @@ async function loadStanding() {
       '</div>' +
       aviso +
     '</div>';
+}
+
+/** Cheguei ao local. Avisa o passageiro. */
+async function markArrived(id, button) {
+  hideMsgs();
+  button.disabled = true;
+  button.textContent = 'Telling them...';
+
+  try {
+    await api('/api/partner/rides/arrived', { booking_id: id });
+    loadRides();
+    renderRides();
+  } catch (e) {
+    button.disabled = false;
+    button.textContent = 'I have arrived';
+    show($('boardErr'), null, esc(e.message));
+  }
+}
+
+/**
+ * O código do passageiro.
+ *
+ * Quatro dígitos que só ele tem. Escrevê-los é a prova de que a
+ * viagem aconteceu — e numa disputa vale mais do que qualquer
+ * registo nosso, porque o testemunho é do cliente.
+ */
+async function verifyCode(id, button) {
+  var campo = document.querySelector('[data-code-for="' + id + '"]');
+  var codigo = campo ? campo.value.trim() : '';
+
+  if (codigo.length !== 4) {
+    if (campo) campo.focus();
+    return show($('boardErr'), null, 'The code has four digits.');
+  }
+
+  hideMsgs();
+  button.disabled = true;
+  button.textContent = 'Checking...';
+
+  try {
+    await api('/api/partner/rides/verify-code', { booking_id: id, code: codigo });
+    loadRides();
+    renderRides();
+  } catch (e) {
+    button.disabled = false;
+    button.textContent = 'Start trip';
+    if (campo) { campo.value = ''; campo.focus(); }
+    show($('boardErr'), null, esc(e.message));
+  }
+}
+
+/** A viagem acabou. */
+async function markCompleted(id, button) {
+  hideMsgs();
+  button.disabled = true;
+  button.textContent = 'Closing...';
+
+  try {
+    await api('/api/partner/rides/completed', { booking_id: id });
+    loadRides();
+    renderRides();
+    loadStanding();
+  } catch (e) {
+    button.disabled = false;
+    button.textContent = 'Trip finished';
+    show($('boardErr'), null, esc(e.message));
+  }
 }
 
 async function claimRide(id, button) {
