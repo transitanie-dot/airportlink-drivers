@@ -273,7 +273,11 @@ app.use(createPartnerRoutes({
   shared,
   email: emailFns,
   config: {
-    defaultCountry: process.env.DEFAULT_PARTNER_COUNTRY || 'PT'
+    defaultCountry: process.env.DEFAULT_PARTNER_COUNTRY || 'PT',
+    // Para avisar o calendário quando um parceiro aceita uma
+    // viagem. As credenciais do Google vivem na API principal.
+    apiUrl: process.env.MAIN_API_URL || 'https://airportlink.onrender.com',
+    cronSecret: process.env.CRON_SECRET
   }
 }));
 
