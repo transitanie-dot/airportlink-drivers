@@ -1090,6 +1090,60 @@ export function createSupportRoutes({
   });
 
   /**
+   * Procurar um ticket, aberto ou fechado.
+   *
+   * A fila mostra o que está aberto. Um ticket resolvido
+   * desaparecia do painel — e um cliente com três conversas
+   * anteriores não tinha histórico nenhum aos olhos do agente.
+   *
+   * Por texto, por estado, por dia. E o texto procura também
+   * DENTRO das mensagens: um agente lembra-se do que foi dito, não
+   * do número do ticket.
+   */
+  router.get('/api/admin/tickets', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const { data, error } = await supabase.rpc('search_tickets', {
+        p_text: req.query.q || null,
+        p_status: req.query.status || 'all',
+        p_audience: req.query.audience || 'all',
+        p_from: req.query.from || null,
+        p_to: req.query.to || null,
+        p_limit: Math.min(Number(req.query.limit) || 100, 300)
+      });
+
+      if (error) throw error;
+
+      return res.json({ tickets: data || [] });
+    } catch (err) {
+      console.error('tickets:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * O histórico de uma pessoa.
+   *
+   * É o que o agente devia ver ao abrir um chat: se é a primeira
+   * vez ou a quarta. Atender alguém que já ligou três vezes sem o
+   * saber é fazê-lo repetir a história.
+   */
+  router.get('/api/admin/tickets/history', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    if (!req.query.email) return res.json({ tickets: [] });
+
+    const { data } = await supabase.rpc('tickets_for_email', {
+      p_email: req.query.email
+    });
+
+    return res.json({ tickets: data || [] });
+  });
+
+  /**
    * O que há a pagar aos parceiros.
    *
    * Com o IBAN, para se poder transferir sem ir a outro lado. Só
