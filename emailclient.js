@@ -117,6 +117,13 @@ export async function sendRideOffer(partner, booking, offer) {
 }
 
 
+/** A viagem que ele aceitou mudou. */
+export async function sendRideChanged(partner, booking, mudanca) {
+  if (!partner?.email || !booking) return { sent: false, reason: 'missing-data' };
+  return pedirEmail('ride_changed', { partner, booking, mudanca });
+}
+
+
 /** O empurrão a meio do prazo. */
 export async function sendRideOfferReminder(partner, booking, offer) {
   if (!partner?.email || !booking) return { sent: false, reason: 'missing-data' };
