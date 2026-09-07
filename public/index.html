@@ -737,6 +737,24 @@ html[data-theme="dark"] .offer-clock{color:var(--amber)}
   .change-acts{flex-direction:column}
   .change-acts .btn{width:100%}
 }
+
+/* ---------- quanto ganhei ----------
+   Três números lado a lado. O que se deve destaca-se: é o que o
+   parceiro quer ver primeiro. */
+.earn{border:1px solid var(--rule);border-radius:16px;padding:16px 18px;
+  margin-bottom:16px}
+.earn-row{display:flex;gap:26px;flex-wrap:wrap}
+.earn-row span{display:flex;flex-direction:column;gap:2px}
+.earn-row b{font-family:var(--mono);font-size:22px;font-weight:600}
+.earn-row small{font-size:12px;color:var(--muted)}
+.earn-row .due b{color:var(--teal)}
+html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
+.earn-note{margin:14px 0 0;font-size:12.5px;color:var(--muted)}
+
+@media (max-width:480px){
+  .earn-row{gap:18px}
+  .earn-row b{font-size:19px}
+}
 </style>
 </head>
 <body>
@@ -996,6 +1014,12 @@ html[data-theme="dark"] .offer-clock{color:var(--amber)}
              Um número que o parceiro vê muda o comportamento dele;
              escondido, não muda nada. -->
         <div id="standing"></div>
+
+        <!-- Quanto ganhei.
+             O parceiro via viagens e não via dinheiro. Sem esse
+             número não confia — e um parceiro que não confia não
+             aceita viagens. -->
+        <div id="earnings"></div>
 
         <div class="metrics" id="metrics"></div>
 
@@ -1876,6 +1900,7 @@ async function boot() {
   try {
     renderOverview();
   loadStanding();
+  loadEarnings();
   } catch (e) {
     // Visível, não escondido na consola. Um painel vazio sem
     // explicação é o pior resultado possível.
@@ -3988,6 +4013,63 @@ async function markNoShow(id, button) {
   });
 
   input.click();
+}
+
+/**
+ * Quanto ganhei.
+ *
+ * Três números, e são coisas diferentes: o que já foi transferido,
+ * o que está fechado à espera da transferência, e o que este mês
+ * vai somando.
+ *
+ * Somá-los daria um número maior e mentiroso — o do mês ainda não
+ * é dinheiro.
+ */
+async function loadEarnings() {
+  var caixa = $('earnings');
+  if (!caixa) return;
+
+  var d;
+
+  try {
+    d = await api('/api/partner/earnings');
+  } catch (e) {
+    caixa.innerHTML = '';
+    return;
+  }
+
+  if (!d) { caixa.innerHTML = ''; return; }
+
+  var m = d.this_month || {};
+  var eur = function (v) { return Number(v || 0).toFixed(0); };
+
+  caixa.innerHTML =
+    '<div class="earn">' +
+      '<div class="earn-row">' +
+        '<span><b>' + eur(m.done) + ' EUR</b>' +
+          '<small>this month, ' + esc(String(m.rides_done || 0)) + ' rides done</small></span>' +
+
+        (m.upcoming > 0
+          ? '<span><b>' + eur(m.upcoming) + ' EUR</b>' +
+            '<small>' + esc(String(m.rides_upcoming || 0)) + ' still to drive</small></span>'
+          : '') +
+
+        (d.pending > 0
+          ? '<span class="due"><b>' + eur(d.pending) + ' EUR</b>' +
+            '<small>owed to you</small></span>'
+          : '') +
+      '</div>' +
+
+      /**
+       * Quando é pago, dito sem ninguém perguntar.
+       *
+       * É a primeira pergunta de qualquer parceiro novo, e
+       * respondê-la aqui poupa uma conversa por semana.
+       */
+      '<p class="earn-note">We pay between the 8th and the 12th, for the ' +
+      'month before. ' +
+      (d.paid > 0 ? eur(d.paid) + ' EUR paid so far.' : '') + '</p>' +
+    '</div>';
 }
 
 /** Sim, ainda consigo fazer a viagem alterada. */
