@@ -969,7 +969,14 @@ export function createSupportRoutes({
         ? req.query.agent_id
         : admin.id;
 
-      const { data, error } = await supabase.rpc('agent_closed_chats', {
+      /**
+       * As duas tabelas.
+       *
+       * O agent_closed_chats lia só a partner_chat_history — um
+       * agente que fechasse dez conversas de clientes via a lista
+       * vazia.
+       */
+      const { data, error } = await supabase.rpc('my_closed_chats', {
         p_user_id: alvo,
         p_days: Math.min(180, Number(req.query.days) || 30)
       });
@@ -2021,6 +2028,57 @@ export function createSupportRoutes({
    * tudo o resto estava na base sem ninguém o ver — incluindo se ele
    * já tinha entregado o seguro.
    */
+  /**
+   * Aprovar ou rejeitar um parceiro.
+   *
+   * Faltava por inteiro — um supervisor via a candidatura e não
+   * tinha por onde decidir.
+   */
+  router.post('/api/admin/partner/decision', async (req, res) => {
+    const { user: admin, error: supError } = await requireSupervisor(req);
+    if (!admin) return res.status(403).json({ error: supError || 'Supervisors only.' });
+
+    const { partner_id, decision, reason } = req.body || {};
+
+    if (!partner_id || !['approved', 'rejected', 'suspended'].includes(decision)) {
+      return res.status(400).json({ error: 'Send partner_id and a valid decision.' });
+    }
+
+    /**
+     * Uma rejeição sem motivo é uma rejeição que gera uma pergunta.
+     *
+     * O parceiro lê isto, e escrever uma frase agora poupa a
+     * conversa de depois.
+     */
+    if (decision !== 'approved' && !String(reason || '').trim()) {
+      return res.status(400).json({ error: 'Say why. They see this.' });
+    }
+
+    const { data: partner } = await supabase
+      .from('driver_partners')
+      .select('*')
+      .eq('id', partner_id)
+      .maybeSingle();
+
+    if (!partner) return res.status(404).json({ error: 'Partner not found.' });
+
+    const { error } = await supabase.from('driver_partners').update({
+      status: decision,
+      decision_reason: reason ? String(reason).trim() : null,
+      decided_at: new Date().toISOString(),
+      decided_by: admin.id,
+      updated_at: new Date().toISOString()
+    }).eq('id', partner_id);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    // O parceiro sabe. Sem esperar: a decisão já está gravada.
+    notify.decision(partner, decision, reason || null).catch((e) =>
+      console.error('decision email:', e.message));
+
+    return res.json({ success: true });
+  });
+
   router.get('/api/admin/partner/:id/full', async (req, res) => {
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
