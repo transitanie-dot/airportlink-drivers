@@ -230,6 +230,70 @@ if (!process.env.CRON_SECRET) {
   );
 }
 
+/**
+ * Os erros vão para o canal de alarmes.
+ *
+ * Este serviço não tem Telegram — e não deve ter: duas cópias das
+ * credenciais é um sítio a mais onde podem vazar. Manda o alarme
+ * para a API principal, que trata do resto.
+ *
+ * Sem isto, um erro no portal de motoristas ou no call centre só
+ * aparecia na consola do Render, onde ninguém olha.
+ */
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/')) return next();
+
+  const jsonOriginal = res.json.bind(res);
+
+  res.json = (body) => {
+    try {
+      const codigo = res.statusCode;
+
+      /**
+       * 5xx sempre; 400 só onde importa.
+       *
+       * Um 401 é uma sessão expirada e um 404 é um endereço
+       * errado — nenhum dos dois é um problema nosso, e avisá-los
+       * encheria o canal.
+       */
+      const critico = /ride|offer|payout|chat|partner|booking/.test(req.path);
+
+      if (codigo >= 500 || (codigo === 400 && critico)) {
+        avisarOps(`${req.method} ${req.path}`,
+          body?.error || `HTTP ${codigo}`);
+      }
+    } catch (e) {
+      // Um alarme que falha não deve travar a resposta.
+    }
+
+    return jsonOriginal(body);
+  };
+
+  next();
+});
+
+
+/** Mandar um alarme à API principal. */
+function avisarOps(tarefa, erro, detalhe) {
+  const url = process.env.MAIN_API_URL;
+  const segredo = process.env.CRON_SECRET;
+
+  if (!url || !segredo) return;
+
+  fetch(url + '/api/internal/alarm', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-cron-secret': segredo
+    },
+    body: JSON.stringify({ task: tarefa, error: erro, detail: detalhe })
+  }).catch(() => {
+    // Se nem o alarme chega, o registo é o que resta.
+    console.error('[alarm] could not reach main API:', tarefa, erro);
+  });
+}
+
+
 // O ping do cron-job.org aponta aqui para o serviço não adormecer.
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'drivers', time: new Date().toISOString() });
