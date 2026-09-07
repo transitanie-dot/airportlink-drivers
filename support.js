@@ -1403,11 +1403,23 @@ export function createSupportRoutes({
               .maybeSingle()
           : Promise.resolve({ data: null }),
 
+        /**
+         * As reservas dele, pelo email.
+         *
+         * O campo do valor é o price — o amount_paid não existe em
+         * lado nenhum, e somá-lo dava sempre zero. Um agente que
+         * veja "gastou 0" num cliente com três viagens perde a
+         * confiança em tudo o resto do painel.
+         *
+         * Dez e não cinco: a soma tem de contar as reservas todas,
+         * não só as que cabem no ecrã.
+         */
         supabase.from('bookings')
-          .select('booking_reference, booking_date, pickup, dropoff, status, amount_paid')
+          .select('booking_reference, booking_date, pickup, dropoff, status, price, currency')
           .eq('email', chat.email)
+          .neq('status', 'cancelled')
           .order('booking_date', { ascending: false })
-          .limit(5)
+          .limit(20)
       ]);
 
       const ct = contacto.data || {};
@@ -1426,8 +1438,11 @@ export function createSupportRoutes({
           commission: ag && ag.commission,
 
           bookings_total: lista.length,
-          bookings: lista,
-          spent: lista.reduce((t, b) => t + Number(b.amount_paid || 0), 0)
+          // Só as cinco mais recentes vão para o ecrã; a soma conta
+          // todas.
+          bookings: lista.slice(0, 5),
+          spent: lista.reduce((t, b) => t + Number(b.price || 0), 0),
+          currency: lista[0]?.currency || 'EUR'
         }
       });
     } catch (err) {
@@ -1470,12 +1485,34 @@ export function createSupportRoutes({
       sender_name: (presence && presence.display_name) || 'Airportlink',
       sender_avatar: presence && presence.avatar_path,
       message: String(body).trim(),
-      internal,
-      file_path: req.body.attachment_path || null,
-      file_url: req.body.attachment_name || null
+      internal
     }).select().maybeSingle();
 
     if (error) return res.status(500).json({ error: error.message });
+
+    /**
+     * O anexo, se houver, numa linha própria.
+     *
+     * A support_messages não tem colunas de ficheiro. Escrevê-las
+     * ali não dava erro — o Supabase ignora colunas que não
+     * existem — e o anexo desaparecia em silêncio.
+     */
+    let anexo = null;
+
+    if (req.body.attachment_path && data) {
+      const { data: a } = await supabase.from('support_attachments').insert({
+        chat_id,
+        message_id: data.id,
+        file_url: '',
+        file_path: req.body.attachment_path,
+        file_name: req.body.attachment_name || 'file',
+        file_type: req.body.attachment_type || 'application/octet-stream',
+        file_size: req.body.attachment_size || null,
+        sender_type: 'admin'
+      }).select().maybeSingle();
+
+      anexo = a;
+    }
 
     /**
      * A mensagem volta traduzida.
@@ -1493,8 +1530,12 @@ export function createSupportRoutes({
       sender_avatar: data.sender_avatar,
       body: data.message,
       internal: data.internal,
-      file_url: data.file_url,
-      file_path: data.file_path,
+
+      file_path: anexo ? anexo.file_path : null,
+      file_url: anexo ? anexo.file_url : null,
+      file_name: anexo ? anexo.file_name : null,
+      file_type: anexo ? anexo.file_type : null,
+
       created_at: data.created_at
     };
 
@@ -1514,7 +1555,7 @@ export function createSupportRoutes({
 
     const chatId = req.params.chatId;
 
-    const [msgs, chat] = await Promise.all([
+    const [msgs, chat, anexos] = await Promise.all([
       supabase.from('support_messages')
         .select('*')
         .eq('chat_id', chatId)
@@ -1532,7 +1573,22 @@ export function createSupportRoutes({
       supabase.from('support_chats')
         .select('*')
         .eq('id', chatId)
-        .maybeSingle()
+        .maybeSingle(),
+
+      /**
+       * Os anexos vivem noutra tabela.
+       *
+       * A support_messages não tem file_path nem file_url — o site
+       * do cliente grava a mensagem e depois uma linha na
+       * support_attachments a apontar para ela.
+       *
+       * A rota inventava esses campos na mensagem, e por isso
+       * vinham sempre vazios: o anexo existia e o painel nunca o
+       * via.
+       */
+      supabase.from('support_attachments')
+        .select('*')
+        .eq('chat_id', chatId)
     ]);
 
     if (msgs.error) return res.status(500).json({ error: msgs.error.message });
@@ -1544,19 +1600,36 @@ export function createSupportRoutes({
      * sender_type e message. Traduz-se aqui, uma vez, em vez de o
      * painel ter de saber a diferença em vinte sítios.
      */
-    const messages = (msgs.data || []).map((m) => ({
-      id: m.id,
-      chat_id: m.chat_id,
-      sender: m.sender_type,
-      sender_name: m.sender_name,
-      sender_avatar: m.sender_avatar,
-      body: m.message,
-      internal: m.internal,
-      file_url: m.file_url,
-      file_path: m.file_path,
-      created_at: m.created_at,
-      read_at: m.read_at
-    }));
+    // Cada anexo vai colado à mensagem dele.
+    const porMensagem = {};
+
+    (anexos.data || []).forEach((a) => {
+      if (a.message_id) porMensagem[a.message_id] = a;
+    });
+
+    const messages = (msgs.data || []).map((m) => {
+      const anexo = porMensagem[m.id];
+
+      return {
+        id: m.id,
+        chat_id: m.chat_id,
+        sender: m.sender_type,
+        sender_name: m.sender_name,
+        sender_avatar: m.sender_avatar,
+        body: m.message,
+        internal: m.internal,
+
+        // O painel lê estes nomes. Vêm da outra tabela.
+        file_path: anexo ? anexo.file_path : null,
+        file_url: anexo ? anexo.file_url : null,
+        file_name: anexo ? anexo.file_name : null,
+        file_type: anexo ? anexo.file_type : null,
+        file_size: anexo ? anexo.file_size : null,
+
+        created_at: m.created_at,
+        read_at: m.read_at
+      };
+    });
 
     // Ao abrir, o que o cliente escreveu passa a lido.
     await supabase.from('support_chats')
