@@ -192,7 +192,7 @@ export function createPartnerRoutes({
           // As etapas do dia vão junto: sem elas o portal não sabe
           // que botão mostrar — se o "cheguei", se o código, se o
           // "acabei".
-          .select('id, booking_id, booking_reference, pickup, dropoff, booking_date, booking_time, passengers, flight_number, notes, driver_payout, currency, status, passenger_name, passenger_phone, full_name, phone, preferred_languages, claimed_at, driver_arrived_at, code_verified_at, trip_started_at, trip_ended_at')
+          .select('id, booking_id, booking_reference, pickup, dropoff, booking_date, booking_time, passengers, flight_number, notes, driver_payout, currency, status, passenger_name, passenger_phone, full_name, phone, preferred_languages, claimed_at, driver_arrived_at, code_verified_at, trip_started_at, trip_ended_at, change_accept_by')
           .eq('assigned_partner_id', user.id)
           .order('booking_date', { ascending: true }),
         supabase.from('driver_partners')
@@ -752,6 +752,93 @@ export function createPartnerRoutes({
       return res.status(500).json({ error: 'Could not check the code.' });
     }
   });
+
+  /**
+   * Devolver uma viagem que mudou.
+   *
+   * Sem penalização: ele aceitou uma coisa e recebeu outra. Contar
+   * isto contra ele ensinaria os parceiros a não aceitar nada que
+   * pudesse mudar.
+   */
+  router.post('/api/partner/rides/hand-back', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id, reason } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('release_after_change', {
+        p_booking_id: booking_id,
+        p_reason: reason || null
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      // A cascata recomeça, com a viagem já alterada.
+      reatribuir(booking_id).catch(() => {});
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('hand-back:', error);
+      return res.status(500).json({ error: 'Could not hand the ride back.' });
+    }
+  });
+
+  /**
+   * Confirmar que ainda consegue fazer a viagem alterada.
+   *
+   * Duas horas para responder. Não responder tem o mesmo efeito que
+   * devolver — a viagem volta à fila — mas sem contar contra ele:
+   * não confirmar não é recusar.
+   */
+  router.post('/api/partner/rides/confirm-change', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('accept_booking_change', {
+        p_booking_id: booking_id
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('confirm-change:', error);
+      return res.status(500).json({ error: 'Could not confirm.' });
+    }
+  });
+
+  /** Pedir à API principal que reatribua. */
+  async function reatribuir(bookingId) {
+    if (!config.apiUrl || !config.cronSecret) return;
+
+    try {
+      await fetch(config.apiUrl + '/api/internal/reassign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': config.cronSecret
+        },
+        body: JSON.stringify({ booking_id: bookingId })
+      });
+    } catch (e) {
+      // O cron apanha as reservas sem parceiro de qualquer forma.
+      console.error('reassign:', e.message);
+    }
+  }
 
   /** A viagem acabou. */
   router.post('/api/partner/rides/completed', async (req, res) => {
