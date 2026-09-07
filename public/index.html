@@ -720,6 +720,23 @@ html[data-theme="dark"] .offer-clock{color:var(--amber)}
    deve fazer, não a primeira que se vê. */
 .noshow-btn{margin-top:12px;align-self:flex-start;opacity:.75}
 .noshow-btn:hover{opacity:1}
+
+/* ---------- uma alteração por confirmar ----------
+   Duas horas para responder, e não responder perde a viagem. Por
+   isso está no topo do cartão e com cor: em baixo, lia-se depois
+   de o prazo passar. */
+.change-alert{padding:13px 15px;border-radius:12px;margin-bottom:14px;
+  background:rgba(217,119,6,.13);border:1px solid rgba(217,119,6,.3)}
+.change-alert b{display:block;font-size:14.5px;font-weight:600;
+  margin-bottom:4px}
+.change-alert span{display:block;font-size:13px;color:var(--muted);
+  line-height:1.5}
+.change-acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+
+@media (max-width:420px){
+  .change-acts{flex-direction:column}
+  .change-acts .btn{width:100%}
+}
 </style>
 </head>
 <body>
@@ -3492,6 +3509,29 @@ function rideCard(r, mine) {
      * numa viagem de daqui a duas semanas só se carrega por
      * engano.
      */
+    /**
+     * Uma alteração por confirmar vem primeiro.
+     *
+     * Duas horas para responder, e não responder perde a viagem.
+     * Por isso está no topo do cartão e com cor: se ficar em baixo,
+     * lê-se depois de o prazo passar.
+     */
+    (mine && r.change_accept_by && new Date(r.change_accept_by) > new Date()
+      ? '<div class="change-alert">' +
+          '<b>This ride changed</b>' +
+          '<span>Confirm you can still do it, or it goes back to the queue. ' +
+          esc(String(Math.max(1, Math.round(
+            (new Date(r.change_accept_by) - Date.now()) / 60000)))) +
+          ' min left.</span>' +
+          '<div class="change-acts">' +
+            '<button class="btn teal sm" data-confirm-change="' + esc(r.id) +
+              '" type="button">I can still do it</button>' +
+            '<button class="btn line sm" data-hand-back="' + esc(r.id) +
+              '" type="button">Hand it back</button>' +
+          '</div>' +
+        '</div>'
+      : '') +
+
     (mine && hours < 3 && hours > -6 && !r.trip_ended_at
       ? '<div class="ride-steps">' +
 
@@ -3639,6 +3679,18 @@ function renderBoard() {
   qsa('[data-release]').forEach(function (b) {
     b.addEventListener('click', function () { releaseRide(b.getAttribute('data-release'), b); });
   });
+  qsa('[data-confirm-change]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      confirmChange(b.getAttribute('data-confirm-change'), b);
+    });
+  });
+
+  qsa('[data-hand-back]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      handBack(b.getAttribute('data-hand-back'), b);
+    });
+  });
+
   qsa('[data-noshow]').forEach(function (b) {
     b.addEventListener('click', function () {
       markNoShow(b.getAttribute('data-noshow'), b);
@@ -3936,6 +3988,55 @@ async function markNoShow(id, button) {
   });
 
   input.click();
+}
+
+/** Sim, ainda consigo fazer a viagem alterada. */
+async function confirmChange(id, button) {
+  hideMsgs();
+  button.disabled = true;
+  button.textContent = 'Confirming...';
+
+  try {
+    await api('/api/partner/rides/confirm-change', { booking_id: id });
+    loadRides();
+    renderRides();
+  } catch (e) {
+    button.disabled = false;
+    button.textContent = 'I can still do it';
+    show($('boardErr'), null, esc(e.message));
+  }
+}
+
+/**
+ * Devolver uma viagem que mudou.
+ *
+ * Não penaliza: ele aceitou uma coisa e recebeu outra.
+ */
+async function handBack(id, button) {
+  var motivo = prompt(
+    'Handing this back costs you nothing.\n\n' +
+    'Why does it no longer work? (optional)'
+  );
+
+  if (motivo === null) return;
+
+  hideMsgs();
+  button.disabled = true;
+  button.textContent = 'Handing back...';
+
+  try {
+    await api('/api/partner/rides/hand-back', {
+      booking_id: id,
+      reason: motivo.trim() || null
+    });
+
+    loadRides();
+    renderRides();
+  } catch (e) {
+    button.disabled = false;
+    button.textContent = 'Hand it back';
+    show($('boardErr'), null, esc(e.message));
+  }
 }
 
 /** Cheguei ao local. Avisa o passageiro. */
