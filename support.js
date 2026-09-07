@@ -1520,9 +1520,18 @@ export function createSupportRoutes({
         .eq('chat_id', chatId)
         .order('created_at')
         .limit(400),
-      supabase.from('support_chat_queue')
+      /**
+       * Da TABELA, não da fila.
+       *
+       * A support_chat_queue só tem os abertos — é uma fila, não um
+       * arquivo. Um chat resolvido devolvia null, e o painel dizia
+       * "conversa não encontrada" a algo que existe e está ali.
+       *
+       * A tabela tem tudo, aberto ou fechado.
+       */
+      supabase.from('support_chats')
         .select('*')
-        .eq('chat_id', chatId)
+        .eq('id', chatId)
         .maybeSingle()
     ]);
 
@@ -1554,7 +1563,17 @@ export function createSupportRoutes({
       .update({ unread_for_admin: 0 })
       .eq('id', chatId);
 
-    return res.json({ messages, chat: chat.data || null });
+    /**
+     * O painel espera chat_id, a tabela chama-lhe id.
+     *
+     * A fila renomeava a coluna e o painel aprendeu esse nome.
+     * Traduz-se aqui, uma vez, em vez de mudar vinte sítios.
+     */
+    const conversa = chat.data
+      ? { ...chat.data, chat_id: chat.data.id }
+      : null;
+
+    return res.json({ messages, chat: conversa });
   });
 
   /**
