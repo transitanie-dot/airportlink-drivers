@@ -918,7 +918,15 @@ export function createSupportRoutes({
     const { chat_id, note, to } = req.body || {};
     if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
 
-    const { data, error } = await asUser(req).rpc('escalate_chat', {
+    /**
+     * A que trata das duas tabelas.
+     *
+     * A escalate_chat só conhecia a partner_chats — uma conversa de
+     * cliente devolvia "no longer exists", que é o pior tipo de
+     * mensagem: diz ao agente que a conversa desapareceu quando ela
+     * está ali aberta no ecrã.
+     */
+    const { data, error } = await asUser(req).rpc('escalate_any_chat', {
       p_chat_id: chat_id,
       p_note: note || '',
       p_to: to || null
@@ -1415,12 +1423,18 @@ export function createSupportRoutes({
          * não só as que cabem no ecrã.
          */
         supabase.from('bookings')
-          .select('booking_reference, booking_date, pickup, dropoff, status, price, currency')
+          // O id vai junto: sem ele o painel não consegue abrir a
+          // reserva a partir daqui.
+          .select('id, booking_reference, booking_date, pickup, dropoff, status, price, currency')
           .eq('email', chat.email)
           .neq('status', 'cancelled')
           .order('booking_date', { ascending: false })
           .limit(20)
       ]);
+
+      // As conversas anteriores desta pessoa.
+      const anteriores = await supabase
+        .rpc('tickets_for_email', { p_email: chat.email });
 
       const ct = contacto.data || {};
       const ag = agencia.data;
@@ -1436,6 +1450,13 @@ export function createSupportRoutes({
 
           agency_status: ag && ag.status,
           commission: ag && ag.commission,
+
+          // As conversas anteriores. É o que diz ao agente se é a
+          // primeira vez ou a quarta — e atender alguém que já
+          // ligou três vezes sem o saber é fazê-lo repetir tudo.
+          past_chats: (anteriores.data || [])
+            .filter((t) => t.chat_id !== req.params.chatId)
+            .slice(0, 5),
 
           bookings_total: lista.length,
           // Só as cinco mais recentes vão para o ecrã; a soma conta
@@ -1855,9 +1876,17 @@ export function createSupportRoutes({
     if (!admin) return res.status(403).json({ error: supError || 'Supervisors only.' });
 
     try {
+      /**
+       * As escaladas das duas tabelas.
+       *
+       * A escalation_queue só tinha as de parceiros. Um supervisor
+       * não via as de clientes — e essas são as que têm um cliente
+       * do outro lado a perguntar quando é que alguém responde.
+       */
       const { data, error } = await supabase
-        .from('escalation_queue')
+        .from('escalated_chats')
         .select('*')
+        .order('escalated_at', { ascending: true })
         .limit(100);
 
       if (error) throw error;
@@ -2093,8 +2122,35 @@ export function createSupportRoutes({
       patch.status = status;
     }
 
-    const { error } = await supabase.from('partner_chats').update(patch).eq('id', chat_id);
+    /**
+     * A conversa pode estar em qualquer das duas tabelas.
+     *
+     * Escrevia só na partner_chats. Numa conversa de cliente o
+     * update não encontrava nada — e o Supabase não considera isso
+     * um erro: zero linhas alteradas devolve sucesso.
+     *
+     * Por isso o botão de urgente não fazia "rigorosamente nada" e
+     * não dizia porquê.
+     */
+    let { error, count } = await supabase
+      .from('partner_chats')
+      .update(patch, { count: 'exact' })
+      .eq('id', chat_id);
+
     if (error) return res.status(500).json({ error: error.message });
+
+    if (!count) {
+      ({ error, count } = await supabase
+        .from('support_chats')
+        .update(patch, { count: 'exact' })
+        .eq('id', chat_id));
+
+      if (error) return res.status(500).json({ error: error.message });
+    }
+
+    if (!count) {
+      return res.status(404).json({ error: 'That conversation no longer exists.' });
+    }
 
     return res.json({ success: true });
   });
