@@ -1098,6 +1098,112 @@ export function createSupportRoutes({
   });
 
   /**
+   * A fila. Uma só.
+   *
+   * Havia três rotas — uma por público — e a maior parte dos bugs
+   * desta sessão veio daí: uma coisa que estava numa e não na
+   * outra.
+   *
+   * O público passa a ser uma etiqueta na linha, não uma
+   * estrutura. A ordem é o tempo de espera, e mais nada.
+   */
+  router.get('/api/admin/queue', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const [fila, contagens, cap, vistas] = await Promise.all([
+        supabase.from('unified_queue')
+          .select('*')
+          // Quem espera há mais tempo primeiro. O urgente tem
+          // botão próprio; a fila não o usa para ordenar, senão
+          // marcar urgente passaria a ser a forma de furar.
+          .order('waiting_since', { ascending: true, nullsFirst: false })
+          .limit(200),
+
+        asUser(req).rpc('queue_counts'),
+        supabase.rpc('support_capacity'),
+
+        // Quem está a ver o quê, para o painel mostrar os colegas.
+        supabase.from('chat_presence').select('*')
+      ]);
+
+      if (fila.error) throw fila.error;
+
+      const porChat = {};
+      (vistas.data || []).forEach((v) => { porChat[v.chat_id] = v; });
+
+      const chats = (fila.data || []).map((c) => ({
+        ...c,
+        watchers: porChat[c.chat_id]?.watchers || [],
+        mine: c.assigned_to === admin.id
+      }));
+
+      return res.json({
+        chats,
+        counts: contagens.data || {},
+        capacity: cap.data || {}
+      });
+    } catch (err) {
+      console.error('queue:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /** Pegar ou entrar numa conversa, venha de onde vier. */
+  router.post('/api/admin/queue/claim', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const { data, error } = await asUser(req).rpc('claim_any_chat', {
+      p_chat_id: chat_id
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (data && data.ok === false) {
+      const mensagens = {
+        already_taken: 'Somebody else got there first.',
+        at_capacity: 'You already have three conversations open.',
+        not_found: 'That conversation no longer exists.'
+      };
+
+      return res.status(409).json({
+        error: mensagens[data.reason] || 'Could not take it.',
+        reason: data.reason
+      });
+    }
+
+    return res.json({ success: true, ...(data || {}) });
+  });
+
+  /** Fechar, venha de onde vier. */
+  router.post('/api/admin/queue/close', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id, reason, note } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    const { data, error } = await asUser(req).rpc('close_any_chat', {
+      p_chat_id: chat_id,
+      p_reason: reason || 'resolved',
+      p_note: note || null
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (data && data.ok === false) {
+      return res.status(403).json({ error: 'That conversation is not yours.' });
+    }
+
+    return res.json({ success: true, ...(data || {}) });
+  });
+
+  /**
    * Procurar um ticket, aberto ou fechado.
    *
    * A fila mostra o que está aberto. Um ticket resolvido
