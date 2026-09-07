@@ -515,15 +515,26 @@ export function createPartnerRoutes({
       }
 
       /**
-       * E o relógio da espera começa.
+       * A ORDEM importa aqui.
        *
-       * Calculado agora e não antes: se o motorista chegou
-       * atrasado, o atraso dele não conta contra o cliente.
+       * O aviso à API principal faz duas coisas: manda o email ao
+       * cliente e vai buscar a hora real de aterragem do voo.
+       *
+       * O relógio da espera lê essa hora. Se arrancasse primeiro,
+       * usaria a hora marcada — e um voo com duas horas de atraso
+       * queimava a hora grátis antes de o cliente aterrar.
+       *
+       * Por isso espera-se pelo aviso antes de arrancar o relógio.
        */
-      await asUser(req).rpc('start_waiting_clock', { p_booking_id: booking_id });
-
-      // O email vai daqui, não do Postgres. Sem esperar: o
-      // motorista já fez a parte dele.
+      /**
+       * O "cheguei" faz UMA coisa: avisar o cliente.
+       *
+       * Fazia duas — mandava o email e disparava a consulta do voo.
+       * Isso criava uma dependência que não devia existir: quem não
+       * carregasse no botão ficava sem a hora certa.
+       *
+       * A consulta vive agora onde é precisa, no cálculo da espera.
+       */
       if (!data?.already) {
         avisarChegada(booking_id, user.id).catch(() => {});
       }
@@ -546,6 +557,21 @@ export function createPartnerRoutes({
     try {
       const user = await getUserFromRequest(req);
       if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      /**
+       * A aterragem, antes de contar.
+       *
+       * Estava presa ao botão de "cheguei", e um motorista que
+       * fosse direto ao código nunca a disparava — o cliente de um
+       * voo atrasado pagava espera que não devia.
+       *
+       * Aqui é onde faz falta, por isso é aqui que se pergunta. Se
+       * já soubermos, a rota devolve de imediato sem gastar quota.
+       */
+      await saberAterragem(req.params.id);
+
+      // E o relógio, se ainda não arrancou.
+      await asUser(req).rpc('start_waiting_clock', { p_booking_id: req.params.id });
 
       const { data } = await asUser(req).rpc('waiting_owed', {
         p_booking_id: req.params.id
@@ -691,6 +717,10 @@ export function createPartnerRoutes({
         return res.status(400).json({ error: 'Send booking_id and the code.' });
       }
 
+      // A última oportunidade de acertar a hora do voo: se o
+      // motorista foi direto ao código, é aqui que se descobre.
+      await saberAterragem(booking_id);
+
       const { data, error } = await asUser(req).rpc('verify_pickup_code', {
         p_booking_id: booking_id,
         p_code: String(code)
@@ -748,6 +778,31 @@ export function createPartnerRoutes({
       return res.status(500).json({ error: 'Could not close the ride.' });
     }
   });
+
+  /**
+   * A hora de aterragem, se ainda não a soubermos.
+   *
+   * A API principal tem a chave da AeroDataBox. Devolve de imediato
+   * quando já sabe — não gasta quota por repetir.
+   */
+  async function saberAterragem(bookingId) {
+    if (!config.apiUrl || !config.cronSecret) return;
+
+    try {
+      await fetch(config.apiUrl + '/api/internal/flight-landing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': config.cronSecret
+        },
+        body: JSON.stringify({ booking_id: bookingId })
+      });
+    } catch (e) {
+      // Sem a hora do voo, o relógio usa a hora marcada. Não é o
+      // ideal, mas não trava nada.
+      console.error('flight landing:', e.message);
+    }
+  }
 
   /** Pedir à API principal que avise o cliente. */
   async function avisarChegada(bookingId, partnerId) {
