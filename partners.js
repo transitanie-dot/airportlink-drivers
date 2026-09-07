@@ -1,4267 +1,1689 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>Airportlink — Partner Portal</title>
-<link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32">
-<link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="theme-color" content="#0E1C2B">
-<script>
-  (function () {
-    try {
-      var t = localStorage.getItem('airportlink-theme');
-      if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
-    } catch (e) {}
-  })();
-</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-:root{
-  --ink:#141A28;--slate:#333B50;--sage:#E8EBE7;--paper:#FBFBF8;
-  --amber:#E8A33D;--amber-ink:#8A5A12;--teal:#0F766E;--teal-soft:rgba(15,118,110,.10);
-  --bg:var(--sage);--surface:var(--paper);--surface-2:#F3F4F0;
-  --text:#141A28;--muted:#606A7B;
-  --rule:rgba(20,26,40,.12);--rule-strong:rgba(20,26,40,.22);--field:#fff;
-  --ok-bg:#ECFDF5;--ok-text:#065F46;--ok-rule:#A7F3D0;
-  --warn-bg:#FDF6E7;--warn-text:#8A5A12;--warn-rule:#F0D9A8;
-  --err-bg:#FFF1F2;--err-text:#B42318;--err-rule:#FDA29B;
-  --display:'Bricolage Grotesque','Inter',system-ui,sans-serif;
-  --body:'Inter',system-ui,sans-serif;
-  --mono:'IBM Plex Mono',ui-monospace,monospace;
-  --nav-w:248px;
-}
-html[data-theme="dark"]{
-  --bg:#0E1219;--surface:#161C27;--surface-2:#1C2431;--text:#E9EDF3;--muted:#98A2B3;
-  --rule:rgba(255,255,255,.12);--rule-strong:rgba(255,255,255,.22);--field:#0F141D;
-  --amber-ink:#F0B95C;--teal-soft:rgba(79,179,159,.14);
-  --ok-bg:#052E22;--ok-text:#6EE7B7;--ok-rule:#14532D;
-  --warn-bg:#2A1F0F;--warn-text:#F0B95C;--warn-rule:#6B4F1D;
-  --err-bg:#2B1114;--err-text:#FDA4AF;--err-rule:#7F1D1D;
-}
-html{color-scheme:light}
-html[data-theme="dark"]{color-scheme:dark}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
-  font-family:var(--body);-webkit-font-smoothing:antialiased;min-height:100%}
-button,input,select,textarea{font:inherit;color:inherit}
-.hidden{display:none!important}
-.tag{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
-.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
-a{color:var(--teal)}
-html[data-theme="dark"] a{color:var(--amber)}
-
-.boot-wait{position:fixed;inset:0;z-index:300;background:var(--bg);
-  display:flex;align-items:center;justify-content:center}
-.boot-wait.hidden{display:none!important}
-.boot-mark{font-family:var(--display);font-weight:800;font-size:20px;
-  letter-spacing:-.02em;color:var(--text);opacity:.35;
-  animation:bootFade 1.2s ease-in-out infinite}
-.boot-mark span{color:var(--amber)}
-@keyframes bootFade{0%,100%{opacity:.35}50%{opacity:.7}}
-@media (prefers-reduced-motion:reduce){.boot-mark{animation:none}}
-
-@keyframes riseIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-@keyframes slideL{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:none}}
-.rise{animation:riseIn .5s cubic-bezier(.22,.68,.35,1) both}
-.slide{animation:slideL .38s cubic-bezier(.22,.68,.35,1) both}
-@media (prefers-reduced-motion:reduce){.rise,.slide{animation:none}}
-
-/* ============================================================
-   ELEMENTOS BASE
-   ============================================================ */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;height:48px;padding:0 24px;
-  border:0;border-radius:14px;background:var(--ink);color:#fff;font-family:var(--mono);font-size:12px;
-  font-weight:600;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;
-  transition:transform .12s ease,opacity .12s ease;white-space:nowrap}
-.btn:hover:not(:disabled){transform:translateY(-1px)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn.amber{background:var(--amber);color:#141A28}
-.btn.teal{background:var(--teal);color:#fff}
-.btn.line{background:transparent;color:var(--text);border:1px solid var(--rule-strong)}
-.btn.danger{background:transparent;color:var(--err-text);border:1px solid var(--err-rule)}
-.btn.sm{height:40px;padding:0 16px;font-size:11px}
-.btn.block{width:100%}
-html[data-theme="dark"] .btn{background:#E9EDF3;color:#141A28}
-html[data-theme="dark"] .btn.amber{background:var(--amber)}
-html[data-theme="dark"] .btn.teal{background:var(--teal);color:#fff}
-html[data-theme="dark"] .btn.line{background:transparent;color:var(--text)}
-.linkish{background:none;border:0;padding:0;color:var(--teal);font-size:13.5px;font-weight:600;
-  cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-html[data-theme="dark"] .linkish{color:var(--amber)}
-
-.field{display:block;margin-bottom:16px}
-.field label{display:block;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-/* Estava a chamar-se .opt, igual aos cartões de escolha do
-   questionário — e herdava deles o contorno e os 16px de espaço
-   interior. Daí o aspeto colado ao campo. */
-.field label{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-.opt-tag{font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.08em;
-  text-transform:lowercase;color:var(--muted);opacity:.75;flex:0 0 auto}
-.field input,.field select,.field textarea{width:100%;height:50px;padding:0 15px;
-  border:1px solid var(--rule-strong);border-radius:14px;background:var(--field);outline:none;font-size:15px}
-.field textarea{height:auto;min-height:92px;padding:13px 15px;resize:vertical;line-height:1.55;font-family:var(--body)}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(15,118,110,.16)}
-.field input[disabled]{opacity:.6}
-.field .help{margin-top:7px;font-size:12.5px;color:var(--muted);line-height:1.5}
-.field.bad input,.field.bad select{border-color:var(--err-rule);box-shadow:0 0 0 3px rgba(180,35,24,.12)}
-.field .err{display:none;margin-top:7px;font-size:12.5px;color:var(--err-text)}
-.field.bad .err{display:block}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 16px}
-.full{grid-column:1/-1}
-
-.msg{display:none;margin-top:16px;padding:13px 16px;border-radius:14px;font-size:14px;line-height:1.55}
-.msg.err{background:var(--err-bg);color:var(--err-text);border:1px solid var(--err-rule)}
-.msg.ok{background:var(--ok-bg);color:var(--ok-text);border:1px solid var(--ok-rule)}
-.msg ul{margin:8px 0 0;padding-left:18px}
-.pill{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;
-  text-transform:uppercase;padding:5px 10px;border-radius:999px;background:var(--surface-2);
-  color:var(--muted);border:1px solid var(--rule)}
-.pill.ok{background:var(--ok-bg);color:var(--ok-text);border-color:var(--ok-rule)}
-.pill.warn{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn-rule)}
-.pill.bad{background:var(--err-bg);color:var(--err-text);border-color:var(--err-rule)}
-.empty{padding:34px;text-align:center;color:var(--muted);font-size:14px;
-  border:1px dashed var(--rule-strong);border-radius:18px}
-
-/* ============================================================
-   CAIXAS DE DIÁLOGO
-
-   O prompt(), o confirm() e o alert() do browser são bloqueados
-   dentro de um iframe com sandbox, e nalguns browsers móveis. O
-   pior é que não falham com erro: devolvem null em silêncio, como
-   se a pessoa tivesse carregado em cancelar.
-   ============================================================ */
-.ask-back{position:fixed;inset:0;z-index:200;background:rgba(10,14,22,.55);
-  display:flex;align-items:center;justify-content:center;padding:20px}
-.ask-back[hidden]{display:none!important}
-.ask{background:var(--surface);border-radius:20px;padding:26px;max-width:430px;width:100%;
-  box-shadow:0 24px 60px -12px rgba(0,0,0,.4)}
-.ask h3{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:-.02em;margin:0 0 10px}
-.ask p{margin:0 0 20px;font-size:14px;line-height:1.65;color:var(--muted);white-space:pre-line}
-.ask-btns{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
-
-/* ============================================================
-   ECRÃ DE ENTRADA
-   ============================================================ */
-.gate{min-height:100vh;display:grid;grid-template-columns:1.05fr .95fr}
-.gate-art{background:var(--ink);color:#EEF1F6;padding:48px;display:flex;flex-direction:column;
-  justify-content:space-between;position:relative;overflow:hidden}
-.gate-art::after{content:"";position:absolute;inset:0;pointer-events:none;background:
-  radial-gradient(620px 320px at 82% 12%, rgba(232,163,61,.18), transparent 64%),
-  radial-gradient(520px 320px at 6% 92%, rgba(15,118,110,.22), transparent 62%)}
-.gate-art > *{position:relative;z-index:1}
-.brand{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.02em}
-.brand span{color:var(--amber)}
-.gate-art h1{font-family:var(--display);font-weight:800;letter-spacing:-.04em;line-height:1.04;
-  font-size:clamp(28px,3.2vw,40px);margin:0 0 16px;max-width:15ch}
-.gate-art p{margin:0;color:#B9C2D2;font-size:15.5px;line-height:1.65;max-width:40ch}
-.gate-stats{display:flex;gap:26px;flex-wrap:wrap;margin-top:30px}
-.gate-stat .v{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--amber);letter-spacing:-.02em}
-.gate-stat .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8C97A8;margin-top:5px}
-.gate-form{padding:48px;display:flex;align-items:center;justify-content:center;overflow-y:auto}
-.gate-inner{width:100%;max-width:440px}
-.gate-inner h2{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:-.03em;margin:0 0 8px}
-.gate-inner .sub{margin:0 0 26px;color:var(--muted);font-size:14.5px;line-height:1.6}
-
-/* ============================================================
-   QUESTIONÁRIO
-   ============================================================ */
-.wiz{width:100%;max-width:620px}
-.wiz-top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}
-.wiz-step{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.wiz-bar{height:4px;border-radius:999px;background:var(--rule);overflow:hidden;margin-bottom:30px}
-.wiz-fill{height:100%;background:var(--teal);border-radius:999px;width:25%;
-  transition:width .4s cubic-bezier(.22,.68,.35,1)}
-html[data-theme="dark"] .wiz-fill{background:var(--amber)}
-.wiz h2{font-family:var(--display);font-weight:700;font-size:27px;letter-spacing:-.03em;margin:0 0 8px;line-height:1.12}
-.wiz .sub{margin:0 0 26px;color:var(--muted);font-size:14.5px;line-height:1.65}
-.wiz-page{display:none}
-.wiz-page.on{display:block}
-.wiz-nav{display:flex;gap:12px;margin-top:26px}
-.wiz-nav .btn{flex:1}
-
-.choice{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
-.opt{border:1px solid var(--rule-strong);border-radius:16px;padding:16px;cursor:pointer;
-  background:var(--field);text-align:left;transition:border-color .15s ease}
-.opt:hover{border-color:var(--teal)}
-.opt.on{border-color:var(--teal);background:var(--teal-soft)}
-.opt strong{display:block;font-family:var(--display);font-weight:700;font-size:15px;margin-bottom:4px}
-.opt span{color:var(--muted);font-size:12.5px;line-height:1.5}
-
-.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.ap-results{position:relative;margin-top:8px}
-.ap-hit{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--rule);
-  border-radius:12px;margin-bottom:6px;cursor:pointer;background:var(--field)}
-.ap-hit:hover{border-color:var(--teal);background:var(--teal-soft)}
-.ap-code{font-family:var(--mono);font-size:13px;font-weight:600;background:var(--ink);color:#fff;
-  border-radius:7px;padding:5px 8px;letter-spacing:.04em;flex:0 0 auto}
-html[data-theme="dark"] .ap-code{background:var(--amber);color:#141A28}
-.ap-name{font-size:14px;font-weight:600;line-height:1.35}
-.ap-where{font-size:12px;color:var(--muted)}
-.tagchip .code{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--teal)}
-html[data-theme="dark"] .tagchip .code{color:var(--amber)}
-.tagchip{display:inline-flex;align-items:center;gap:8px;background:var(--teal-soft);border:1px solid var(--teal);
-  border-radius:999px;padding:7px 12px;font-size:13px}
-.tagchip button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0}
-.tagchip button:hover{color:var(--err-text)}
-
-.pw-meter{height:4px;border-radius:999px;background:var(--rule);overflow:hidden;margin-top:9px}
-.pw-fill{height:100%;width:0;border-radius:999px;transition:width .3s ease,background .3s ease}
-
-@media (max-width:900px){
-  .gate{grid-template-columns:1fr;min-height:0}
-  .gate-art{padding:32px 22px;min-height:auto}
-  .gate-art h1{font-size:26px}
-  .gate-form{padding:28px 22px}
-  .grid2,.grid3,.choice{grid-template-columns:1fr}
-}
-
-/* ============================================================
-   PAINEL
-   ============================================================ */
-.app{display:none;min-height:100vh}
-.app.on{display:grid;grid-template-columns:var(--nav-w) 1fr}
-
-.nav{background:var(--ink);color:#C7D0DE;padding:22px 16px;display:flex;flex-direction:column;
-  gap:4px;position:sticky;top:0;height:100vh;overflow-y:auto}
-.nav .brand{color:#fff;padding:0 10px 22px;font-size:19px}
-.nav-group{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
-  color:#6C7889;padding:18px 10px 8px}
-.nav-item{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:12px;border:0;
-  background:transparent;color:#C7D0DE;cursor:pointer;font-size:14px;font-weight:500;text-align:left;width:100%}
-.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
-.nav-item.on{background:rgba(255,255,255,.12);color:#fff;font-weight:600}
-.nav-item svg{width:17px;height:17px;flex:0 0 auto;opacity:.85}
-.nav-item .badge{margin-left:auto;font-family:var(--mono);font-size:10px;font-weight:600;
-  background:var(--amber);color:#141A28;border-radius:999px;padding:2px 7px;min-width:20px;text-align:center}
-.nav-item .badge.alert{background:#F87171;color:#fff}
-.nav-foot{margin-top:auto;padding-top:20px;border-top:1px solid rgba(255,255,255,.1)}
-
-.main{min-width:0;display:flex;flex-direction:column}
-.topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px 30px;
-  border-bottom:1px solid var(--rule);background:var(--surface);position:sticky;top:0;z-index:20;flex-wrap:wrap}
-.topbar .who{display:flex;align-items:center;gap:12px;min-width:0}
-.avatar{width:38px;height:38px;border-radius:12px;background:var(--teal);color:#fff;display:flex;
-  align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:15px;flex:0 0 auto}
-.topbar .co{font-family:var(--display);font-weight:700;font-size:15.5px;letter-spacing:-.01em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.topbar .sub{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
-.topbar .acts{display:flex;gap:10px;align-items:center}
-.icon-btn{width:38px;height:38px;border-radius:12px;border:1px solid var(--rule-strong);
-  background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.icon-btn svg{width:17px;height:17px}
-.mob-nav{display:none}
-
-.content{padding:30px;max-width:1160px;width:100%}
-.page{display:none}
-.page.on{display:block}
-.page-head{margin-bottom:24px}
-.page-head h1{font-family:var(--display);font-weight:700;font-size:28px;letter-spacing:-.03em;margin:0 0 7px}
-.page-head p{margin:0;color:var(--muted);font-size:14.5px;line-height:1.6;max-width:62ch}
-
-.card{background:var(--surface);border:1px solid var(--rule);border-radius:22px;padding:24px;margin-bottom:20px}
-
-/* ---------- chat ----------
-   Fora do fluxo da página: acompanha o parceiro em qualquer
-   separador do portal. */
-.chat-fab{position:fixed;right:24px;bottom:24px;width:58px;height:58px;border-radius:999px;
-  border:0;background:var(--teal);color:#fff;cursor:pointer;z-index:80;
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 14px 34px rgba(15,118,110,.42),0 2px 6px rgba(0,0,0,.12);
-  transition:transform .22s cubic-bezier(.34,1.4,.5,1),box-shadow .22s ease}
-.chat-fab:hover{transform:translateY(-3px) scale(1.03);
-  box-shadow:0 18px 40px rgba(15,118,110,.5),0 2px 8px rgba(0,0,0,.16)}
-.chat-fab:active{transform:translateY(-1px) scale(.98)}
-html[data-theme="dark"] .chat-fab{background:var(--amber);color:#141A28;
-  box-shadow:0 14px 34px rgba(232,163,61,.36),0 2px 6px rgba(0,0,0,.3)}
-.chat-fab svg{width:25px;height:25px}
-.chat-badge{position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;
-  border-radius:999px;background:#C0392B;color:#fff;font-family:var(--mono);
-  font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;
-  padding:0 6px;border:2.5px solid var(--bg);
-  animation:badgePop .4s cubic-bezier(.34,1.6,.5,1)}
-@keyframes badgePop{from{transform:scale(0)}to{transform:scale(1)}}
-
-.chat-panel{position:fixed;right:24px;bottom:24px;width:min(392px,calc(100vw - 32px));
-  height:min(600px,calc(100vh - 48px));background:var(--surface);
-  border:1px solid var(--rule);border-radius:26px;z-index:81;
-  display:flex;flex-direction:column;overflow:hidden;
-  box-shadow:0 32px 70px rgba(20,26,40,.26),0 4px 12px rgba(20,26,40,.08);
-  transform-origin:bottom right;
-  animation:panelIn .3s cubic-bezier(.22,1.2,.36,1)}
-@keyframes panelIn{from{opacity:0;transform:translateY(14px) scale(.96)}
-  to{opacity:1;transform:none}}
-html[data-theme="dark"] .chat-panel{box-shadow:0 32px 70px rgba(0,0,0,.66)}
-
-/* ---------- cabeçalho ---------- */
-.chat-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:15px 16px;background:var(--ink);color:#EEF1F6;flex:0 0 auto;
-  border-bottom:1px solid rgba(255,255,255,.07)}
-.chat-who{display:flex;align-items:center;gap:12px;min-width:0}
-.chat-av{width:38px;height:38px;border-radius:999px;flex:0 0 auto;position:relative;
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(255,255,255,.1);color:#EEF1F6;
-  font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:-.02em}
-.chat-av svg{width:19px;height:19px}
-.chat-av.human{background:var(--teal);color:#fff}
-html[data-theme="dark"] .chat-av.human{background:var(--amber);color:#141A28}
-.chat-av.human::after{content:"";position:absolute;right:-1px;bottom:-1px;
-  width:11px;height:11px;border-radius:999px;background:#34D399;
-  border:2.5px solid var(--ink)}
-.chat-id{min-width:0}
-.chat-id strong{display:block;font-family:var(--display);font-weight:700;font-size:14.5px;
-  letter-spacing:-.015em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chat-id span{display:block;font-size:11.5px;color:#8C97A8;margin-top:2px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chat-id span.live{color:#6EE7B7}
-.chat-id span.wait{color:#F0C77A}
-.chat-head-acts{display:flex;gap:2px;flex:0 0 auto}
-.chat-x{background:transparent;border:0;color:#8C97A8;cursor:pointer;padding:6px;
-  border-radius:9px;flex:0 0 auto;transition:background .15s ease,color .15s ease}
-.chat-x:hover{background:rgba(255,255,255,.09);color:#EEF1F6}
-.chat-x svg{width:18px;height:18px;display:block}
-
-/* ---------- conversas anteriores ----------
-
-   O parceiro tinha uma conversa eterna: faturação de março e uma
-   viagem de setembro no mesmo fio interminável. Agora cada assunto
-   é uma conversa própria, com o seu número, e as antigas ficam
-   aqui em vez de continuarem abertas para sempre. */
-.chat-list{position:absolute;inset:0;background:var(--surface);z-index:4;
-  display:flex;flex-direction:column;border-radius:inherit}
-.chat-list[hidden]{display:none!important}
-.cl-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:15px 16px;background:var(--ink);color:#EEF1F6;flex:0 0 auto}
-.cl-head strong{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:-.015em}
-.cl-body{flex:1;overflow-y:auto;padding:10px}
-.cl-item{display:block;width:100%;text-align:left;padding:14px;border:0;border-radius:14px;
-  background:transparent;cursor:pointer;font-family:inherit;
-  border-bottom:1px solid var(--rule)}
-.cl-item:last-child{border-bottom:0}
-.cl-item:hover{background:var(--surface-2)}
-.cl-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:5px}
-.cl-subj{font-family:var(--display);font-weight:700;font-size:14.5px;letter-spacing:-.015em;
-  color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cl-when{font-family:var(--mono);font-size:10.5px;color:var(--muted);flex:0 0 auto}
-.cl-snip{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.cl-meta{display:flex;gap:7px;align-items:center;margin-top:8px;flex-wrap:wrap}
-.cl-num{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--teal)}
-html[data-theme="dark"] .cl-num{color:var(--amber)}
-.cl-foot{padding:12px;border-top:1px solid var(--rule);flex:0 0 auto}
-
-/* Uma conversa antiga aberta em leitura. Sem caixa de escrita: para
-   responder, reabre-se — e reabrir tem regras. */
-.chat-read{padding:11px 16px;background:var(--warn-bg);color:var(--warn-text);
-  border-top:1px solid var(--warn-rule);font-size:12.5px;line-height:1.55;flex:0 0 auto;
-  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.chat-read[hidden]{display:none!important}
-
-/* ---------- corpo ---------- */
-.chat-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:18px 16px 8px;
-  display:flex;flex-direction:column;gap:3px;scroll-behavior:smooth}
-.chat-body::-webkit-scrollbar{width:7px}
-.chat-body::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:999px}
-.chat-body::-webkit-scrollbar-track{background:transparent}
-
-.chat-empty{margin:auto;text-align:center;padding:26px 20px;max-width:32ch}
-.chat-empty .ico{width:52px;height:52px;border-radius:18px;margin:0 auto 16px;
-  display:flex;align-items:center;justify-content:center;
-  background:var(--teal-soft);color:var(--teal)}
-html[data-theme="dark"] .chat-empty .ico{background:rgba(232,163,61,.13);color:var(--amber)}
-.chat-empty .ico svg{width:24px;height:24px}
-.chat-empty strong{display:block;font-family:var(--display);font-weight:700;font-size:16.5px;
-  letter-spacing:-.02em;color:var(--text);margin-bottom:8px}
-.chat-empty span{display:block;color:var(--muted);font-size:13.5px;line-height:1.65}
-
-.chat-day{display:flex;align-items:center;gap:12px;margin:16px 0 10px;
-  font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--muted)}
-.chat-day::before,.chat-day::after{content:"";flex:1;height:1px;background:var(--rule)}
-
-.msg-row{display:flex;animation:msgIn .26s cubic-bezier(.22,1.1,.36,1)}
-@keyframes msgIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
-.msg-row.mine{justify-content:flex-end}
-/* O filho do flex encolhia até à largura da letra mais larga e o
-   texto saía uma letra por linha. */
-.msg-row > div{max-width:80%;min-width:0}
-.msg-row.mine > div{margin-left:auto}
-.msg-row + .msg-row{margin-top:3px}
-/* Espaço extra quando muda de interlocutor: agrupa o que é da mesma
-   pessoa e separa o que não é. */
-.msg-row.turn{margin-top:12px}
-
-.bubble{max-width:100%;width:fit-content;padding:11px 15px;font-size:14.5px;
-  line-height:1.55;overflow-wrap:anywhere;white-space:pre-wrap;
-  border-radius:20px}
-.msg-row.mine .bubble{background:var(--teal);color:#fff;margin-left:auto;
-  border-bottom-right-radius:7px}
-html[data-theme="dark"] .msg-row.mine .bubble{background:var(--amber);color:#141A28}
-.msg-row.theirs .bubble{background:var(--surface-2);border:1px solid var(--rule);
-  border-bottom-left-radius:7px}
-/* Numa sequência do mesmo lado, só a última leva o canto cortado. */
-.msg-row.mine:not(.last) .bubble{border-bottom-right-radius:20px}
-.msg-row.theirs:not(.last) .bubble{border-bottom-left-radius:20px}
-.bubble.sending{opacity:.62}
-.bubble.failed{opacity:.6;border:1px dashed var(--err-rule)}
-
-.msg-meta{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:var(--muted);
-  margin:5px 2px 2px}
-.msg-row.mine .msg-meta{text-align:right}
-.msg-fail{margin:5px 2px 2px;font-size:11.5px;line-height:1.5;color:var(--err-text)}
-.msg-row.mine .msg-fail{text-align:right}
-.msg-retry{background:transparent;border:1px solid var(--err-rule);border-radius:8px;
-  padding:3px 9px;margin-left:6px;font-family:var(--mono);font-size:10px;font-weight:600;
-  letter-spacing:.05em;text-transform:uppercase;color:var(--err-text);cursor:pointer}
-
-/* três pontos de "está a escrever" */
-.typing{display:flex;gap:4px;padding:14px 16px;background:var(--surface-2);
-  border:1px solid var(--rule);border-radius:20px;border-bottom-left-radius:7px;
-  width:fit-content}
-.typing i{width:7px;height:7px;border-radius:999px;background:var(--muted);
-  animation:typing 1.3s ease-in-out infinite}
-.typing i:nth-child(2){animation-delay:.18s}
-.typing i:nth-child(3){animation-delay:.36s}
-@keyframes typing{0%,60%,100%{opacity:.3;transform:translateY(0)}
-  30%{opacity:1;transform:translateY(-4px)}}
-
-.chat-jump{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);
-  display:inline-flex;align-items:center;gap:7px;z-index:2;
-  background:var(--ink);color:#fff;border:0;border-radius:999px;
-  padding:8px 15px 8px 12px;font-size:12.5px;font-weight:600;cursor:pointer;
-  box-shadow:0 8px 22px rgba(20,26,40,.28);
-  animation:msgIn .26s cubic-bezier(.22,1.1,.36,1)}
-html[data-theme="dark"] .chat-jump{background:var(--amber);color:#141A28}
-.chat-jump svg{width:14px;height:14px}
-
-/* ---------- rodapé ---------- */
-.chat-note{padding:11px 16px;background:var(--surface-2);border-top:1px solid var(--rule);
-  color:var(--muted);font-size:12.5px;line-height:1.55;flex:0 0 auto}
-.chat-note.warn{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn-rule)}
-
-.chat-foot{display:flex;gap:9px;align-items:flex-end;padding:12px;
-  border-top:1px solid var(--rule);background:var(--surface);flex:0 0 auto}
-.chat-foot[hidden]{display:none!important}
-.chat-foot textarea{flex:1;resize:none;max-height:118px;padding:12px 15px;
-  border:1px solid var(--rule-strong);border-radius:19px;background:var(--surface-2);
-  color:var(--text);font-family:var(--body);font-size:14.5px;line-height:1.5;outline:none;
-  transition:border-color .16s ease,background .16s ease}
-.chat-foot textarea:focus{border-color:var(--teal);background:var(--surface)}
-html[data-theme="dark"] .chat-foot textarea:focus{border-color:var(--amber)}
-.chat-clip{width:40px;height:44px;flex:0 0 auto;border:0;background:transparent;
-  color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;
-  border-radius:12px;transition:color .15s ease,background .15s ease}
-.chat-clip:hover{color:var(--teal);background:var(--surface-2)}
-html[data-theme="dark"] .chat-clip:hover{color:var(--amber)}
-.chat-clip svg{width:19px;height:19px}
-.chat-clip:disabled{opacity:.4;cursor:not-allowed}
-.bubble .file{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
-.bubble .file svg{width:18px;height:18px;flex:0 0 auto;opacity:.8}
-.bubble .file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chat-send{width:44px;height:44px;flex:0 0 auto;border:0;border-radius:999px;
-  background:var(--teal);color:#fff;cursor:pointer;display:flex;align-items:center;
-  justify-content:center;transition:transform .16s ease,opacity .16s ease}
-.chat-send:hover:not(:disabled){transform:scale(1.06)}
-.chat-send:active:not(:disabled){transform:scale(.94)}
-html[data-theme="dark"] .chat-send{background:var(--amber);color:#141A28}
-.chat-send:disabled{opacity:.4;cursor:not-allowed}
-.chat-send svg{width:17px;height:17px;margin-left:-2px}
-.chat-err{display:none;padding:11px 16px;background:var(--err-bg);color:var(--err-text);
-  font-size:12.5px;line-height:1.5;border-top:1px solid var(--err-rule)}
-
-@media (max-width:520px){
-  .chat-panel{right:0;left:0;bottom:0;width:auto;height:100dvh;border-radius:0;
-    border:0;animation:sheetIn .28s cubic-bezier(.22,1.1,.36,1)}
-  @keyframes sheetIn{from{transform:translateY(100%)}to{transform:none}}
-  .chat-fab{right:18px;bottom:18px}
-  .chat-jump{bottom:100px}
-}
-
-/* ---------- o que fazer a seguir ----------
-   Muda com a situação: um atalho para "adicionar veículo" a quem já
-   tem três seria ruído. */
-.qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.qa-card{text-align:left;background:var(--surface);border:1px solid var(--rule);
-  border-radius:16px;padding:16px 18px;cursor:pointer;color:var(--text);
-  transition:border-color .15s ease,transform .15s ease}
-.qa-card:hover{border-color:var(--teal);transform:translateY(-2px)}
-html[data-theme="dark"] .qa-card:hover{border-color:var(--amber)}
-.qa-card strong{display:block;font-family:var(--display);font-weight:700;font-size:14.5px;
-  letter-spacing:-.015em;margin-bottom:5px}
-.qa-card span{display:block;color:var(--muted);font-size:12.5px;line-height:1.5}
-@media (max-width:1000px){.qa-grid{grid-template-columns:1fr 1fr}}
-@media (max-width:560px){.qa-grid{grid-template-columns:1fr}}
-
-/* apoio */
-.help-cta{display:flex;align-items:center;justify-content:space-between;gap:20px;
-  flex-wrap:wrap;background:var(--surface);border:1px solid var(--rule);
-  border-radius:22px;padding:24px;margin-bottom:20px}
-.help-cta h2{margin:0 0 6px}
-.help-cta p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.6;max-width:46ch}
-.help-cta .btn{flex:0 0 auto}
-.qa{border-top:1px solid var(--rule)}
-.qa-item{padding:18px 0;border-bottom:1px solid var(--rule);display:grid;
-  grid-template-columns:30px 1fr;gap:14px}
-.qa-item:last-child{border-bottom:0}
-.qa-item .n{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--muted);padding-top:2px}
-.qa-item h3{font-family:var(--display);font-weight:700;font-size:15.5px;margin:0 0 6px;letter-spacing:-.015em}
-.qa-item p{margin:0;color:var(--muted);font-size:14px;line-height:1.65}
-@media (max-width:700px){.help-row{grid-template-columns:1fr}}
-.card h2{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:-.02em;margin:0 0 6px}
-.card .note{margin:0 0 20px;color:var(--muted);font-size:13.5px;line-height:1.6}
-
-/* estado da conta */
-.banner{display:flex;gap:16px;align-items:flex-start;border-radius:20px;padding:22px 24px;
-  margin-bottom:22px;line-height:1.62;font-size:14.5px}
-.banner .mk{font-family:var(--mono);font-size:20px;line-height:1;flex:0 0 auto}
-.banner strong{display:block;font-family:var(--display);font-weight:700;font-size:18px;
-  margin-bottom:6px;letter-spacing:-.02em}
-.banner.draft{background:var(--warn-bg);color:var(--warn-text);border:1px solid var(--warn-rule)}
-.banner.review{background:var(--surface-2);color:var(--text);border:1px solid var(--rule-strong)}
-.banner.ok{background:var(--ok-bg);color:var(--ok-text);border:1px solid var(--ok-rule)}
-.banner.bad{background:var(--err-bg);color:var(--err-text);border:1px solid var(--err-rule)}
-.banner .btn{margin-top:14px}
-
-/* lista de ativação */
-.steps-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:12px;margin-bottom:22px}
-.stepcard{border:1px solid var(--rule);border-radius:18px;padding:18px;background:var(--surface);
-  cursor:pointer;text-align:left;transition:border-color .15s ease,transform .12s ease;position:relative}
-.stepcard:hover{border-color:var(--teal);transform:translateY(-2px)}
-.stepcard .ic{width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;
-  font-size:16px;font-weight:700;margin-bottom:13px;border:2px solid var(--rule-strong);color:var(--muted)}
-.stepcard.done .ic{border-color:var(--teal);color:var(--teal);background:var(--teal-soft)}
-.stepcard.done{border-color:var(--teal)}
-.stepcard h4{font-family:var(--display);font-weight:700;font-size:14.5px;margin:0 0 4px;letter-spacing:-.01em}
-.stepcard p{margin:0;color:var(--muted);font-size:12.5px;line-height:1.5}
-.progress-line{display:flex;align-items:center;gap:14px;margin-bottom:18px}
-.progress-line .bar{flex:1;height:6px;border-radius:999px;background:var(--rule);overflow:hidden}
-.progress-line .bar i{display:block;height:100%;background:var(--teal);border-radius:999px;
-  transition:width .5s cubic-bezier(.22,.68,.35,1)}
-html[data-theme="dark"] .progress-line .bar i{background:var(--amber)}
-.progress-line .n{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
-
-/* métricas */
-.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-bottom:22px}
-.metric{border:1px solid var(--rule);border-radius:18px;padding:17px 19px;background:var(--surface)}
-.metric .k{font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--muted);margin-bottom:10px}
-.metric .v{font-family:var(--mono);font-size:25px;font-weight:600;letter-spacing:-.02em;line-height:1}
-.metric .v.sm{font-size:16px}
-.metric .s{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.45}
-.metric.good .v{color:var(--teal)}
-html[data-theme="dark"] .metric.good .v{color:var(--amber)}
-.metric.bad .v{color:var(--err-text)}
-
-/* linhas */
-.row{border:1px solid var(--rule);border-radius:18px;padding:16px 18px;margin-bottom:10px;background:var(--surface)}
-.row-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
-.row-title{font-family:var(--display);font-weight:700;font-size:15.5px;margin:0 0 3px;letter-spacing:-.01em}
-.row-sub{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-.row-acts{display:flex;gap:8px;margin-top:13px;padding-top:13px;border-top:1px solid var(--rule);flex-wrap:wrap}
-
-/* documentos */
-.doc{display:grid;grid-template-columns:1fr 160px 200px;gap:14px;align-items:end;
-  border:1px solid var(--rule);border-radius:18px;padding:17px 19px;margin-bottom:11px;background:var(--surface)}
-.doc .n{font-family:var(--display);font-weight:700;font-size:15px;margin-bottom:4px}
-.doc .d{color:var(--muted);font-size:12.5px;line-height:1.5}
-.doc input[type="date"]{height:44px;border-radius:12px;border:1px solid var(--rule-strong);
-  background:var(--field);padding:0 12px;width:100%;font-size:14px}
-.doc .st{grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--muted);
-  padding-top:11px;border-top:1px solid var(--rule);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.doc input[type="file"]{display:none}
-.doc.rejected{border-color:var(--err-rule);background:var(--err-bg)}
-.doc-why{grid-column:1/-1;margin-top:11px;padding:12px 14px;border-radius:12px;
-  background:var(--surface);border:1px solid var(--err-rule);
-  font-size:13px;line-height:1.6;color:var(--err-text)}
-.doc-why strong{display:block;margin-bottom:4px}
-.file-hint{display:block;margin-top:7px;font-size:12px;line-height:1.5;color:var(--err-text)}
-
-/* quadro de viagens */
-.airport-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
-.airport-chip{display:inline-flex;align-items:center;gap:8px;background:var(--surface);
-  border:1px solid var(--rule);border-radius:999px;padding:7px 13px;font-size:13px}
-.airport-chip b{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--teal)}
-html[data-theme="dark"] .airport-chip b{color:var(--amber)}
-
-.ride{border:1px solid var(--rule);border-radius:20px;background:var(--surface);
-  padding:18px 20px;margin-bottom:12px;transition:border-color .15s ease}
-.ride:hover{border-color:var(--rule-strong)}
-.ride.mine{border-color:var(--teal)}
-html[data-theme="dark"] .ride.mine{border-color:var(--amber)}
-.ride-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;
-  flex-wrap:wrap;margin-bottom:14px}
-.ride-when{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:-.02em}
-.ride-in{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--muted);margin-top:3px}
-.ride-pay{text-align:right;flex:0 0 auto}
-.ride-pay .k{font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-.ride-pay .v{font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:-.02em;color:var(--teal)}
-html[data-theme="dark"] .ride-pay .v{color:var(--amber)}
-.ride-leg{display:flex;gap:11px;align-items:flex-start;margin-bottom:8px}
-.ride-dot{width:9px;height:9px;border-radius:999px;flex:0 0 auto;margin-top:6px}
-.ride-dot.p{background:var(--teal)}
-.ride-dot.d{background:var(--ink)}
-html[data-theme="dark"] .ride-dot.d{background:#E9EDF3}
-.ride-place{font-size:14.5px;line-height:1.5}
-.ride-facts{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
-.ride-fact{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--muted);
-  background:var(--surface-2);border:1px solid var(--rule);border-radius:999px;padding:5px 11px}
-.ride-acts{display:flex;gap:9px;margin-top:15px;padding-top:15px;
-  border-top:1px solid var(--rule);flex-wrap:wrap;align-items:center}
-.ride-note{font-size:12.5px;color:var(--muted);line-height:1.5;flex:1 1 200px}
-
-@media (max-width:1000px){
-  .app.on{grid-template-columns:1fr}
-  .nav{position:fixed;left:0;top:0;bottom:0;width:264px;height:100vh;z-index:60;
-    transform:translateX(-100%);transition:transform .25s ease}
-  .nav.open{transform:none}
-  .mob-nav{display:flex}
-  .content{padding:20px 16px}
-  .topbar{padding:14px 16px}
-  .doc{grid-template-columns:1fr}
-  .backdrop{position:fixed;inset:0;background:rgba(20,26,40,.5);z-index:55;display:none}
-  .backdrop.on{display:block}
-}
-
-/* ---------- uma viagem oferecida a mim ----------
-   Diferente de uma no quadro aberto: tem prazo, e é minha durante
-   esse tempo. O relógio diz quanto falta. */
-.offer-head{display:flex;align-items:center;justify-content:space-between;
-  gap:10px;margin-bottom:10px;padding:8px 12px;border-radius:11px;
-  background:var(--teal-soft)}
-.offer-head b{font-size:13.5px;font-weight:600}
-.offer-clock{font-family:var(--mono);font-size:12px;font-weight:600;
-  color:var(--teal);white-space:nowrap}
-html[data-theme="dark"] .offer-clock{color:var(--amber)}
-
-/* ---------- como me estou a portar ----------
-   A cor diz o estado sem se ler nada. Verde não chama; âmbar
-   pede atenção; vermelho diz que já há consequência. */
-.standing{border-radius:16px;padding:16px 18px;margin-bottom:16px;
-  border:1px solid var(--rule)}
-.standing.green{background:var(--ok-soft,rgba(22,163,74,.08));
-  border-color:rgba(22,163,74,.25)}
-.standing.amber{background:rgba(217,119,6,.09);border-color:rgba(217,119,6,.3)}
-.standing.red{background:rgba(220,38,38,.09);border-color:rgba(220,38,38,.32)}
-
-.st-head{display:flex;align-items:center;justify-content:space-between;
-  gap:10px;margin-bottom:6px}
-.st-head b{font-size:15px;font-weight:600}
-.st-dot{width:10px;height:10px;border-radius:999px;flex:0 0 auto}
-.standing.green .st-dot{background:#16A34A}
-.standing.amber .st-dot{background:#D97706}
-.standing.red .st-dot{background:#DC2626}
-
-.standing p{margin:0 0 14px;font-size:13.5px;line-height:1.6;
-  color:var(--muted)}
-
-.st-nums{display:flex;gap:22px;flex-wrap:wrap}
-.st-nums span{display:flex;flex-direction:column;gap:1px}
-.st-nums b{font-family:var(--mono);font-size:20px;font-weight:600}
-.st-nums small{font-size:11.5px;color:var(--muted)}
-
-/* O custo de ignorar, em números concretos. Uma percentagem de
-   noventa dias é abstrata; "3 das últimas 10" corrige-se esta
-   semana. */
-.st-ignored{margin-top:14px;padding:11px 13px;border-radius:11px;
-  background:rgba(217,119,6,.12);font-size:13px;line-height:1.55;
-  color:var(--text)}
-
-/* ---------- as etapas do dia ----------
-   Só aparecem quando a viagem está a menos de três horas. Um
-   botão de "cheguei" numa viagem de daqui a duas semanas só se
-   carrega por engano. */
-.ride-steps{display:flex;flex-direction:column;gap:8px;
-  margin-top:14px;padding-top:14px;border-top:1px solid var(--rule)}
-
-.code-box{display:flex;flex-direction:column;gap:7px}
-.code-box label{font-size:12px;font-weight:600;color:var(--muted);
-  text-transform:uppercase;letter-spacing:.06em}
-
-.code-row{display:flex;gap:8px;align-items:center}
-
-/* Grande e espaçado: é lido de um telemóvel com o sol a bater e
-   escrito com o polegar. */
-.code-in{width:110px;padding:11px 13px;border-radius:11px;
-  border:1px solid var(--rule);background:var(--card);
-  font-family:var(--mono);font-size:21px;font-weight:600;
-  letter-spacing:.22em;text-align:center;color:var(--text)}
-.code-in:focus{outline:none;border-color:var(--teal);
-  box-shadow:0 0 0 3px rgba(13,148,136,.14)}
-
-@media (max-width:420px){
-  .code-row{flex-direction:column;align-items:stretch}
-  .code-in{width:100%}
-}
-
-/* ---------- o relógio da espera ----------
-   Discreto enquanto o tempo é grátis; a laranja quando passa.
-   Um número que vai ser cobrado tem de se ler sem dúvida. */
-.wait-clock{display:flex;flex-direction:column;gap:3px;
-  margin-bottom:12px;font-size:13px;color:var(--muted)}
-.wait-clock:empty{display:none}
-
-.wait-clock.over{padding:11px 13px;border-radius:11px;
-  background:rgba(217,119,6,.12);color:var(--text)}
-.wait-clock.over b{font-size:14.5px;font-weight:600}
-.wait-clock.over span{font-size:13px}
-.wait-hint{color:var(--muted);font-size:12px;margin-top:3px}
-
-/* O no-show fica em baixo e discreto: é a última coisa que se
-   deve fazer, não a primeira que se vê. */
-.noshow-btn{margin-top:12px;align-self:flex-start;opacity:.75}
-.noshow-btn:hover{opacity:1}
-
-/* ---------- uma alteração por confirmar ----------
-   Duas horas para responder, e não responder perde a viagem. Por
-   isso está no topo do cartão e com cor: em baixo, lia-se depois
-   de o prazo passar. */
-.change-alert{padding:13px 15px;border-radius:12px;margin-bottom:14px;
-  background:rgba(217,119,6,.13);border:1px solid rgba(217,119,6,.3)}
-.change-alert b{display:block;font-size:14.5px;font-weight:600;
-  margin-bottom:4px}
-.change-alert span{display:block;font-size:13px;color:var(--muted);
-  line-height:1.5}
-.change-acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-
-@media (max-width:420px){
-  .change-acts{flex-direction:column}
-  .change-acts .btn{width:100%}
-}
-</style>
-</head>
-<body>
-
-<!-- As caixas de diálogo do portal. Substituem o confirm() do
-     browser, que é bloqueado em iframes com sandbox e nalguns
-     browsers móveis — e que quando é bloqueado devolve "cancelar"
-     em silêncio, sem erro nenhum. -->
-<div class="ask-back" id="askBack" hidden>
-  <div class="ask" role="dialog" aria-modal="true" aria-labelledby="askTitle">
-    <h3 id="askTitle">Confirm</h3>
-    <p id="askText"></p>
-    <div class="ask-btns">
-      <button class="btn line sm" id="askNo" type="button">Cancel</button>
-      <button class="btn teal sm" id="askYes" type="button">OK</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================================
-     ENTRADA: login e questionário
-     ============================================================ -->
-<!-- Um ecrã de espera enquanto se verifica a sessão.
-     Sem ele, o formulário de entrada aparecia durante o segundo que
-     a verificação demora — e quem já estava autenticado via a página
-     de login a piscar a cada refresh. -->
-<div class="boot-wait" id="bootWait">
-  <div class="boot-mark">AIRPORT<span>LINK</span></div>
-</div>
-
-<div class="gate hidden" id="gate">
-  <div class="gate-art">
-    <div class="brand">AIRPORT<span>LINK</span> &middot; partners</div>
-    <div>
-      <h1>Airport work, without the phone calls.</h1>
-      <p>Offers arrive with the route and the fee already on them. You accept what fits, you keep the whole fee, and you decide which days you work.</p>
-      <div class="gate-stats">
-        <div class="gate-stat"><div class="v">0%</div><div class="k">Commission</div></div>
-        <div class="gate-stat"><div class="v">3</div><div class="k">Documents</div></div>
-        <div class="gate-stat"><div class="v">24h</div><div class="k">To answer</div></div>
-      </div>
-    </div>
-    <div class="tag" style="color:#6C7889">Licensed companies only</div>
-  </div>
-
-  <div class="gate-form">
-    <!-- login -->
-    <div class="gate-inner" id="signInView">
-      <h2>Partner sign in</h2>
-      <p class="sub">Welcome back. Your rides, documents and calendar are inside.</p>
-      <div class="field"><label for="siEmail">Email</label><input id="siEmail" type="email" autocomplete="email" placeholder="you@company.com"></div>
-      <div class="field"><label for="siPassword">Password</label><input id="siPassword" type="password" autocomplete="current-password"></div>
-      <button class="btn block" id="siBtn" type="button">Sign in</button>
-      <div style="display:flex;justify-content:space-between;gap:12px;margin-top:16px;flex-wrap:wrap">
-        <button class="linkish" id="siForgot" type="button">Forgot your password?</button>
-        <button class="linkish" id="siJoin" type="button">Become a partner</button>
-      </div>
-      <div id="siErr" class="msg err"></div>
-      <div id="siOk" class="msg ok"></div>
-    </div>
-
-    <!-- questionário -->
-    <div class="wiz hidden" id="wizView">
-      <div class="wiz-top">
-        <span class="wiz-step" id="wizStep">Step 1 of 4</span>
-        <button class="linkish" id="wizBack2SignIn" type="button">I already have an account</button>
-      </div>
-      <div class="wiz-bar"><div class="wiz-fill" id="wizFill"></div></div>
-
-      <!-- 1: empresa e contacto -->
-      <div class="wiz-page on" data-step="1">
-        <h2>Tell us about your company.</h2>
-        <p class="sub">The basics we need to know who we are talking to. Nothing here is published anywhere.</p>
-        <div class="grid2">
-          <div class="field full"><label for="w1Legal">Registered company name</label>
-            <input id="w1Legal" type="text" placeholder="As it appears on your registration">
-            <div class="err">Please enter your registered company name.</div></div>
-          <div class="field"><label for="w1Trading">Trading name <span class="opt-tag">optional</span></label>
-            <input id="w1Trading" type="text" placeholder="If different"></div>
-          <div class="field"><label for="w1Vat">VAT or tax number <span class="opt-tag">optional for now</span></label>
-            <input id="w1Vat" type="text"></div>
-          <div class="field"><label for="w1Contact">Your name</label>
-            <input id="w1Contact" type="text" autocomplete="name" placeholder="Who manages this account">
-            <div class="err">Please enter your name.</div></div>
-          <div class="field"><label for="w1Role">Your role <span class="opt-tag">optional</span></label>
-            <input id="w1Role" type="text" placeholder="Owner, manager, dispatcher..."></div>
-          <div class="field full"><label for="w1Email">Email</label>
-            <input id="w1Email" type="email" autocomplete="email" placeholder="you@company.com">
-            <div class="help">This becomes your sign-in and where offers are sent.</div>
-            <div class="err">Please enter a valid email address.</div></div>
-          <div class="field"><label for="w1Phone">Phone</label>
-            <input id="w1Phone" type="tel" placeholder="+351 ...">
-            <div class="err">Please enter a phone number.</div></div>
-          <div class="field"><label for="w1Emergency">Out-of-hours phone <span class="opt-tag">optional</span></label>
-            <input id="w1Emergency" type="tel" placeholder="Someone we can reach outside office hours"></div>
-        </div>
-        <div class="wiz-nav"><button class="btn teal" data-next="2" type="button">Continue</button></div>
-      </div>
-
-      <!-- 2: onde opera -->
-      <div class="wiz-page" data-step="2">
-        <h2>Where do you operate?</h2>
-        <p class="sub">Tell us where your company operates. Registering early means you are
-        first in line for the work in your country.</p>
-        <div class="field"><label for="w2Country">Country</label>
-          <select id="w2Country"><option value="">Select a country</option></select>
-          <div class="err">Please choose a country.</div></div>
-        <div id="w2Notice" class="msg"></div>
-        <div class="field"><label for="w2City">Cities you cover <span class="opt-tag">optional</span></label>
-          <input id="w2City" type="text" placeholder="Type a city and press Enter">
-          <div class="help">Add as many as you like. You can change these later.</div>
-          <div class="tags" id="w2Tags"></div></div>
-        <div class="wiz-nav">
-          <button class="btn line" data-back="1" type="button">Back</button>
-          <button class="btn teal" data-next="3" type="button">Continue</button>
-        </div>
-      </div>
-
-      <!-- 3: dimensão e morada -->
-      <div class="wiz-page" data-step="3">
-        <h2>How big is your operation?</h2>
-        <p class="sub">This tells us how to look after you. A one-person company needs different help from one with fifteen cars.</p>
-        <div class="choice">
-          <button class="opt" data-owner="yes" type="button"><strong>I drive myself</strong><span>I am the owner and I take rides personally</span></button>
-          <button class="opt" data-owner="no" type="button"><strong>I have drivers</strong><span>My drivers take the rides, I manage the company</span></button>
-        </div>
-        <div class="field"><label for="w3Fleet">How many drivers, including yourself?</label>
-          <input id="w3Fleet" type="number" min="1" max="500" placeholder="1">
-          <div class="err">Please enter a number.</div></div>
-        <div class="grid2">
-          <div class="field full"><label for="w3Address">Company address</label>
-            <input id="w3Address" type="text" placeholder="Street and number">
-            <div class="err">Please enter your company address.</div></div>
-          <div class="field"><label for="w3City">City</label><input id="w3City" type="text"></div>
-          <div class="field"><label for="w3Postal">Postal code</label><input id="w3Postal" type="text"></div>
-          <div class="field full"><label for="w3Heard">How did you hear about us? <span class="opt-tag">optional</span></label>
-            <select id="w3Heard">
-              <option value="">Prefer not to say</option>
-              <option>Search engine</option><option>Social media</option>
-              <option>Another partner</option><option>A customer</option>
-              <option>Email or call from Airportlink</option><option>Industry event</option>
-              <option>Somewhere else</option>
-            </select></div>
-        </div>
-        <div class="wiz-nav">
-          <button class="btn line" data-back="2" type="button">Back</button>
-          <button class="btn teal" data-next="4" type="button">Continue</button>
-        </div>
-      </div>
-
-      <!-- 4: password -->
-      <div class="wiz-page" data-step="4">
-        <h2>Last step: secure your account.</h2>
-        <p class="sub">Once you are in, the dashboard asks for three documents. Nothing else is needed to get verified.</p>
-        <div class="field"><label for="w4Pw">Password</label>
-          <input id="w4Pw" type="password" autocomplete="new-password" placeholder="At least 8 characters">
-          <div class="pw-meter"><div class="pw-fill" id="pwFill"></div></div>
-          <div class="help" id="pwHint">Use at least 8 characters. Longer is better than complicated.</div>
-          <div class="err">Password must be at least 8 characters.</div></div>
-        <div class="field"><label for="w4Pw2">Repeat password</label>
-          <input id="w4Pw2" type="password" autocomplete="new-password">
-          <div class="err">The two passwords do not match.</div></div>
-        <label class="opt" style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:8px">
-          <input type="checkbox" id="w4Terms" style="width:18px;height:18px;margin-top:2px;flex:0 0 auto">
-          <span style="font-size:13.5px;line-height:1.6;color:var(--muted)">I confirm my company is licensed and insured to carry passengers, and I accept the Airportlink partner agreement.</span>
-        </label>
-        <div class="wiz-nav">
-          <button class="btn line" data-back="3" type="button">Back</button>
-          <button class="btn amber" id="wizSubmit" type="button">Create my account</button>
-        </div>
-        <div id="wizErr" class="msg err"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================================
-     PAINEL
-     ============================================================ -->
-<div class="backdrop" id="backdrop"></div>
-<div class="app" id="app">
-  <nav class="nav" id="nav">
-    <div class="brand">AIRPORT<span style="color:var(--amber)">LINK</span></div>
-
-    <button class="nav-item on" data-page="pgOverview" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
-      Overview</button>
-
-    <div class="nav-group">Work</div>
-    <button class="nav-item" data-page="pgRides" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h18M4 13V9.5L6 5h12l2 4.5V13M4 13v4h3v-4M17 13v4h3v-4"/></svg>
-      Rides <span class="badge hidden" id="navRides"></span></button>
-    <button class="nav-item" data-page="pgBoard" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h10"/><circle cx="18" cy="18" r="3"/></svg>
-      Available rides <span class="badge hidden" id="navBoard"></span></button>
-
-    <div class="nav-group">Company</div>
-    <button class="nav-item" data-page="pgDocs" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6"/></svg>
-      Documents <span class="badge hidden" id="navDocs"></span></button>
-    <button class="nav-item" data-page="pgDrivers" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3.5"/><path d="M22 21v-2a4 4 0 0 0-3-3.8"/></svg>
-      Drivers</button>
-    <button class="nav-item" data-page="pgFleet" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M4 17v-5l2-5h12l2 5v5M7 17v2H4v-2M20 17v2h-3v-2"/><circle cx="8" cy="12.5" r="1"/><circle cx="16" cy="12.5" r="1"/></svg>
-      Vehicles</button>
-    <button class="nav-item" data-page="pgAreas" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.6"/></svg>
-      Work areas</button>
-
-    <div class="nav-group">Money</div>
-    <button class="nav-item" data-page="pgPayouts" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
-      Payouts</button>
-
-    <button class="nav-item" data-page="pgHelp" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.8-.9 1.4v.4"/><path d="M12 17h.01"/></svg>
-      Help &amp; support</button>
-
-    <div class="nav-foot">
-      <button class="nav-item" data-page="pgSettings" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.2a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H7a1.6 1.6 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V7a1.6 1.6 0 0 0 1.5 1H23a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
-        Company profile</button>
-      <button class="nav-item" id="navSignOut" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-        Sign out</button>
-    </div>
-  </nav>
-
-  <div class="main">
-    <div class="topbar">
-      <div class="who">
-        <button class="icon-btn mob-nav" id="menuBtn" type="button" aria-label="Menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-        </button>
-        <div class="avatar" id="tbAvatar">&mdash;</div>
-        <div style="min-width:0">
-          <div class="co" id="tbCompany">&mdash;</div>
-          <div class="sub" id="tbStatus">&mdash;</div>
-        </div>
-      </div>
-      <div class="acts">
-        <button class="icon-btn" id="themeBtn" type="button" aria-label="Theme">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
-        </button>
-        <button class="btn line sm" id="helpBtn" type="button">Support</button>
-      </div>
-    </div>
-
-    <div class="content">
-      <!-- OVERVIEW -->
-      <div class="page on" id="pgOverview">
-        <div id="statusBanner"></div>
-        <div id="activation"></div>
-
-        <!-- Como me estou a portar.
-             Um número que o parceiro vê muda o comportamento dele;
-             escondido, não muda nada. -->
-        <div id="standing"></div>
-
-        <div class="metrics" id="metrics"></div>
-
-        <div class="qa-grid" id="quickActions"></div>
-
-        <div class="card">
-          <h2>Next up</h2>
-          <p class="note">Your closest confirmed rides.</p>
-          <div id="nextRides"></div>
-        </div>
-      </div>
-
-      <!-- RIDES -->
-      <div class="page" id="pgRides">
-        <div class="page-head"><h1>Rides</h1><p>Every transfer assigned to your company. Offers you have not answered appear first.</p></div>
-        <div id="ridesList"></div>
-      </div>
-
-      <!-- AVAILABLE RIDES -->
-      <div class="page" id="pgBoard">
-        <div class="page-head">
-          <h1>Available rides</h1>
-          <p>Transfers picked up at the airports you serve. Take the ones that fit your day &mdash;
-          the passenger&rsquo;s name and phone appear once the ride is yours.</p>
-        </div>
-
-        <div id="boardGate"></div>
-        <div id="boardAirports" class="airport-row"></div>
-        <div id="boardList"></div>
-        <div id="boardMsg" class="msg err"></div>
-      </div>
-
-      <!-- DOCUMENTS -->
-      <div class="page" id="pgDocs">
-        <div class="page-head"><h1>Documents</h1><p>Three documents, and that is all we ask. Where an expiry date is requested, it is what keeps you in the dispatch list &mdash; offers pause on the day a document runs out, and we remind you 30 days before.</p></div>
-        <div id="docsList"></div>
-        <div id="docsErr" class="msg err"></div>
-        <div id="docsOk" class="msg ok"></div>
-        <div id="submitPending" style="margin-top:20px"></div>
-
-        <div class="card" id="submitCard" style="margin-top:20px">
-          <h2>Send your account for review</h2>
-          <p class="note">Everything is in place. Send it to us and we review by hand,
-          usually within a few working days. If something is wrong we tell you which
-          document and why.</p>
-          <button class="btn amber" id="submitBtn" type="button">Submit for review</button>
-          <div id="submitErr" class="msg err"></div>
-        </div>
-      </div>
-
-      <!-- DRIVERS -->
-      <div class="page" id="pgDrivers">
-        <div class="page-head"><h1>Drivers</h1><p>Who drives for you. We pass their name and phone to the passenger on the day, and nothing else.</p></div>
-        <div id="driversList"></div>
-        <div class="card" style="margin-top:16px">
-          <h2>Add a driver</h2>
-          <div class="grid2">
-            <div class="field"><label for="dvName">Full name</label><input id="dvName" type="text"></div>
-            <div class="field"><label for="dvPhone">Phone</label><input id="dvPhone" type="tel" placeholder="+351 ..."></div>
-            <div class="field"><label for="dvEmail">Email <span class="opt-tag">optional</span></label><input id="dvEmail" type="email"></div>
-            <div class="field"><label for="dvLangs">Languages <span class="opt-tag">optional</span></label><input id="dvLangs" type="text" placeholder="English, Spanish"></div>
-          </div>
-          <button class="btn teal" id="dvAdd" type="button">Add driver</button>
-          <div id="dvMsg" class="msg err"></div>
-        </div>
-      </div>
-
-      <!-- FLEET -->
-      <div class="page" id="pgFleet">
-        <div class="page-head"><h1>Vehicles</h1><p>The seat count decides which rides you are offered. A booking for six passengers only reaches companies with a vehicle that fits them.</p></div>
-        <div id="fleetList"></div>
-        <div class="card" style="margin-top:16px">
-          <h2>Add a vehicle</h2>
-          <div class="grid3">
-            <div class="field"><label for="vhMake">Make</label><input id="vhMake" type="text" placeholder="Mercedes-Benz"></div>
-            <div class="field"><label for="vhModel">Model</label><input id="vhModel" type="text" placeholder="Vito"></div>
-            <div class="field"><label for="vhPlate">Plate</label><input id="vhPlate" type="text" placeholder="AA-00-BB"></div>
-            <div class="field"><label for="vhSeats">Passenger seats</label><input id="vhSeats" type="number" min="1" max="16" placeholder="Not counting the driver"></div>
-            <div class="field"><label for="vhClass">Class</label>
-              <select id="vhClass"><option value="standard">Standard</option><option value="executive">Executive</option><option value="van">Van</option><option value="minibus">Minibus</option></select></div>
-            <div class="field"><label for="vhYear">Year <span class="opt-tag">optional</span></label><input id="vhYear" type="number" min="2000" max="2030"></div>
-          </div>
-          <button class="btn teal" id="vhAdd" type="button">Add vehicle</button>
-          <div id="vhMsg" class="msg err"></div>
-        </div>
-      </div>
-
-      <!-- AREAS -->
-      <div class="page" id="pgAreas">
-        <div class="page-head"><h1>Work areas</h1><p>Where you can realistically pick up. You only receive offers for these areas, and you can change them whenever you like.</p></div>
-        <div class="card">
-          <h2>Airports you serve</h2>
-          <p class="note">Search by airport name, city or IATA code &mdash; the three letters on a boarding pass. This is what decides which offers reach you, so add every airport you can realistically cover.</p>
-          <div class="field">
-            <input id="apSearch" type="text" placeholder="Lisbon, LIS, Heathrow..." autocomplete="off">
-            <div class="ap-results" id="apResults"></div>
-          </div>
-          <div class="tags" id="apTags"></div>
-          <button class="btn teal" id="apSave" type="button" style="margin-top:18px">Save airports</button>
-          <div id="apMsg" class="msg err"></div>
-          <div id="apOk" class="msg ok"></div>
-        </div>
-
-        <div class="card">
-          <h2>Other cities</h2>
-          <p class="note">Anywhere else you can pick up that is not an airport &mdash; hotels, stations, ports. Type and press Enter.</p>
-          <div class="field"><input id="arCity" type="text" placeholder="Cascais"></div>
-          <div class="tags" id="arTags"></div>
-          <button class="btn line" id="arSave" type="button" style="margin-top:18px">Save cities</button>
-          <div id="arMsg" class="msg err"></div>
-          <div id="arOk" class="msg ok"></div>
-        </div>
-        <div class="card hidden" id="zoneCard">
-          <h2>Service zones</h2>
-          <p class="note">We are live in your country, so you can pick the formal zones we dispatch by.</p>
-          <div id="zoneList"></div>
-          <button class="btn teal" id="znSave" type="button" style="margin-top:18px">Save zones</button>
-          <div id="znMsg" class="msg err"></div>
-        </div>
-      </div>
-
-      <!-- PAYOUTS -->
-      <div class="page" id="pgPayouts">
-        <div class="page-head"><h1>Payouts</h1><p>You are paid once a month for every ride completed the month before. The fee on each offer is what reaches you &mdash; we take no commission on top.</p></div>
-        <div class="card">
-          <h2>Where we send your money</h2>
-          <div class="grid2">
-            <div class="field"><label for="pyHolder">Account holder</label><input id="pyHolder" type="text" placeholder="As registered with your bank"></div>
-            <div class="field"><label for="pyIban">IBAN or account number</label><input id="pyIban" type="text" placeholder="PT50 ..."></div>
-          </div>
-          <button class="btn teal" id="pySave" type="button">Save payout details</button>
-          <div id="pyMsg" class="msg err"></div>
-          <div id="pyOk" class="msg ok"></div>
-        </div>
-      </div>
-
-      <!-- HELP -->
-      <div class="page" id="pgHelp">
-        <div class="page-head">
-          <h1>Help &amp; support</h1>
-          <p>Most questions have an answer below. If yours does not, write to us &mdash; we read
-          everything and reply as fast as we can.</p>
-        </div>
-
-        <div class="help-cta">
-          <div>
-            <h2>Cannot find the answer?</h2>
-            <p>Open a chat and ask. Common questions get an answer straight away; anything
-            else goes to a person.</p>
-          </div>
-          <button class="btn teal" id="helpChatBtn" type="button">Start a chat</button>
-        </div>
-
-        <div class="card">
-          <h2>Questions partners ask</h2>
-          <div class="qa">
-            <div class="qa-item"><span class="n">01</span><div>
-              <h3>No rides are showing. Why?</h3>
-              <p>Four possible reasons, and the Available rides page tells you which one:
-              your account is not approved yet, you have not chosen any airports, you have
-              no payout details, or there is genuinely nothing at your airports right now.</p></div></div>
-            <div class="qa-item"><span class="n">02</span><div>
-              <h3>How and when am I paid?</h3>
-              <p>Once a month. At the start of each month you receive a statement covering
-              every ride you completed in the previous one, and the money goes to the account
-              on your payouts page. The fee shown on each ride is what reaches you in full.</p></div></div>
-            <div class="qa-item"><span class="n">03</span><div>
-              <h3>I took a ride and cannot do it.</h3>
-              <p>Release it from the Available rides page &mdash; possible until 24 hours before
-              pick-up. Inside 24 hours, call us. Do not simply not turn up: there is a passenger
-              at an airport counting on you.</p></div></div>
-            <div class="qa-item"><span class="n">04</span><div>
-              <h3>The passenger is not at the pick-up point.</h3>
-              <p>Call the number on the ride. If there is no answer, wait and call us &mdash;
-              we have the flight details and can often find out what happened.</p></div></div>
-            <div class="qa-item"><span class="n">05</span><div>
-              <h3>A document of mine expired.</h3>
-              <p>Rides stop reaching you on the expiry date, and we warn you 30 days, 7 days
-              and 1 day before. Upload the new one and you are back in immediately. Rides you
-              already accepted are not cancelled &mdash; please still do them.</p></div></div>
-            <div class="qa-item"><span class="n">06</span><div>
-              <h3>Can I add more drivers and vehicles later?</h3>
-              <p>Any time, from the Drivers and Vehicles pages. A bigger vehicle means bigger
-              groups reach you: a booking for six only appears to companies with a vehicle
-              that seats six.</p></div></div>
-            <div class="qa-item"><span class="n">07</span><div>
-              <h3>Do you take a commission?</h3>
-              <p>No. The fee on the offer is transferred to you in full. Our margin is in what
-              the passenger pays, which is a separate number you never have to think about.</p></div></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- SETTINGS -->
-      <div class="page" id="pgSettings">
-        <div class="page-head"><h1>Company profile</h1><p>Keep this current. It is what appears on the paperwork we issue you.</p></div>
-        <div class="card">
-          <div class="grid2">
-            <div class="field full"><label for="stLegal">Registered company name</label><input id="stLegal" type="text"></div>
-            <div class="field"><label for="stTrading">Trading name</label><input id="stTrading" type="text"></div>
-            <div class="field"><label for="stVat">VAT or tax number</label><input id="stVat" type="text"></div>
-            <div class="field full"><label for="stAddress">Address</label><input id="stAddress" type="text"></div>
-            <div class="field"><label for="stCity">City</label><input id="stCity" type="text"></div>
-            <div class="field"><label for="stPostal">Postal code</label><input id="stPostal" type="text"></div>
-            <div class="field"><label for="stContact">Contact name</label><input id="stContact" type="text"></div>
-            <div class="field"><label for="stRole">Role</label><input id="stRole" type="text"></div>
-            <div class="field"><label for="stPhone">Phone</label><input id="stPhone" type="tel"></div>
-            <div class="field"><label for="stEmergency">Out-of-hours phone</label><input id="stEmergency" type="tel"></div>
-            <div class="field"><label for="stEmail">Account email</label><input id="stEmail" type="email" disabled></div>
-            <div class="field"><label for="stCountry">Country</label><input id="stCountry" type="text" disabled></div>
-          </div>
-          <button class="btn teal" id="stSave" type="button">Save changes</button>
-          <div id="stMsg" class="msg err"></div>
-          <div id="stOk" class="msg ok"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Botão flutuante. Vive fora do <main> de propósito: acompanha o
-     parceiro em qualquer página do portal. -->
-<button class="chat-fab hidden" id="chatFab" type="button" aria-label="Open support chat">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-3.6-.7L3 21l1.9-5a8.2 8.2 0 0 1-.9-3.8 8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg>
-  <span class="chat-badge hidden" id="chatBadge">0</span>
-</button>
-
-<div class="chat-panel hidden" id="chatPanel" role="dialog" aria-label="Support chat">
-
-  <!-- As conversas anteriores. Desliza por cima da atual: fecha-se
-       e volta-se ao sítio onde se estava. -->
-  <div class="chat-list" id="chatList" hidden>
-    <div class="cl-head">
-      <strong>Your conversations</strong>
-      <button class="chat-x" id="clClose" type="button" aria-label="Back">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="cl-body" id="clBody"></div>
-    <div class="cl-foot">
-      <button class="btn teal block sm" id="clNew" type="button">Start a new conversation</button>
-    </div>
-  </div>
-
-  <div class="chat-head">
-    <div class="chat-who">
-      <span class="chat-av" id="chatAvatar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-3.6-.7L3 21l1.9-5a8.2 8.2 0 0 1-.9-3.8 8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg>
-      </span>
-      <div class="chat-id">
-        <strong id="chatTitle">Airportlink</strong>
-        <span id="chatPresence">Support</span>
-      </div>
-    </div>
-    <div class="chat-head-acts">
-      <button class="chat-x" id="chatHistory" type="button" title="Past conversations" aria-label="Past conversations">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
-      </button>
-      <button class="chat-x" id="chatResolve" type="button" title="Mark as resolved" aria-label="Mark as resolved">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-      </button>
-      <button class="chat-x" id="chatClose" type="button" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-  </div>
-
-  <div class="chat-body" id="chatBody">
-    <div class="chat-empty">Loading&hellip;</div>
-  </div>
-
-  <button class="chat-jump hidden" id="chatJump" type="button">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-    New message
-  </button>
-
-  <div class="chat-note hidden" id="chatWaiting"></div>
-
-  <!-- A barra de uma conversa fechada que se está a ler. -->
-  <div class="chat-read" id="chatReadBar" hidden>
-    <span id="chatReadText">This conversation is closed.</span>
-    <button class="btn line sm" id="chatReopen" type="button">Reopen</button>
-  </div>
-
-  <div class="chat-foot" id="chatFoot">
-    <input type="file" id="chatFile" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp" hidden>
-    <button class="chat-clip" id="chatAttach" type="button" aria-label="Attach a file">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.3 20.2a5.5 5.5 0 0 1-7.8-7.8l9.2-9.1a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.1a1.8 1.8 0 0 1-2.6-2.6l8.5-8.4"/></svg>
-    </button>
-    <textarea id="chatInput" rows="1" placeholder="Write a message" maxlength="4000"></textarea>
-    <button class="chat-send" id="chatSend" type="button" aria-label="Send">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-    </button>
-  </div>
-  <div class="chat-err" id="chatErr"></div>
-</div>
-
-<script>
-(function () {
-'use strict';
-
-var SUPABASE_URL = 'https://ujpagsccfiledbtfeyuq.supabase.co';
-var SUPABASE_ANON_KEY = 'sb_publishable_1Oc8DziBDPMs0MAxhrGGxw_qhTPIYOZ';
-var API = '';                 // mesma origem: sem CORS
-var BUCKET = 'partner-documents';
-var SITE = 'https://www.airportlink.app';
-
-// storageKey próprio: mesmo estando noutro domínio, isola esta
-// sessão de qualquer outra do ecossistema.
-var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false,
-          storageKey: 'airportlink-partner-auth' }
-});
-
-var qsa = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
-
 /**
- * $ que nunca devolve null.
+ * partners.js — o portal de motoristas
+ * ---------------------------------------------------------------
+ * Tudo o que uma empresa de motoristas faz na conta dela: o
+ * registo, os documentos, a frota, as zonas, a agenda e o chat com
+ * o apoio.
  *
- * Um único elemento em falta com addEventListener direto mata o
- * script inteiro — e o sintoma é a página parecer viva mas nenhum
- * botão funcionar, sem pista nenhuma de qual foi o elemento.
- */
-var MISSING = { __missing: true, style: {}, dataset: {}, files: null,
-  value: '', textContent: '', innerHTML: '', className: '', disabled: false, checked: false,
-  hidden: true, scrollHeight: 0, scrollTop: 0, clientHeight: 0,
-  classList: { add: function () {}, remove: function () {}, toggle: function () {},
-               contains: function () { return false; } },
-  addEventListener: function () {}, removeEventListener: function () {},
-  setAttribute: function () {}, getAttribute: function () { return null; },
-  appendChild: function () {}, focus: function () {}, click: function () {},
-  scrollIntoView: function () {}, closest: function () { return null; },
-  querySelector: function () { return null; }, querySelectorAll: function () { return []; } };
-
-var warned = {};
-
-function safeEl(id) {
-  var node = document.getElementById(id);
-
-  if (!node) {
-    if (!warned[id]) {
-      warned[id] = true;
-      console.warn('[portal] element missing:', id,
-        '— the page will work, but something is not being drawn.');
-    }
-    return MISSING;
-  }
-
-  return node;
-}
-
-var $ = function (id) { return safeEl(id); };
-
-var user = null, S = null, rides = [], board = { available: [], mine: [], airports: [] };
-var wizStep = 1, wizCities = [], wizOwner = null, areaCities = [], areaAirports = [];
-
-// Os principais países do mundo, por população e por movimento de
-// aeroporto. Sem marcas de "ainda não estamos aí": queremos o
-// registo seja onde for, e quem se regista primeiro tem o trabalho
-// primeiro quando abrirmos.
-var COUNTRIES = [
-  ['AL','Albania'],['DZ','Algeria'],['AO','Angola'],['AR','Argentina'],['AM','Armenia'],
-  ['AU','Australia'],['AT','Austria'],['AZ','Azerbaijan'],['BH','Bahrain'],['BD','Bangladesh'],
-  ['BE','Belgium'],['BO','Bolivia'],['BA','Bosnia and Herzegovina'],['BW','Botswana'],['BR','Brazil'],
-  ['BG','Bulgaria'],['KH','Cambodia'],['CM','Cameroon'],['CA','Canada'],['CV','Cape Verde'],
-  ['CL','Chile'],['CN','China'],['CO','Colombia'],['CR','Costa Rica'],['HR','Croatia'],
-  ['CU','Cuba'],['CY','Cyprus'],['CZ','Czechia'],['DK','Denmark'],['DO','Dominican Republic'],
-  ['EC','Ecuador'],['EG','Egypt'],['SV','El Salvador'],['EE','Estonia'],['ET','Ethiopia'],
-  ['FI','Finland'],['FR','France'],['GE','Georgia'],['DE','Germany'],['GH','Ghana'],
-  ['GR','Greece'],['GT','Guatemala'],['HN','Honduras'],['HK','Hong Kong'],['HU','Hungary'],
-  ['IS','Iceland'],['IN','India'],['ID','Indonesia'],['IQ','Iraq'],['IE','Ireland'],
-  ['IL','Israel'],['IT','Italy'],['CI','Ivory Coast'],['JM','Jamaica'],['JP','Japan'],
-  ['JO','Jordan'],['KZ','Kazakhstan'],['KE','Kenya'],['KW','Kuwait'],['LA','Laos'],
-  ['LV','Latvia'],['LB','Lebanon'],['LY','Libya'],['LT','Lithuania'],['LU','Luxembourg'],
-  ['MY','Malaysia'],['MV','Maldives'],['MT','Malta'],['MU','Mauritius'],['MX','Mexico'],
-  ['MD','Moldova'],['MN','Mongolia'],['ME','Montenegro'],['MA','Morocco'],['MZ','Mozambique'],
-  ['MM','Myanmar'],['NA','Namibia'],['NP','Nepal'],['NL','Netherlands'],['NZ','New Zealand'],
-  ['NG','Nigeria'],['MK','North Macedonia'],['NO','Norway'],['OM','Oman'],['PK','Pakistan'],
-  ['PA','Panama'],['PY','Paraguay'],['PE','Peru'],['PH','Philippines'],['PL','Poland'],
-  ['PT','Portugal'],['QA','Qatar'],['RO','Romania'],['RU','Russia'],['RW','Rwanda'],
-  ['SA','Saudi Arabia'],['SN','Senegal'],['RS','Serbia'],['SG','Singapore'],['SK','Slovakia'],
-  ['SI','Slovenia'],['ZA','South Africa'],['KR','South Korea'],['ES','Spain'],['LK','Sri Lanka'],
-  ['SE','Sweden'],['CH','Switzerland'],['TW','Taiwan'],['TZ','Tanzania'],['TH','Thailand'],
-  ['TN','Tunisia'],['TR','Turkey'],['UG','Uganda'],['UA','Ukraine'],['AE','United Arab Emirates'],
-  ['GB','United Kingdom'],['US','United States'],['UY','Uruguay'],['UZ','Uzbekistan'],['VE','Venezuela'],
-  ['VN','Vietnam'],['ZM','Zambia'],['ZW','Zimbabwe'],['OTHER','Somewhere else']
-];
-var LIVE_COUNTRIES = ['PT'];
-
-// ============================================================
-// HELPERS
-// ============================================================
-function esc(v) {
-  return String(v === null || v === undefined ? '' : v)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-function show(el, other, html) {
-  el.innerHTML = html; el.style.display = 'block';
-  if (other) other.style.display = 'none';
-}
-function hideMsgs() { qsa('.msg').forEach(function (m) { m.style.display = 'none'; }); }
-function iso(d) {
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-function initials(name) {
-  return String(name || '?').trim().split(/\s+/).slice(0,2)
-    .map(function (w) { return w[0]; }).join('').toUpperCase() || '?';
-}
-
-// ============================================================
-// CAIXAS DE DIÁLOGO
-//
-// O confirm() do browser é bloqueado dentro de um iframe com
-// sandbox e nalguns browsers móveis. Não falha com erro: devolve
-// false em silêncio, exatamente como se a pessoa tivesse
-// carregado em cancelar — e o botão parece não funcionar.
-// ============================================================
-var ask = { resolver: null };
-
-function perguntar(titulo, texto, botao) {
-  $('askTitle').textContent = titulo;
-  $('askText').textContent = texto;
-  $('askYes').textContent = botao || 'OK';
-  $('askNo').hidden = false;
-  $('askBack').hidden = false;
-  setTimeout(function () { $('askYes').focus(); }, 30);
-
-  return new Promise(function (resolve) {
-    ask.resolver = function (v) {
-      $('askBack').hidden = true;
-      ask.resolver = null;
-      resolve(v);
-    };
-  });
-}
-
-function avisar(titulo, texto) {
-  $('askTitle').textContent = titulo;
-  $('askText').textContent = texto;
-  $('askYes').textContent = 'OK';
-  $('askNo').hidden = true;
-  $('askBack').hidden = false;
-
-  return new Promise(function (resolve) {
-    ask.resolver = function () {
-      $('askBack').hidden = true;
-      ask.resolver = null;
-      resolve(true);
-    };
-  });
-}
-
-$('askYes').addEventListener('click', function () { if (ask.resolver) ask.resolver(true); });
-$('askNo').addEventListener('click', function () { if (ask.resolver) ask.resolver(false); });
-$('askBack').addEventListener('click', function (e) {
-  // Clicar fora cancela, como qualquer caixa de diálogo.
-  if (e.target === $('askBack') && ask.resolver) ask.resolver(false);
-});
-document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape' && !$('askBack').hidden && ask.resolver) ask.resolver(false);
-});
-
-async function authHeaders() {
-  var s = await db.auth.getSession();
-  var token = s.data && s.data.session && s.data.session.access_token;
-
-  // Um token expirado devolve sessão nula. Tentar renovar antes de
-  // desistir evita mandar o parceiro entrar outra vez a meio de uma
-  // tarefa — que é quando isto costuma acontecer.
-  if (!token) {
-    try {
-      var refreshed = await db.auth.refreshSession();
-      token = refreshed.data && refreshed.data.session && refreshed.data.session.access_token;
-    } catch (e) {
-      console.warn('[portal] refresh failed:', e.message);
-    }
-  }
-
-  if (!token) throw new Error('Your session expired. Please sign in again.');
-
-  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
-}
-
-/**
- * Chamada à API com erros legíveis. Sem isto, um servidor em baixo
- * devolve HTML e o browser diz apenas "Unexpected token '<'", que
- * não ajuda ninguém a perceber o que se passou.
- */
-async function api(path, body, opts) {
-  opts = opts || {};
-  var res;
-
-  try {
-    res = await fetch(API + path, {
-      method: opts.method || (body ? 'POST' : 'GET'),
-      headers: opts.noAuth ? { 'Content-Type': 'application/json' } : await authHeaders(),
-      body: body ? JSON.stringify(body) : undefined
-    });
-  } catch (e) {
-    throw new Error('We could not reach the server. It may be starting up — try again in a moment.');
-  }
-
-  var text = await res.text(), data;
-  try {
-    data = JSON.parse(text);
-  } catch (e) {
-    console.error('non-JSON from ' + path + ':', text.slice(0, 400));
-    throw new Error(res.status === 404
-      ? 'The server does not have this endpoint yet (' + path + ').'
-      : 'The server returned an unexpected response (HTTP ' + res.status + ').');
-  }
-
-  if (!res.ok || data.error) {
-    var err = new Error(data.error || ('HTTP ' + res.status));
-    err.missing = data.missing;
-    throw err;
-  }
-  return data;
-}
-
-// tema
-$('themeBtn').addEventListener('click', function () {
-  var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  try { localStorage.setItem('airportlink-theme', next); } catch (e) {}
-});
-// O botão do topo abre o CHAT, não a página de ajuda. Quem carrega
-// em "Support" quer falar com alguém — se quisesse ler, ia à página
-// pelo menu.
-$('helpBtn').addEventListener('click', function () { openChat(); });
-$('helpChatBtn').addEventListener('click', function () { openChat(); });
-
-// navegação
-qsa('.nav-item[data-page]').forEach(function (b) {
-  b.addEventListener('click', function () { goPage(b.getAttribute('data-page')); });
-});
-function goPage(id) {
-  qsa('.nav-item[data-page]').forEach(function (n) {
-    n.classList.toggle('on', n.getAttribute('data-page') === id);
-  });
-  qsa('.page').forEach(function (p) { p.classList.toggle('on', p.id === id); });
-  $('nav').classList.remove('open');
-  $('backdrop').classList.remove('on');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-$('menuBtn').addEventListener('click', function () {
-  $('nav').classList.add('open'); $('backdrop').classList.add('on');
-});
-$('backdrop').addEventListener('click', function () {
-  $('nav').classList.remove('open'); $('backdrop').classList.remove('on');
-});
-
-// ============================================================
-// ENTRADA
-// ============================================================
-(function fillCountries() {
-  var sel = $('w2Country');
-  // Por ordem alfabética, com "Somewhere else" no fim. Cem países
-  // por ordem de código é impossível de percorrer.
-  var sorted = COUNTRIES.slice().sort(function (a, b) {
-    if (a[0] === 'OTHER') return 1;
-    if (b[0] === 'OTHER') return -1;
-    return a[1].localeCompare(b[1]);
-  });
-
-  sorted.forEach(function (c) {
-    var o = document.createElement('option');
-    o.value = c[0];
-    o.textContent = c[1];
-    sel.appendChild(o);
-  });
-})();
-
-$('siJoin').addEventListener('click', function () {
-  $('signInView').classList.add('hidden');
-  $('wizView').classList.remove('hidden');
-  hideMsgs();
-});
-$('wizBack2SignIn').addEventListener('click', function () {
-  $('wizView').classList.add('hidden');
-  $('signInView').classList.remove('hidden');
-  hideMsgs();
-});
-
-$('siBtn').addEventListener('click', async function () {
-  hideMsgs();
-  var email = $('siEmail').value.trim(), pw = $('siPassword').value;
-  if (!email || !pw) return show($('siErr'), $('siOk'), 'Please fill in both fields.');
-
-  $('siBtn').disabled = true; $('siBtn').textContent = 'Signing in...';
-  try {
-    var res = await db.auth.signInWithPassword({ email: email, password: pw });
-
-    if (res.error) {
-      // "Email not confirmed" é literal e não explica o que fazer.
-      var msg = /not confirmed/i.test(res.error.message)
-        ? 'Your email is not confirmed yet. Open the link we sent you — check spam if it ' +
-          'is not in your inbox.'
-        : res.error.message;
-      return show($('siErr'), $('siOk'), esc(msg));
-    }
-    user = res.data.user;
-    await boot();
-  } catch (e) {
-    show($('siErr'), $('siOk'), esc(e.message));
-  } finally {
-    $('siBtn').disabled = false; $('siBtn').textContent = 'Sign in';
-  }
-});
-$('siPassword').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('siBtn').click(); });
-
-$('siForgot').addEventListener('click', async function () {
-  var email = $('siEmail').value.trim();
-  if (!email) return show($('siErr'), $('siOk'), 'Enter your email first.');
-  try {
-    // O /resetpassword foi eliminado: o formulário de nova password
-    // vive dentro do /login.
-    await db.auth.resetPasswordForEmail(email, { redirectTo: SITE + '/login' });
-  } catch (e) { console.error(e); }
-  // Resposta genérica: não revelamos que emails existem.
-  show($('siOk'), $('siErr'), 'If an account exists for that email, a reset link has been sent.');
-});
-
-$('navSignOut').addEventListener('click', async function () {
-  if (!await perguntar('Sign out', 'Sign out of the partner portal?', 'Sign out')) return;
-  try { await db.auth.signOut(); } catch (e) {}
-  window.location.reload();
-});
-
-// ============================================================
-// QUESTIONÁRIO
-// ============================================================
-function markBad(id, bad) {
-  var f = $(id).closest('.field');
-  if (f) f.classList.toggle('bad', bad);
-  return !bad;
-}
-
-function gotoStep(n) {
-  wizStep = n;
-  qsa('.wiz-page').forEach(function (p) {
-    p.classList.toggle('on', Number(p.getAttribute('data-step')) === n);
-  });
-  $('wizStep').textContent = 'Step ' + n + ' of 4';
-  $('wizFill').style.width = (n * 25) + '%';
-  var page = document.querySelector('.wiz-page.on');
-  if (page) { page.classList.remove('slide'); void page.offsetWidth; page.classList.add('slide'); }
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function validateStep(n) {
-  var ok = true;
-  if (n === 1) {
-    ok = markBad('w1Legal', !$('w1Legal').value.trim()) && ok;
-    ok = markBad('w1Contact', !$('w1Contact').value.trim()) && ok;
-    ok = markBad('w1Email', !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($('w1Email').value.trim())) && ok;
-    ok = markBad('w1Phone', !$('w1Phone').value.trim()) && ok;
-  }
-  if (n === 2) {
-    ok = markBad('w2Country', !$('w2Country').value) && ok;
-  }
-  if (n === 3) {
-    var fleet = parseInt($('w3Fleet').value, 10);
-    ok = markBad('w3Fleet', !Number.isFinite(fleet) || fleet < 1) && ok;
-    ok = markBad('w3Address', !$('w3Address').value.trim()) && ok;
-  }
-  return ok;
-}
-
-qsa('[data-next]').forEach(function (b) {
-  b.addEventListener('click', function () {
-    if (!validateStep(wizStep)) return;
-    gotoStep(Number(b.getAttribute('data-next')));
-  });
-});
-qsa('[data-back]').forEach(function (b) {
-  b.addEventListener('click', function () { gotoStep(Number(b.getAttribute('data-back'))); });
-});
-
-$('w2Country').addEventListener('change', function () {
-  var code = $('w2Country').value;
-  var box = $('w2Notice');
-  if (!code) { box.style.display = 'none'; return; }
-
-  if (LIVE_COUNTRIES.indexOf(code) !== -1) {
-    box.className = 'msg ok';
-    show(box, null, 'We are live here. Once you are verified you can start receiving offers straight away.');
-  } else {
-    box.className = 'msg';
-    box.style.background = 'var(--warn-bg)';
-    box.style.color = 'var(--warn-text)';
-    box.style.border = '1px solid var(--warn-rule)';
-    show(box, null, 'Register now and you are first in line for the work in your country. ' +
-      'We will tell you the moment transfers start reaching you.');
-  }
-});
-
-// cidades como etiquetas
-function tagInput(inputId, tagsId, store) {
-  function render() {
-    $(tagsId).innerHTML = store.map(function (c, i) {
-      return '<span class="tagchip">' + esc(c) +
-        '<button type="button" data-rm="' + i + '" aria-label="Remove">&times;</button></span>';
-    }).join('');
-    qsa('#' + tagsId + ' [data-rm]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        store.splice(Number(b.getAttribute('data-rm')), 1);
-        render();
-      });
-    });
-  }
-  $(inputId).addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' && e.key !== ',') return;
-    e.preventDefault();
-    var v = $(inputId).value.trim().replace(/,$/, '');
-    if (v && store.indexOf(v) === -1 && store.length < 40) store.push(v);
-    $(inputId).value = '';
-    render();
-  });
-  return render;
-}
-var renderWizTags = tagInput('w2City', 'w2Tags', wizCities);
-var renderAreaTags = tagInput('arCity', 'arTags', areaCities);
-
-qsa('[data-owner]').forEach(function (b) {
-  b.addEventListener('click', function () {
-    qsa('[data-owner]').forEach(function (x) { x.classList.remove('on'); });
-    b.classList.add('on');
-    wizOwner = b.getAttribute('data-owner') === 'yes';
-    if (wizOwner && !$('w3Fleet').value) $('w3Fleet').value = '1';
-  });
-});
-
-$('w4Pw').addEventListener('input', function () {
-  var v = $('w4Pw').value;
-  var score = Math.min(100, (v.length / 16) * 100);
-  var fill = $('pwFill');
-  fill.style.width = score + '%';
-  fill.style.background = v.length < 8 ? '#F87171' : (v.length < 12 ? 'var(--amber)' : 'var(--teal)');
-  $('pwHint').textContent = v.length < 8
-    ? 'A little longer — at least 8 characters.'
-    : (v.length < 12 ? 'Good. A few more characters would be better.' : 'Strong.');
-});
-
-$('wizSubmit').addEventListener('click', async function () {
-  hideMsgs();
-  var pw = $('w4Pw').value, pw2 = $('w4Pw2').value;
-  var ok = markBad('w4Pw', pw.length < 8);
-  ok = markBad('w4Pw2', pw !== pw2) && ok;
-  if (!ok) return;
-  if (!$('w4Terms').checked) {
-    return show($('wizErr'), null, 'Please confirm your company is licensed and accept the partner agreement.');
-  }
-
-  var payload = {
-    email: $('w1Email').value.trim(),
-    password: pw,
-    legal_name: $('w1Legal').value.trim(),
-    trading_name: $('w1Trading').value.trim(),
-    vat_number: $('w1Vat').value.trim(),
-    contact_name: $('w1Contact').value.trim(),
-    contact_role: $('w1Role').value.trim(),
-    contact_phone: $('w1Phone').value.trim(),
-    emergency_phone: $('w1Emergency').value.trim(),
-    country: $('w2Country').value,
-    operating_cities: wizCities,
-    fleet_size: $('w3Fleet').value,
-    owner_drives: wizOwner,
-    registered_address: $('w3Address').value.trim(),
-    city: $('w3City').value.trim(),
-    postal_code: $('w3Postal').value.trim(),
-    heard_from: $('w3Heard').value
-  };
-
-  $('wizSubmit').disabled = true;
-  $('wizSubmit').textContent = 'Creating...';
-  try {
-    var created = await api('/api/partner/signup', payload, { noAuth: true });
-
-    // Com verificação obrigatória o login é recusado até o email
-    // estar confirmado. Tentar entrar aqui daria um erro que parecia
-    // uma avaria — mostramos o que se passa em vez disso.
-    if (created && created.verification_required) {
-      $('wizView').innerHTML =
-        '<div class="wiz-top"><span class="wiz-step">All done</span></div>' +
-        '<div class="wiz-bar"><div class="wiz-fill" style="width:100%"></div></div>' +
-        '<h2>Check your email</h2>' +
-        '<p class="sub">We sent a confirmation link to <strong>' + esc(payload.email) +
-        '</strong>. Click it and your account is active.</p>' +
-        '<div class="msg ok" style="display:block">Your company details are saved. ' +
-        'Nothing else is needed until you confirm.</div>' +
-        '<p class="sub" style="margin-top:22px">Not there? Look in spam, and check the ' +
-        'address above is right. The link works for 24 hours.</p>' +
-        '<button class="btn line block" onclick="location.reload()" type="button" ' +
-        'style="margin-top:12px">Back to sign in</button>';
-      return;
-    }
-
-    var res = await db.auth.signInWithPassword({ email: payload.email, password: pw });
-    if (res.error) throw new Error(res.error.message);
-    user = res.data.user;
-    await boot();
-  } catch (e) {
-    show($('wizErr'), null, esc(e.message));
-    $('wizSubmit').disabled = false;
-    $('wizSubmit').textContent = 'Create my account';
-  }
-});
-
-// ============================================================
-// PAINEL
-// ============================================================
-/**
- * A sessão acabou a meio.
+ * O que o CALL CENTRE faz — as filas, os estados de agente, as
+ * métricas — mudou para o support.js. Estava aqui porque o
+ * requireAdmin já cá vivia, e o ficheiro chegou a 87 KB com 53
+ * rotas de dois sistemas diferentes.
  *
- * Aparece como 401 em qualquer chamada. Sem isto, o portal ficava a
- * mostrar dados velhos e cada botão falhava em silêncio.
+ * As dependências entram por parâmetro em vez de serem importadas.
+ * Assim este módulo não sabe nada sobre como o servidor está
+ * montado.
+ * ---------------------------------------------------------------
  */
-function sessionLost() {
-  $('statusBanner').innerHTML =
-    '<div class="banner bad"><span class="mk">&#9679;</span><span>' +
-    '<strong>Your session has ended</strong>' +
-    'Sign in again to carry on. Nothing you have done is lost.' +
-    '<br><button class="btn amber sm" onclick="location.reload()" type="button">Sign in again</button>' +
-    '</span></div>';
-}
 
-async function boot() {
-  try {
-    S = await api('/api/partner/me');
-  } catch (e) {
-    // O ecrã de espera tem de sair, mesmo quando isto falha —
-    // senão fica-se a olhar para ele sem nada acontecer.
-    $('bootWait').classList.add('hidden');
-    $('gate').classList.remove('hidden');
-    return show($('siErr'), $('siOk'), esc(e.message));
-  }
-
-  $('gate').style.display = 'none';
-  $('app').classList.add('on');
-
-  var p = S.partner || {};
-  $('tbCompany').textContent = p.trading_name || p.legal_name || 'Your company';
-  $('tbAvatar').textContent = initials(p.trading_name || p.legal_name || S.email);
-  var stepsLeft = checklist().filter(function (i) { return !i.done; }).length;
-  $('tbStatus').textContent = ({
-    draft: 'Not submitted', submitted: 'Under review', in_review: 'Under review',
-    action_required: 'Needs your attention',
-    verified: 'Verified', suspended: 'Suspended', rejected: 'Not approved',
-    approved: stepsLeft ? (stepsLeft + ' step' + (stepsLeft === 1 ? '' : 's') + ' left') : 'Live'
-  })[p.status] || 'Setting up';
-  $('stEmail').value = S.email || '';
-  $('stCountry').value = p.country || '';
-
-  fillSettings();
-  fillPayouts();
-  renderDocs();
-  renderDrivers();
-  renderFleet();
-  renderAreas();
-
-  // O chat primeiro e independente de tudo o resto: um erro a
-  // desenhar o painel não pode deixar o parceiro sem forma de pedir
-  // ajuda, que é quando mais precisa dela.
-  $('chatFab').classList.remove('hidden');
-  loadChat().catch(function (e) { console.error('chat:', e.message); });
-
-  try {
-    // O quadro primeiro: as viagens desta empresa vêm de lá.
-    await loadBoard();
-    loadRides();
-  } catch (e) {
-    console.error('board:', e.message);
-    if (/signed in|session/i.test(e.message)) sessionLost();
-  }
-
-  try {
-    renderOverview();
-  loadStanding();
-  } catch (e) {
-    // Visível, não escondido na consola. Um painel vazio sem
-    // explicação é o pior resultado possível.
-    console.error('overview:', e);
-    $('statusBanner').innerHTML =
-      '<div class="banner bad"><span class="mk">&#9679;</span><span>' +
-      '<strong>We could not draw your dashboard</strong>' + esc(e.message) +
-      '<br><br>Your account is fine — this is a display problem on our side. ' +
-      'Tell us in the chat and we will fix it.' +
-      '<br><button class="btn amber sm" onclick="location.reload()" type="button">Reload</button>' +
-      '</span></div>';
-  }
-
-  try { renderRides(); } catch (e) { console.error('rides:', e.message); }
-}
-
-async function refresh(newState) {
-  if (newState) S = Object.assign(S, newState);
-  else S = await api('/api/partner/me');
-  renderDocs(); renderDrivers(); renderFleet(); renderAreas(); renderOverview();
-}
-
-// ---------- panorama ----------
-function checklist() {
-  var p = (S && S.partner) || {};
-  var need = ((S && S.requirements) || []).filter(function (r) {
-    return r.mandatory && r.scope === 'company' && r.stage === 'signup';
-  });
-  // Um documento recusado não conta como feito, mesmo estando lá.
-  var docsDone = need.length > 0 && need.every(function (r) {
-    return ((S && S.documents) || []).some(function (d) {
-      return d.requirement_code === r.code && !d.driver_id && !d.vehicle_id &&
-        d.status !== 'rejected';
-    });
-  });
-
-  return [
-    { id: 'pgDocs',    title: 'Upload 3 documents', sub: 'Registration, insurance, licence', done: docsDone },
-    { id: 'pgDrivers', title: 'Add a driver',       sub: 'At least one, with a phone number', done: ((S && S.drivers) || []).length > 0 },
-    { id: 'pgFleet',   title: 'Add a vehicle',      sub: 'Seats decide which rides you get',  done: ((S && S.vehicles) || []).length > 0 },
-    { id: 'pgAreas',   title: 'Set your work areas',sub: 'Airports you can serve',            done: (p.operating_airports || []).length > 0 },
-    { id: 'pgPayouts', title: 'Add payout details', sub: 'Where we send your money',          done: Boolean(p.payout_iban) }
-  ];
-}
-
-function renderOverview() {
-  // Uma conta acabada de criar pode não ter nada disto ainda. Sem
-  // as redes, o primeiro .filter num undefined rebentava a função
-  // inteira — e com ela o painel.
-  S = S || {};
-  S.documents = S.documents || [];
-  S.drivers = S.drivers || [];
-  S.vehicles = S.vehicles || [];
-  S.requirements = S.requirements || [];
-  S.serviceZones = S.serviceZones || [];
-  S.airports = S.airports || [];
-
-  var p = S.partner || {};
-  var items = checklist();
-  var done = items.filter(function (i) { return i.done; }).length;
-  var setupComplete = done === items.length;
-  var expired = S.documents.filter(function (d) {
-    return d.expires_on && new Date(d.expires_on) < new Date();
-  });
-  var soon = S.documents.filter(function (d) {
-    if (!d.expires_on) return false;
-    var days = (new Date(d.expires_on) - Date.now()) / 864e5;
-    return days > 0 && days <= 30;
-  });
-
-  // banner de estado
-  var b = '';
-  if (p.status === 'draft' || p.status === 'rejected') {
-    b = '<div class="banner draft"><span class="mk">&#9679;</span><span>' +
-      '<strong>' + (p.status === 'rejected' ? 'Your submission was not approved' : 'Finish setting up your account') + '</strong>' +
-      (p.status === 'rejected' && p.rejection_reason
-        ? esc(p.rejection_reason) + '<br><br>Correct it and send it back to us.'
-        : 'Upload your three documents and send them to us. We verify by hand, usually within a few working days.') +
-      '<br><button class="btn amber sm" data-go="pgDocs" type="button">Go to documents</button></span></div>';
-  } else if (p.status === 'action_required') {
-    var bad = S.documents.filter(function (d) { return d.status === 'rejected'; });
-
-    b = '<div class="banner bad"><span class="mk">&#9679;</span><span>' +
-      '<strong>' + (bad.length === 1 ? 'One document needs replacing' : bad.length + ' documents need replacing') + '</strong>' +
-      'We reviewed your account and could not accept ' +
-      (bad.length === 1 ? 'one of your documents' : 'some of your documents') +
-      '. The reason is written next to each one. Upload a new file and your account goes ' +
-      'straight back for review &mdash; nothing else you have done is lost.' +
-      '<br><button class="btn amber sm" data-go="pgDocs" type="button">See what to fix</button>' +
-      '</span></div>';
-  } else if (p.status === 'submitted' || p.status === 'in_review') {
-    b = '<div class="banner review"><span class="mk">&#8987;</span><span>' +
-      '<strong>Your account is under review</strong>' +
-      'Everything is with us. We check by hand, usually within a few working days, and email you either way. ' +
-      'If something is wrong we tell you which document and why &mdash; you will never get a rejection without a reason.' +
-      '</span></div>';
-  } else if (p.status === 'suspended') {
-    b = '<div class="banner bad"><span class="mk">&#10005;</span><span>' +
-      '<strong>Offers are paused</strong>' +
-      (expired.length
-        ? 'A document has expired. Replace it and you are back in immediately.'
-        : 'Your account is suspended. Tell us in the chat and we will explain exactly why.') +
-      '</span></div>';
-  } else if (expired.length) {
-    b = '<div class="banner bad"><span class="mk">&#10005;</span><span>' +
-      '<strong>' + expired.length + ' document' + (expired.length === 1 ? '' : 's') + ' expired</strong>' +
-      'You are not receiving offers until they are replaced.' +
-      '<br><button class="btn danger sm" data-go="pgDocs" type="button">Replace now</button></span></div>';
-  } else if (p.status === 'approved' && setupComplete) {
-    b = '<div class="banner ok"><span class="mk">&#10003;</span><span>' +
-      '<strong>You are live</strong>' +
-      'Transfers at your airports appear under Available rides. Take the ones that fit your day.' +
-      (soon.length ? '<br><br>' + soon.length + ' document' + (soon.length === 1 ? '' : 's') +
-        ' expire within 30 days — replace them to stay in the dispatch list.' : '') +
-      '</span></div>';
-  } else {
-    // Aprovado mas com passos por fazer. Dizer "you are live" aqui
-    // seria mentira: sem veículo ou sem área de trabalho, nenhuma
-    // oferta consegue chegar a este parceiro.
-    b = '<div class="banner draft"><span class="mk">&#9679;</span><span>' +
-      '<strong>' + (items.length - done) + ' step' + (items.length - done === 1 ? '' : 's') +
-      ' left before your first ride</strong>' +
-      'Your account is approved, but offers can only reach you once your setup is complete. ' +
-      'Finish the steps below and you go live automatically.' +
-      '</span></div>';
-  }
-  $('statusBanner').innerHTML = b;
-
-  // lista de ativação
-  $('activation').innerHTML = (setupComplete && p.status === 'approved') ? '' :
-    '<div class="progress-line"><span class="n">' + done + ' of ' + items.length + ' done</span>' +
-    '<span class="bar"><i style="width:' + Math.round(done / items.length * 100) + '%"></i></span></div>' +
-    '<div class="steps-grid">' + items.map(function (i) {
-      return '<button class="stepcard ' + (i.done ? 'done' : '') + '" data-go="' + i.id + '" type="button">' +
-        '<span class="ic">' + (i.done ? '&#10003;' : '&#10005;') + '</span>' +
-        '<h4>' + esc(i.title) + '</h4><p>' + esc(i.sub) + '</p></button>';
-    }).join('') + '</div>';
-
-  // métricas
-  var today = iso(new Date());
-  var live = rides.filter(function (r) { return r.status !== 'cancelled'; });
-  var upcoming = live.filter(function (r) { return r.booking_date >= today; })
-    .sort(function (a, b) {
-      return (a.booking_date + (a.booking_time || '')).localeCompare(b.booking_date + (b.booking_time || ''));
-    });
-  var openNearby = (board.available || []).length;
-
-  // Sem documentos não há nada válido. Dizia "OK · All valid" a
-  // quem não tinha carregado nenhum — a métrica olhava só para as
-  // validades, e sem documentos não há validades nenhumas.
-  var needed = S.requirements.filter(function (r) {
-    return r.mandatory && r.scope === 'company' && r.stage === 'signup';
-  }).length;
-
-  var uploaded = S.documents.filter(function (d) {
-    return !d.driver_id && !d.vehicle_id && d.status !== 'rejected';
-  }).length;
-
-  var rejectedDocs = S.documents.filter(function (d) { return d.status === 'rejected'; });
-
-  var docState =
-      rejectedDocs.length ? { cls: 'bad', v: rejectedDocs.length, s: 'rejected · replace them' }
-    : expired.length      ? { cls: 'bad', v: expired.length, s: 'expired · offers paused' }
-    : uploaded === 0      ? { cls: 'bad', v: '0 / ' + (needed || 3), s: 'None uploaded yet' }
-    : uploaded < needed   ? { cls: '', v: uploaded + ' / ' + needed, s: 'Still missing some' }
-    : soon.length         ? { cls: '', v: soon.length, s: 'expiring within 30 days' }
-    :                       { cls: 'good', v: 'OK', s: 'All valid' };
-
-  // ---------- dinheiro ----------
-  //
-  // A pergunta que um parceiro faz mais vezes é "quanto vou
-  // receber". Estava só no extrato mensal, que chega uma vez por
-  // mês. Aqui está sempre.
-  var month = today.slice(0, 7);
-  var lastMonth = (function () {
-    var d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return d.toISOString().slice(0, 7);
-  })();
-
-  var fee = function (r) { return Number(r.driver_payout || 0); };
-  var completed = live.filter(function (r) { return r.booking_date < today; });
-  var thisMonthRides = completed.filter(function (r) {
-    return String(r.booking_date).slice(0, 7) === month;
-  });
-
-  var earnedThisMonth = thisMonthRides.reduce(function (t, r) { return t + fee(r); }, 0);
-  var owedLastMonth = completed
-    .filter(function (r) { return String(r.booking_date).slice(0, 7) === lastMonth; })
-    .reduce(function (t, r) { return t + fee(r); }, 0);
-  var booked = upcoming.reduce(function (t, r) { return t + fee(r); }, 0);
-
-  var cur = (live[0] && live[0].currency) || 'EUR';
-  var money = function (v) { return cur + ' ' + Number(v || 0).toFixed(0); };
-
-  var nextRide = upcoming[0];
-  var hoursToNext = nextRide
-    ? (new Date(nextRide.booking_date + 'T' + (nextRide.booking_time || '00:00')) - Date.now()) / 36e5
-    : null;
-
-  $('metrics').innerHTML =
-    // Linha um: o dinheiro.
-    card(earnedThisMonth ? 'good' : '', 'Earned this month', money(earnedThisMonth),
-      thisMonthRides.length + ' ride' + (thisMonthRides.length === 1 ? '' : 's') + ' done') +
-    card(owedLastMonth ? 'good' : '', 'Due to you', money(owedLastMonth),
-      owedLastMonth ? 'For ' + lastMonth + ', paid in the first working days' : 'Nothing outstanding') +
-    card('', 'Already booked', money(booked),
-      upcoming.length + ' ride' + (upcoming.length === 1 ? '' : 's') + ' ahead') +
-    card(openNearby ? 'good' : '', 'Up for grabs', openNearby,
-      openNearby ? 'At your airports right now' : 'Nothing waiting at your airports') +
-
-    // Linha dois: o trabalho.
-    card(hoursToNext !== null && hoursToNext < 24 ? 'good' : '', 'Next ride',
-      nextRide
-        ? (nextRide.booking_date + (nextRide.booking_time ? ' · ' + String(nextRide.booking_time).slice(0, 5) : ''))
-        : '—',
-      nextRide
-        ? (hoursToNext < 24
-            ? 'In ' + Math.max(0, Math.round(hoursToNext)) + ' hours · ' + String(nextRide.pickup || '').slice(0, 34)
-            : String(nextRide.pickup || '').slice(0, 44))
-        : 'Nothing scheduled', true) +
-    card('', 'Completed', completed.length, 'All time') +
-    card(docState.cls, 'Documents', docState.v, docState.s) +
-    card('', 'Fleet', S.drivers.length + ' / ' + S.vehicles.length,
-      'drivers / vehicles' +
-      (S.vehicles.length
-        ? ' · up to ' + Math.max.apply(null, S.vehicles.map(function (v) { return v.seats || 0; })) + ' seats'
-        : '')) +
-    card('', 'Airports', (p.operating_airports || []).length, 'you can serve');
-
-  // próximas viagens
-  $('nextRides').innerHTML = upcoming.length
-    ? upcoming.slice(0, 3).map(rideRow).join('')
-    : '<div class="empty">No rides yet. Offers appear here once you are live.</div>';
-
-  // ---------- o que fazer a seguir ----------
-  //
-  // Muda com a situação. Um atalho fixo para "adicionar veículo" a
-  // quem já tem três é ruído.
-  var actions = [];
-
-  if (openNearby) actions.push(['pgBoard', 'Take a ride', openNearby + ' waiting at your airports']);
-  if (expired.length || soon.length) {
-    actions.push(['pgDocs', 'Update documents', expired.length ? 'One has expired' : 'One expires soon']);
-  }
-  if (!(p.operating_airports || []).length) {
-    actions.push(['pgAreas', 'Choose your airports', 'Nothing reaches you without this']);
-  }
-  if (!p.payout_iban) actions.push(['pgPayouts', 'Add payout details', 'We cannot pay you without them']);
-  if (!S.vehicles.length) actions.push(['pgFleet', 'Add a vehicle', 'Bigger vehicles get bigger groups']);
-  if (upcoming.length) actions.push(['pgRides', 'See your rides', upcoming.length + ' coming up']);
-  actions.push(['pgPayouts', 'Your payouts', 'Statements and bank details']);
-
-  $('quickActions').innerHTML = actions.slice(0, 4).map(function (a) {
-    return '<button class="qa-card" data-go="' + esc(a[0]) + '" type="button">' +
-      '<strong>' + esc(a[1]) + '</strong><span>' + esc(a[2]) + '</span></button>';
-  }).join('');
-
-  qsa('[data-go]').forEach(function (b) {
-    b.addEventListener('click', function () { goPage(b.getAttribute('data-go')); });
-  });
-
-  // avisos na navegação
-  var navDocs = $('navDocs');
-  if (expired.length || soon.length) {
-    navDocs.textContent = expired.length || soon.length;
-    navDocs.className = 'badge' + (expired.length ? ' alert' : '');
-    navDocs.classList.remove('hidden');
-  } else navDocs.classList.add('hidden');
-
-  var navRides = $('navRides');
-  if (upcoming.length) { navRides.textContent = upcoming.length; navRides.classList.remove('hidden'); }
-  else navRides.classList.add('hidden');
-}
-
-function card(cls, k, v, s, small) {
-  return '<div class="metric ' + cls + '"><div class="k">' + esc(k) + '</div>' +
-    '<div class="v' + (small ? ' sm' : '') + '">' + esc(v) + '</div>' +
-    '<div class="s">' + esc(s) + '</div></div>';
-}
-
-function rideRow(r) {
-  var cur = r.currency || 'EUR';
-  return '<div class="row"><div class="row-top"><div>' +
-    '<p class="row-title">' + esc(r.passenger_name || r.full_name || 'Passenger') + '</p>' +
-    '<span class="row-sub">' + esc(r.booking_reference || r.booking_id || '') + ' · ' +
-    esc(r.booking_date) + (r.booking_time ? ' ' + esc(String(r.booking_time).slice(0,5)) : '') + '</span></div>' +
-    '<span class="pill ' + (r.status === 'cancelled' ? 'bad' : 'ok') + '">' + esc(r.status) + '</span></div>' +
-    '<div style="margin-top:12px;font-size:14px;line-height:1.6">' + esc(r.pickup || '') +
-    '<br><span style="color:var(--muted)">to ' + esc(r.dropoff || '') + '</span></div>' +
-    (r.driver_payout ? '<div style="margin-top:11px;font-family:var(--mono);font-size:14px;font-weight:600">You receive ' +
-      esc(cur) + ' ' + Number(r.driver_payout).toFixed(2) + '</div>' : '') +
-    '</div>';
-}
-
-// ---------- documentos ----------
-function findDoc(code) {
-  return S.documents.find(function (d) {
-    return d.requirement_code === code && !d.driver_id && !d.vehicle_id;
-  });
-}
-
-function renderDocs() {
-  var reqs = S.requirements.filter(function (r) {
-    return r.scope === 'company' && r.stage === 'signup';
-  });
-
-  if (!reqs.length) {
-    $('docsList').innerHTML = '<div class="empty">No documents configured yet. Tell us in the chat.</div>';
-    return;
-  }
-
-  $('docsList').innerHTML = reqs.map(function (r) {
-    var d = findDoc(r.code);
-    var expired = d && d.expires_on && new Date(d.expires_on) < new Date();
-    var rejected = d && d.status === 'rejected';
-
-    var state = !d ? '<span class="pill">not uploaded</span>'
-      : (rejected ? '<span class="pill bad">rejected</span>'
-      : (expired ? '<span class="pill bad">expired</span>'
-      : '<span class="pill ' + (d.status === 'approved' ? 'ok' : 'warn') + '">' +
-        esc(d.status === 'pending' ? 'under review' : d.status) + '</span>'));
-
-    return '<div class="doc' + (rejected ? ' rejected' : '') + '">' +
-      '<div><div class="n">' + esc(r.label) + '</div><div class="d">' + esc(r.description || '') + '</div></div>' +
-      '<div>' + (r.requires_expiry
-        ? '<label style="font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Valid until</label>' +
-          '<input type="date" data-exp="' + esc(r.code) + '" value="' + esc((d && d.expires_on) || '') + '">'
-        : '<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">No expiry needed</span>') + '</div>' +
-      '<div><input type="file" accept=".pdf,.jpg,.jpeg,.png" data-file="' + esc(r.code) + '">' +
-      '<button class="btn line sm block" data-up="' + esc(r.code) + '" type="button">' +
-      (d ? 'Replace file' : 'Choose file') + '</button>' +
-      '<span class="file-hint" data-hint="' + esc(r.code) + '"></span></div>' +
-      '<div class="st">' + state + (d ? esc(d.file_name || 'uploaded') : 'Nothing uploaded yet') +
-      (d && d.expires_on ? ' · valid until ' + esc(d.expires_on) : '') + '</div>' +
-      // O motivo aparece ao lado do documento e não numa lista à
-      // parte: é aqui que a pessoa está quando decide o que fazer.
-      (rejected
-        ? '<div class="doc-why"><strong>We could not accept this one.</strong>' +
-          esc(d.rejection_reason || 'Please upload it again.') +
-          ' Upload a new file above and it goes straight back for review.</div>'
-        : '') +
-      '</div>';
-  }).join('');
-
-  qsa('[data-up]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var code = b.getAttribute('data-up');
-      var input = document.querySelector('[data-file="' + code + '"]');
-      if (input) input.click();
-    });
-  });
-
-  // Escolher o ficheiro é o gesto; carregar noutro botão a seguir
-  // não é óbvio para ninguém.
-  qsa('[data-file]').forEach(function (input) {
-    input.addEventListener('change', function () {
-      var code = input.getAttribute('data-file');
-      var button = document.querySelector('[data-up="' + code + '"]');
-      if (input.files && input.files[0]) uploadDoc(code, button);
-    });
-  });
-
-  // O botão de submeter só aparece quando os CINCO passos estão
-  // feitos. Antes bastavam os documentos, e o parceiro submetia sem
-  // veículo nem IBAN — e a resposta era uma lista de erros.
-  var items = checklist();
-  var allDone = items.every(function (i) { return i.done; });
-  var noneRejected = !S.documents.some(function (d) { return d.status === 'rejected'; });
-  var st = (S.partner || {}).status;
-  var canSubmit = ['draft', 'rejected', 'action_required'].indexOf(st) !== -1;
-
-  $('submitCard').classList.toggle('hidden', !(allDone && noneRejected && canSubmit));
-
-  var pending = items.filter(function (i) { return !i.done; });
-
-  $('submitPending').innerHTML = (canSubmit && !allDone && pending.length)
-    ? '<div class="banner draft" style="margin:0"><span class="mk">&#9679;</span><span>' +
-      '<strong>' + pending.length + ' step' + (pending.length === 1 ? '' : 's') +
-      ' left before you can submit</strong>' +
-      pending.map(function (i) { return esc(i.title); }).join(' &middot; ') +
-      '</span></div>'
-    : '';
-}
-
-async function uploadDoc(code, button) {
-  hideMsgs();
-  var hint = document.querySelector('[data-hint="' + code + '"]');
-  if (hint) hint.textContent = '';
-  var fileInput = document.querySelector('[data-file="' + code + '"]');
-  var expInput = document.querySelector('[data-exp="' + code + '"]');
-  var file = fileInput && fileInput.files && fileInput.files[0];
-
-  if (!file) return;
-
-  var req = S.requirements.find(function (r) { return r.code === code; });
-  if (req && req.requires_expiry && (!expInput || !expInput.value)) {
-    return show($('docsErr'), $('docsOk'), 'Please set the expiry date before uploading ' + esc(req.label) + '.');
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    return show($('docsErr'), $('docsOk'), 'That file is over the 10 MB limit.');
-  }
-
-  button.disabled = true; button.textContent = 'Uploading...';
-  try {
-    var ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
-    // A primeira pasta é o uuid do parceiro: é o que a política de
-    // storage verifica antes de deixar escrever.
-    var path = user.id + '/company/' + code + '-' + Date.now() + '.' + ext;
-
-    var up = await db.storage.from(BUCKET).upload(path, file, {
-      contentType: file.type || 'application/octet-stream'
-    });
-    if (up.error) throw new Error(up.error.message);
-
-    var r = await api('/api/partner/document', {
-      requirement_code: code, file_path: path, file_name: file.name,
-      expires_on: expInput && expInput.value ? expInput.value : undefined
-    });
-    await refresh(r.state);
-    show($('docsOk'), $('docsErr'), esc(req ? req.label : 'Document') + ' uploaded.');
-  } catch (e) {
-    show($('docsErr'), $('docsOk'), esc(e.message));
-    button.disabled = false; button.textContent = 'Choose file';
-    // A mensagem real é o que diz o que se passa. Escondê-la atrás
-    // de "algo correu mal" torna isto impossível de diagnosticar.
-    if (hint) hint.textContent = e.message;
-  }
-}
-
-$('submitBtn').addEventListener('click', async function () {
-  hideMsgs();
-  $('submitBtn').disabled = true; $('submitBtn').textContent = 'Sending...';
-  try {
-    var r = await api('/api/partner/submit', { contract_accepted: true });
-    await refresh(r.state);
-    goPage('pgOverview');
-  } catch (e) {
-    var html = esc(e.message);
-    if (e.missing && e.missing.length) {
-      html += '<ul>' + e.missing.map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>';
-    }
-    show($('submitErr'), null, html);
-  } finally {
-    $('submitBtn').disabled = false; $('submitBtn').textContent = 'Submit for review';
-  }
-});
-
-// ---------- motoristas ----------
-function renderDrivers() {
-  $('driversList').innerHTML = S.drivers.length
-    ? S.drivers.map(function (d) {
-        return '<div class="row"><div class="row-top"><div>' +
-          '<p class="row-title">' + esc(d.full_name) + '</p>' +
-          '<span class="row-sub">' + esc(d.phone) +
-          (d.email ? ' · ' + esc(d.email) : '') +
-          (d.languages && d.languages.length ? ' · ' + esc(d.languages.join(', ')) : '') +
-          '</span></div><span class="pill ' + (d.status === 'active' ? 'ok' : 'warn') + '">' +
-          esc(d.status) + '</span></div></div>';
-      }).join('')
-    : '<div class="empty">No drivers yet. Add at least one — we pass their name and phone to the passenger on the day.</div>';
-}
-
-$('dvAdd').addEventListener('click', async function () {
-  hideMsgs();
-  var body = {
-    full_name: $('dvName').value.trim(),
-    phone: $('dvPhone').value.trim(),
-    email: $('dvEmail').value.trim(),
-    languages: $('dvLangs').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean)
-  };
-  if (!body.full_name || !body.phone) {
-    return show($('dvMsg'), null, 'Name and phone are required.');
-  }
-  $('dvAdd').disabled = true;
-  try {
-    var r = await api('/api/partner/driver', body);
-    await refresh(r.state);
-    ['dvName','dvPhone','dvEmail','dvLangs'].forEach(function (id) { $(id).value = ''; });
-  } catch (e) {
-    show($('dvMsg'), null, esc(e.message));
-  } finally {
-    $('dvAdd').disabled = false;
-  }
-});
-
-// ---------- veículos ----------
-function renderFleet() {
-  $('fleetList').innerHTML = S.vehicles.length
-    ? S.vehicles.map(function (v) {
-        return '<div class="row"><div class="row-top"><div>' +
-          '<p class="row-title">' + esc(v.make) + ' ' + esc(v.model) +
-          (v.year ? ' (' + esc(v.year) + ')' : '') + '</p>' +
-          '<span class="row-sub">' + esc(v.plate) + ' · ' + esc(v.seats) +
-          ' seats · ' + esc(v.vehicle_class) + '</span></div>' +
-          '<span class="pill ' + (v.status === 'active' ? 'ok' : 'warn') + '">' + esc(v.status) + '</span>' +
-          '</div></div>';
-      }).join('')
-    : '<div class="empty">No vehicles yet. The seat count is what decides which rides reach you.</div>';
-}
-
-$('vhAdd').addEventListener('click', async function () {
-  hideMsgs();
-  var body = {
-    make: $('vhMake').value.trim(), model: $('vhModel').value.trim(),
-    plate: $('vhPlate').value.trim(), seats: $('vhSeats').value,
-    vehicle_class: $('vhClass').value, year: $('vhYear').value
-  };
-  if (!body.make || !body.model || !body.plate || !body.seats) {
-    return show($('vhMsg'), null, 'Make, model, plate and seats are required.');
-  }
-  $('vhAdd').disabled = true;
-  try {
-    var r = await api('/api/partner/vehicle', body);
-    await refresh(r.state);
-    ['vhMake','vhModel','vhPlate','vhSeats','vhYear'].forEach(function (id) { $(id).value = ''; });
-  } catch (e) {
-    show($('vhMsg'), null, esc(e.message));
-  } finally {
-    $('vhAdd').disabled = false;
-  }
-});
-
-// ---------- áreas ----------
-function airportByCode(code) {
-  return (S.airports || []).find(function (a) { return a.iata === code; });
-}
-
-function renderAirportTags() {
-  $('apTags').innerHTML = areaAirports.map(function (code, i) {
-    var a = airportByCode(code);
-    return '<span class="tagchip"><span class="code">' + esc(code) + '</span>' +
-      esc(a ? a.city : '') +
-      '<button type="button" data-rmap="' + i + '" aria-label="Remove">&times;</button></span>';
-  }).join('');
-
-  qsa('#apTags [data-rmap]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      areaAirports.splice(Number(b.getAttribute('data-rmap')), 1);
-      renderAirportTags();
-    });
-  });
-}
-
-/**
- * Procura por nome, cidade, país ou código IATA. Um parceiro em
- * Lisboa escreve "Lisboa"; um que trabalhe com companhias escreve
- * "LIS". Os dois têm de funcionar.
- */
-$('apSearch').addEventListener('input', function () {
-  var q = $('apSearch').value.trim().toLowerCase();
-  var box = $('apResults');
-
-  if (q.length < 2) { box.innerHTML = ''; return; }
-
-  var hits = (S.airports || []).filter(function (a) {
-    if (areaAirports.indexOf(a.iata) !== -1) return false;
-    return a.iata.toLowerCase().indexOf(q) === 0 ||
-           a.city.toLowerCase().indexOf(q) !== -1 ||
-           a.name.toLowerCase().indexOf(q) !== -1;
-  }).slice(0, 6);
-
-  box.innerHTML = hits.length
-    ? hits.map(function (a) {
-        return '<div class="ap-hit" data-add="' + esc(a.iata) + '">' +
-          '<span class="ap-code">' + esc(a.iata) + '</span>' +
-          '<span><span class="ap-name">' + esc(a.name) + '</span><br>' +
-          '<span class="ap-where">' + esc(a.city) + ', ' + esc(a.country) + '</span></span></div>';
-      }).join('')
-    : '<div class="ap-hit" style="cursor:default;color:var(--muted);font-size:13.5px">' +
-      'No airport matches that. Add it as a city below instead.</div>';
-
-  qsa('#apResults [data-add]').forEach(function (h) {
-    h.addEventListener('click', function () {
-      var code = h.getAttribute('data-add');
-      if (areaAirports.indexOf(code) === -1) areaAirports.push(code);
-      $('apSearch').value = '';
-      box.innerHTML = '';
-      renderAirportTags();
-    });
-  });
-});
-
-$('apSave').addEventListener('click', async function () {
-  hideMsgs();
-  if (!areaAirports.length) {
-    return show($('apMsg'), $('apOk'), 'Add at least one airport — without it no offer can reach you.');
-  }
-  $('apSave').disabled = true;
-  try {
-    var p = S.partner || {};
-    var r = await api('/api/partner/company', {
-      legal_name: p.legal_name, trading_name: p.trading_name, vat_number: p.vat_number,
-      registered_address: p.registered_address, city: p.city, postal_code: p.postal_code,
-      contact_name: p.contact_name, contact_role: p.contact_role,
-      contact_phone: p.contact_phone, emergency_phone: p.emergency_phone,
-      operating_airports: areaAirports
-    });
-    await refresh(r.state);
-    show($('apOk'), $('apMsg'), areaAirports.length + ' airport' +
-      (areaAirports.length === 1 ? '' : 's') + ' saved.');
-  } catch (e) {
-    show($('apMsg'), $('apOk'), esc(e.message));
-  } finally {
-    $('apSave').disabled = false;
-  }
-});
-
-function renderAreas() {
-  var p = S.partner || {};
-  areaCities.length = 0;
-  (p.operating_cities || []).forEach(function (c) { areaCities.push(c); });
-  renderAreaTags();
-
-  areaAirports.length = 0;
-  (p.operating_airports || []).forEach(function (c) { areaAirports.push(c); });
-  renderAirportTags();
-
-  // As zonas formais só existem onde já operamos.
-  var live = LIVE_COUNTRIES.indexOf(p.country) !== -1 && S.serviceZones.length;
-  $('zoneCard').classList.toggle('hidden', !live);
-  if (!live) return;
-
-  var byRegion = {};
-  S.serviceZones.forEach(function (z) { (byRegion[z.region] = byRegion[z.region] || []).push(z); });
-
-  $('zoneList').innerHTML = Object.keys(byRegion).map(function (region) {
-    return '<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 0 10px">' +
-      esc(region) + '</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px">' +
-      byRegion[region].map(function (z) {
-        var on = (S.zones || []).indexOf(z.code) !== -1;
-        return '<label class="opt" style="display:flex;align-items:center;gap:10px;padding:12px 14px' +
-          (on ? ';border-color:var(--teal);background:var(--teal-soft)' : '') + '">' +
-          '<input type="checkbox" value="' + esc(z.code) + '"' + (on ? ' checked' : '') +
-          ' style="width:17px;height:17px">' +
-          '<span style="font-size:14px">' + esc(z.name) + '</span>' +
-          (z.airport ? '<span style="margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted)">' +
-            esc(z.airport) + '</span>' : '') + '</label>';
-      }).join('') + '</div>';
-  }).join('');
-}
-
-$('arSave').addEventListener('click', async function () {
-  hideMsgs();
-  $('arSave').disabled = true;
-  try {
-    var p = S.partner || {};
-    var r = await api('/api/partner/company', {
-      legal_name: p.legal_name, trading_name: p.trading_name, vat_number: p.vat_number,
-      registered_address: p.registered_address, city: p.city, postal_code: p.postal_code,
-      contact_name: p.contact_name, contact_role: p.contact_role,
-      contact_phone: p.contact_phone, emergency_phone: p.emergency_phone,
-      operating_cities: areaCities
-    });
-    await refresh(r.state);
-    show($('arOk'), $('arMsg'), 'Work areas saved.');
-  } catch (e) {
-    show($('arMsg'), $('arOk'), esc(e.message));
-  } finally {
-    $('arSave').disabled = false;
-  }
-});
-
-$('znSave').addEventListener('click', async function () {
-  hideMsgs();
-  var zones = qsa('#zoneList input:checked').map(function (i) { return i.value; });
-  if (!zones.length) return show($('znMsg'), null, 'Select at least one zone.');
-  $('znSave').disabled = true;
-  try {
-    var r = await api('/api/partner/zones', { zones: zones });
-    await refresh(r.state);
-    show($('arOk'), $('znMsg'), 'Zones saved.');
-  } catch (e) {
-    show($('znMsg'), null, esc(e.message));
-  } finally {
-    $('znSave').disabled = false;
-  }
-});
-
-// ---------- pagamentos e perfil ----------
-function fillPayouts() {
-  var p = S.partner || {};
-  $('pyHolder').value = p.payout_holder || '';
-  $('pyIban').value = p.payout_iban || '';
-}
-function fillSettings() {
-  var p = S.partner || {};
-  $('stLegal').value = p.legal_name || '';
-  $('stTrading').value = p.trading_name || '';
-  $('stVat').value = p.vat_number || '';
-  $('stAddress').value = p.registered_address || '';
-  $('stCity').value = p.city || '';
-  $('stPostal').value = p.postal_code || '';
-  $('stContact').value = p.contact_name || '';
-  $('stRole').value = p.contact_role || '';
-  $('stPhone').value = p.contact_phone || '';
-  $('stEmergency').value = p.emergency_phone || '';
-}
-
-async function saveCompany(extra, okBox, errBox, button) {
-  hideMsgs();
-  var p = S.partner || {};
-  var body = Object.assign({
-    legal_name: $('stLegal').value.trim() || p.legal_name,
-    trading_name: $('stTrading').value.trim(),
-    vat_number: $('stVat').value.trim(),
-    registered_address: $('stAddress').value.trim(),
-    city: $('stCity').value.trim(),
-    postal_code: $('stPostal').value.trim(),
-    contact_name: $('stContact').value.trim() || p.contact_name,
-    contact_role: $('stRole').value.trim(),
-    contact_phone: $('stPhone').value.trim() || p.contact_phone,
-    emergency_phone: $('stEmergency').value.trim(),
-    operating_cities: (p.operating_cities || [])
-  }, extra || {});
-
-  button.disabled = true;
-  try {
-    var r = await api('/api/partner/company', body);
-    await refresh(r.state);
-    fillPayouts(); fillSettings();
-    show(okBox, errBox, 'Saved.');
-  } catch (e) {
-    show(errBox, okBox, esc(e.message));
-  } finally {
-    button.disabled = false;
-  }
-}
-
-$('pySave').addEventListener('click', function () {
-  saveCompany({
-    payout_iban: $('pyIban').value.trim(),
-    payout_holder: $('pyHolder').value.trim()
-  }, $('pyOk'), $('pyMsg'), $('pySave'));
-});
-
-$('stSave').addEventListener('click', function () {
-  saveCompany({}, $('stOk'), $('stMsg'), $('stSave'));
-});
-
-// ============================================================
-// CHAT
-//
-// Sem bot. Estas empresas são de quem depende a operação, e a
-// resposta certa de uma pessoa vale mais do que dez respostas
-// rápidas de um robô — sobretudo quando o assunto é dinheiro.
-//
-// Cada assunto é uma conversa própria, com o seu número. Antes era
-// uma só, eterna: faturação de março e uma viagem de setembro no
-// mesmo fio interminável, e nada que se pudesse dar por concluído.
-// ============================================================
-var chat = {
-  id: null, ticket: null, subject: null, status: 'open',
-  messages: [], open: false, channel: null,
-  support: {}, waitTimer: null, waitStarted: null,
-  history: [], reading: null
-};
-
-// Ao fim de dez minutos sem ninguém pegar, a mensagem muda de tom.
-var WAIT_PATIENCE_MINUTES = 10;
-
-// Ordem de chegada ao ecrã. O carimbo do servidor pode ser posterior
-// ao da mensagem provisória, e sem isto a ordem baralhava-se.
-var msgSeq = 0;
-
-function chatTime(when) {
-  var d = new Date(when);
-  if (isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-function dayLabel(when) {
-  var d = new Date(when);
-  if (isNaN(d.getTime())) return '';
-
-  var today = new Date();
-  var yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-
-  return d.toLocaleDateString(undefined, {
-    day: 'numeric', month: 'long',
-    year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric'
-  });
-}
-
-function shortDate(when) {
-  var d = new Date(when);
-  if (isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-}
-
-function renderChat() {
-  var box = $('chatBody');
-
-  var all = chat.messages.slice().sort(function (a, b) {
-    return (a.seq || 0) - (b.seq || 0);
-  });
-
-  if (!all.length) {
-    box.innerHTML = '<div class="chat-empty">' +
-      '<span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-3.6-.7L3 21l1.9-5a8.2 8.2 0 0 1-.9-3.8 ' +
-      '8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg></span>' +
-      '<strong>How can we help?</strong>' +
-      '<span>A ride, a document, a payment &mdash; ask and a person answers. ' +
-      'Everything you write stays here.</span></div>';
-    return;
-  }
-
-  // Guardar a posição ANTES de redesenhar: se a pessoa subiu para
-  // reler, não a atiramos para o fim. Ser levado para baixo a meio
-  // de uma leitura é dos comportamentos mais irritantes que há.
-  var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 90;
-
-  var html = '';
-  var lastDay = '';
-
-  all.forEach(function (m, i) {
-    var previous = all[i - 1];
-    var next = all[i + 1];
-    var mine = m.sender === 'partner';
-
-    // Separador de dia. Sem isto, uma conversa de três semanas
-    // parece uma parede sem tempo nenhum.
-    var day = dayLabel(m.created_at);
-    if (day && day !== lastDay) {
-      html += '<div class="chat-day">' + esc(day) + '</div>';
-      lastDay = day;
-    }
-
-    // Agrupar o que é da mesma pessoa e separar o que não é: só a
-    // última de uma sequência leva a hora e o canto cortado.
-    var turn = !previous || previous.sender !== m.sender || dayLabel(previous.created_at) !== day;
-    var last = !next || next.sender !== m.sender || dayLabel(next.created_at) !== day;
-    var sending = String(m.id).indexOf('pending-') === 0 && !m.failed;
-
-    html += '<div class="msg-row ' + (mine ? 'mine' : 'theirs') +
-      (turn ? ' turn' : '') + (last ? ' last' : '') + '"><div>' +
-      '<div class="bubble' + (m.failed ? ' failed' : '') + (sending ? ' sending' : '') + '">' +
-      (m.attachment_path
-        ? '<a class="file" href="#" data-file-path="' + esc(m.attachment_path) + '">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
-          'stroke-linecap="round" stroke-linejoin="round">' +
-          '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
-          '<path d="M14 2v6h6"/></svg><span>' +
-          esc(m.attachment_name || 'attachment') + '</span></a>' +
-          (m.body ? '<div style="margin-top:8px">' + esc(m.body) + '</div>' : '')
-        : esc(m.body || '')) + '</div>';
-
-    if (m.failed) {
-      html += '<div class="msg-fail">Not sent \u00b7 ' + esc(m.error || 'unknown error') +
-        ' <button class="msg-retry" data-retry="' + esc(m.id) + '" type="button">Try again</button></div>';
-    } else if (last) {
-      html += '<div class="msg-meta">' +
-        (mine ? '' : esc(m.sender_name || 'Airportlink') + ' \u00b7 ') +
-        esc(chatTime(m.created_at)) + '</div>';
-    }
-
-    html += '</div></div>';
-  });
-
-  box.innerHTML = html;
-
-  if (atBottom) {
-    box.scrollTop = box.scrollHeight;
-    $('chatJump').classList.add('hidden');
-  }
-
-  // Um endereço assinado, válido por um minuto. O balde é privado:
-  // um link permanente seria um ficheiro do parceiro exposto para
-  // sempre a quem apanhasse o endereço.
-  qsa('#chatBody [data-file-path]').forEach(function (a) {
-    a.addEventListener('click', async function (e) {
-      e.preventDefault();
-
-      try {
-        var res = await db.storage.from('chat-attachments')
-          .createSignedUrl(a.getAttribute('data-file-path'), 60);
-
-        if (res.error) throw new Error(res.error.message);
-        window.open(res.data.signedUrl, '_blank', 'noopener');
-      } catch (err) {
-        avisar('Could not open the file', err.message);
+import { Router } from 'express';
+
+
+export function createPartnerRoutes({
+  supabase,
+  getUserFromRequest,
+  requireAdmin,
+  // As peças partilhadas com o call centre. Vêm de fora para as
+  // duas metades usarem a MESMA instância — duas cópias do chatFor
+  // seriam duas verdades sobre o que é uma conversa.
+  shared,
+  email = {},
+  config = {}
+}) {
+  if (!supabase) throw new Error('createPartnerRoutes: supabase is required');
+  if (!shared) throw new Error('createPartnerRoutes: shared is required');
+
+  const {
+    notify,
+    asUser,
+    ensurePartnerRow,
+    loadPartnerState,
+    chatFor,
+    historyFor
+  } = shared;
+
+  const DEFAULT_COUNTRY = config.defaultCountry || 'PT';
+  const PARTNER_EDITABLE_STATUSES = ['draft', 'rejected', 'verified', 'approved'];
+
+  const router = Router();
+
+
+  /**
+   * Registo completo: conta e empresa numa só chamada.
+   *
+   * Feito assim porque o questionário recolhe tudo antes de existir
+   * sessão. Se fossem duas chamadas, um erro na segunda deixava uma
+   * conta órfã sem empresa — e a pessoa não conseguia recomeçar nem
+   * continuar.
+   */
+  router.post('/api/partner/signup', async (req, res) => {
+    const b = req.body || {};
+    let createdUserId = null;
+
+    try {
+      if (!b.email || !b.password) {
+        return res.status(400).json({ error: 'Email and password are required.' });
       }
-    });
-  });
+      if (String(b.password).length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+      }
+      if (!b.legal_name || !b.contact_name || !b.contact_phone || !b.country) {
+        return res.status(400).json({
+          error: 'Company name, contact name, phone and country are required.'
+        });
+      }
 
-  qsa('#chatBody [data-retry]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var id = b.getAttribute('data-retry');
-      var msg = chat.messages.find(function (x) { return x.id === id; });
-      if (!msg) return;
+      // Ao contrário dos clientes, aqui a confirmação é exigida. Um
+      // parceiro vai ter acesso a dados de passageiros e a receber
+      // dinheiro, e ninguém está a meio de uma compra ao registar-se
+      // — o atrito custa pouco e vale a pena.
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: b.email,
+        password: b.password,
+        email_confirm: false,
+        user_metadata: { full_name: b.contact_name, partner: true }
+      });
 
-      chat.messages = chat.messages.filter(function (x) { return x !== msg; });
-      $('chatInput').value = msg.body;
-      renderChat();
-      $('chatSend').click();
-    });
-  });
-}
+      if (authError || !authData?.user) {
+        return res.status(400).json({
+          error: authError?.message || 'Could not create the account.'
+        });
+      }
 
-$('chatBody').addEventListener('scroll', function () {
-  var box = $('chatBody');
-  if (box.scrollHeight - box.scrollTop - box.clientHeight < 90) {
-    $('chatJump').classList.add('hidden');
-  }
-});
+      createdUserId = authData.user.id;
 
-$('chatJump').addEventListener('click', function () {
-  var box = $('chatBody');
-  box.scrollTop = box.scrollHeight;
-  $('chatJump').classList.add('hidden');
-});
+      await supabase.from('contacts').upsert({
+        id: createdUserId,
+        email: b.email,
+        full_name: b.contact_name,
+        phone_number: b.contact_phone,
+        is_admin: false
+      }, { onConflict: 'email' });
 
-/**
- * O topo do painel.
- *
- * Nunca dizemos se há ou não alguém ao serviço. Dizer "ninguém está
- * aqui" à uma da manhã convida a pessoa a fechar a janela sem
- * escrever — e nós preferimos a mensagem escrita, mesmo que só seja
- * lida de manhã.
- */
-function paintPresence() {
-  var title = $('chatTitle');
-  var state = $('chatPresence');
-  var avatar = $('chatAvatar');
-  var note = $('chatWaiting');
+      const cities = Array.isArray(b.operating_cities)
+        ? b.operating_cities.map((c) => String(c).trim()).filter(Boolean).slice(0, 40)
+        : null;
 
-  note.classList.add('hidden');
+      const fleetSize = parseInt(b.fleet_size, 10);
 
-  // A ler uma conversa antiga: o cabeçalho mostra o assunto e o
-  // número, não a presença de ninguém.
-  if (chat.reading) {
-    title.textContent = chat.reading.subject || chat.reading.ticket_number || 'Past conversation';
-    state.textContent = chat.reading.ticket_number || '';
-    state.className = '';
-    avatar.className = 'chat-av';
-    avatar.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-      'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/>' +
-      '<path d="M12 7v5l4 2"/></svg>';
-    stopWaitTimer();
-    return;
-  }
+      const { error: partnerError } = await supabase.from('driver_partners').insert({
+        id: createdUserId,
+        email: b.email,
+        legal_name: b.legal_name,
+        trading_name: b.trading_name || null,
+        vat_number: b.vat_number || '',
+        country: b.country,
+        registered_address: b.registered_address || null,
+        city: b.city || null,
+        postal_code: b.postal_code || null,
+        contact_name: b.contact_name,
+        contact_role: b.contact_role || null,
+        contact_phone: b.contact_phone,
+        emergency_phone: b.emergency_phone || null,
+        operating_cities: cities && cities.length ? cities : null,
+        operating_airports: Array.isArray(b.operating_airports) && b.operating_airports.length
+          ? b.operating_airports.map((a) => String(a).toUpperCase()).slice(0, 120)
+          : null,
+        fleet_size: Number.isFinite(fleetSize) ? fleetSize : null,
+        owner_drives: typeof b.owner_drives === 'boolean' ? b.owner_drives : null,
+        heard_from: b.heard_from || null,
+        status: 'draft'
+      });
 
-  var agent = chat.support && chat.support.agent_name;
+      if (partnerError) throw partnerError;
 
-  if ((chat.support || {}).assigned) {
-    // Com nome e iniciais: falar com uma pessoa é diferente de
-    // falar com "o apoio".
-    title.textContent = agent || 'Airportlink';
-    state.textContent = chat.ticket ? chat.ticket + ' · here with you now' : 'Here with you now';
-    state.className = 'live';
-    avatar.className = 'chat-av human';
+      console.log('Partner signed up:', { email: b.email, country: b.country });
 
-    // A fotografia do agente, se tiver uma. As iniciais são a
-    // reserva e funcionam bem — a fotografia é o que torna óbvio
-    // que está uma pessoa do outro lado.
-    var foto = chat.support && chat.support.agent_avatar;
+      await notify.verify(b.email, b.contact_name, 'partner');
 
-    if (foto) {
-      avatar.innerHTML = '<img src="' +
-        esc(SUPABASE_URL + '/storage/v1/object/public/avatars/' + foto) +
-        '" alt="" style="width:100%;height:100%;border-radius:999px;' +
-        'object-fit:cover">';
-    } else {
-      avatar.textContent = agent ? initials(agent) : 'A';
-    }
+      return res.json({
+        success: true,
+        // O portal precisa de saber que não pode entrar já: com
+        // email_confirm a false, o signInWithPassword é recusado.
+        verification_required: true
+      });
+    } catch (error) {
+      console.error('partner/signup error:', error);
 
-    stopWaitTimer();
-    return;
-  }
+      // Se a empresa falhou depois de a conta existir, desfazemos a
+      // conta. Caso contrário a pessoa fica com um email registado
+      // que não consegue usar nem reutilizar.
+      if (createdUserId) {
+        try {
+          await supabase.auth.admin.deleteUser(createdUserId);
+          console.log('Rolled back orphan account for', b.email);
+        } catch (cleanupError) {
+          console.error('Could not roll back account:', cleanupError.message);
+        }
+      }
 
-  title.textContent = chat.subject || 'Airportlink';
-  avatar.className = 'chat-av';
-  avatar.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-    'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
-    '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-3.6-.7L3 21l1.9-5a8.2 8.2 0 0 1-.9-3.8 ' +
-    '8.4 8.4 0 0 1 9-8.4 8.4 8.4 0 0 1 8 8.2Z"/></svg>';
-
-  if (!chat.messages.length) {
-    state.textContent = chat.ticket || 'Support';
-    state.className = '';
-    stopWaitTimer();
-    return;
-  }
-
-  state.textContent = 'Waiting for an available agent';
-  state.className = 'wait';
-  startWaitTimer((chat.support || {}).waiting_minutes || 0);
-}
-
-function stopWaitTimer() {
-  if (chat.waitTimer) { clearInterval(chat.waitTimer); chat.waitTimer = null; }
-}
-
-function startWaitTimer(alreadyWaited) {
-  stopWaitTimer();
-
-  var note = $('chatWaiting');
-  chat.waitStarted = Date.now() - alreadyWaited * 60000;
-
-  var tick = function () {
-    var minutes = Math.floor((Date.now() - chat.waitStarted) / 60000);
-
-    if (minutes >= WAIT_PATIENCE_MINUTES) {
-      // Aos dez minutos passamos à verdade. Deixar "à espera" a
-      // rodar meia hora é como se perde a confiança de quem espera.
-      $('chatPresence').textContent = 'We will come back to you';
-      $('chatPresence').className = '';
-      note.className = 'chat-note warn';
-      note.textContent = 'Nobody is free to take this right now. Leave your message here ' +
-        'and someone gets back to you as soon as they can — you can close this window, ' +
-        'nothing is lost. If it is about a ride happening in the next few hours, say so ' +
-        'and it goes to the top of the queue.';
-      note.classList.remove('hidden');
-      stopWaitTimer();
-      return;
-    }
-
-    // Sem contador de minutos. Dizer "à espera há 3 minutos" não
-    // ajuda ninguém e só chama a atenção para o tempo que passa.
-    note.className = 'chat-note';
-    note.textContent = 'You are in the queue. Nothing is lost if you close this window — ' +
-      'your message is here when someone picks it up.';
-    note.classList.remove('hidden');
-  };
-
-  tick();
-  chat.waitTimer = setInterval(tick, 30000);
-}
-
-// ============================================================
-// CONVERSAS ANTERIORES
-//
-// Cada assunto é um ticket com número próprio. Uma conversa
-// fechada sai da frente e fica aqui — em vez de continuar aberta
-// para sempre, que era o que acontecia antes.
-// ============================================================
-function renderHistory() {
-  var box = $('clBody');
-
-  // A atual entra na lista também, para se ver onde se está.
-  var todas = [];
-
-  if (chat.id) {
-    todas.push({
-      chat_id: chat.id,
-      ticket_number: chat.ticket,
-      subject: chat.subject,
-      status: chat.status,
-      atual: true,
-      last_message_text: chat.messages.length
-        ? (chat.messages[chat.messages.length - 1].body || 'Attachment')
-        : 'No messages yet',
-      created_at: chat.messages.length ? chat.messages[0].created_at : new Date().toISOString()
-    });
-  }
-
-  (chat.history || []).forEach(function (h) { todas.push(h); });
-
-  if (!todas.length) {
-    box.innerHTML = '<div class="chat-empty"><strong>Nothing here yet</strong>' +
-      '<span>Conversations you have with us appear in this list, each with its own ' +
-      'number so you can refer to it later.</span></div>';
-    return;
-  }
-
-  box.innerHTML = todas.map(function (h) {
-    var aberta = h.status === 'open';
-
-    return '<button class="cl-item" data-open="' + esc(h.chat_id) + '" type="button">' +
-      '<div class="cl-top">' +
-      '<span class="cl-subj">' + esc(h.subject || 'No subject') + '</span>' +
-      '<span class="cl-when">' + esc(shortDate(h.last_message_at || h.created_at)) + '</span>' +
-      '</div>' +
-      '<p class="cl-snip">' + esc(h.last_message_text || 'No messages') + '</p>' +
-      '<div class="cl-meta">' +
-      (h.ticket_number ? '<span class="cl-num">' + esc(h.ticket_number) + '</span>' : '') +
-      '<span class="pill ' + (aberta ? 'ok' : '') + '">' +
-      (h.atual ? 'this one' : (aberta ? 'open' : 'closed')) + '</span>' +
-      (h.reopened_count > 0
-        ? '<span class="pill">reopened ' + h.reopened_count + '&times;</span>' : '') +
-      '</div></button>';
-  }).join('');
-
-  qsa('#clBody [data-open]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var id = b.getAttribute('data-open');
-      $('chatList').hidden = true;
-
-      // A atual não se carrega outra vez: já está no ecrã.
-      if (id === chat.id) { chat.reading = null; paintFoot(); paintPresence(); return; }
-
-      lerConversa(id);
-    });
-  });
-}
-
-/** Uma conversa antiga, só de leitura. */
-async function lerConversa(id) {
-  $('chatBody').innerHTML = '<div class="chat-empty"><span>Loading&hellip;</span></div>';
-
-  try {
-    var data = await api('/api/partner/chat/' + encodeURIComponent(id));
-
-    chat.reading = {
-      id: id,
-      subject: data.chat.subject,
-      ticket_number: data.chat.ticket_number,
-      status: data.chat.status,
-      closed_at: data.chat.closed_at
-    };
-
-    chat.messages = (data.messages || []).map(function (m) {
-      m.seq = ++msgSeq;
-      return m;
-    });
-
-    renderChat();
-    paintPresence();
-    paintFoot();
-  } catch (e) {
-    $('chatBody').innerHTML = '<div class="chat-empty">' +
-      '<strong style="color:var(--err-text)">Could not open that conversation</strong>' +
-      '<span>' + esc(e.message) + '</span></div>';
-  }
-}
-
-/**
- * A caixa de escrita só existe onde faz sentido.
- *
- * Numa conversa antiga não há onde escrever: para responder,
- * reabre-se — e reabrir tem regras, que o servidor verifica.
- */
-function paintFoot() {
-  var lendo = Boolean(chat.reading);
-  var fechada = lendo && chat.reading.status !== 'open';
-
-  $('chatFoot').hidden = lendo;
-  $('chatReadBar').hidden = !lendo;
-  $('chatResolve').classList.toggle('hidden', lendo);
-
-  if (!lendo) return;
-
-  // Passados 14 dias é assunto novo, e o servidor recusa reabrir.
-  // Dizê-lo aqui poupa um clique que ia dar erro.
-  var dias = chat.reading.closed_at
-    ? (Date.now() - new Date(chat.reading.closed_at).getTime()) / 864e5
-    : 0;
-
-  var podeReabrir = fechada && dias <= 14;
-
-  $('chatReadText').textContent = !fechada
-    ? 'This conversation is open.'
-    : (podeReabrir
-        ? 'This conversation is closed. Reopen it to carry on.'
-        : 'Closed more than two weeks ago. Start a new conversation instead.');
-
-  $('chatReopen').textContent = podeReabrir ? 'Reopen' : 'New conversation';
-}
-
-$('chatHistory').addEventListener('click', function () {
-  renderHistory();
-  $('chatList').hidden = false;
-});
-
-$('clClose').addEventListener('click', function () {
-  $('chatList').hidden = true;
-});
-
-$('clNew').addEventListener('click', async function () {
-  $('chatList').hidden = true;
-  chat.reading = null;
-
-  // Já há uma aberta? Então é essa. Um parceiro com cinco tickets
-  // abertos ocupa cinco lugares na fila, e nenhum é atendido mais
-  // depressa por isso.
-  if (chat.id && chat.status === 'open') {
-    await loadChat();
-    return avisar('You already have one open',
-      'Your current conversation is still open. Ask here — or mark it as resolved ' +
-      'first, and then start a new one.');
-  }
-
-  await loadChat();
-});
-
-$('chatReopen').addEventListener('click', async function () {
-  var lendo = chat.reading;
-  if (!lendo) return;
-
-  var dias = lendo.closed_at
-    ? (Date.now() - new Date(lendo.closed_at).getTime()) / 864e5
-    : 0;
-
-  if (lendo.status === 'open' || dias > 14) {
-    chat.reading = null;
-    await loadChat();
-    return;
-  }
-
-  try {
-    await api('/api/partner/chat/reopen', { chat_id: lendo.id });
-    chat.reading = null;
-    await loadChat();
-  } catch (e) {
-    // O servidor recusa se já houver outra aberta. A mensagem dele
-    // é a que explica porquê.
-    avisar('Could not reopen', e.message);
-  }
-});
-
-async function loadChat() {
-  chat.reading = null;
-
-  try {
-    var data = await api('/api/partner/chat');
-    if (!data || !data.chat) throw new Error('The server did not return a conversation.');
-
-    chat.id = data.chat.id;
-    chat.ticket = data.chat.ticket_number || null;
-    chat.subject = data.chat.subject || null;
-    chat.status = data.chat.status || 'open';
-    chat.history = data.history || [];
-
-    chat.messages = (data.messages || []).map(function (m) {
-      m.seq = ++msgSeq;
-      return m;
-    });
-    chat.support = data.support || {};
-
-    renderChat();
-    paintPresence();
-    paintFoot();
-    subscribeChat();
-    paintChatBadge(0);
-  } catch (e) {
-    // A mensagem real, com um botão para tentar de novo. O botão de
-    // enviar NÃO fica desativado: estava, e nunca mais voltava a
-    // ligar-se — clicar não fazia nada e não havia como perceber.
-    $('chatBody').innerHTML = '<div class="chat-empty">' +
-      '<strong style="color:var(--err-text)">Chat is not available right now</strong>' +
-      '<span>' + esc(e.message) + '</span>' +
-      '<button class="btn line sm" id="chatRetryBtn" type="button" ' +
-      'style="margin-top:16px">Try again</button></div>';
-
-    $('chatPresence').textContent = 'Unavailable';
-    $('chatPresence').className = '';
-    $('chatSend').disabled = false;
-
-    var retry = document.getElementById('chatRetryBtn');
-    if (retry) {
-      retry.addEventListener('click', function () {
-        $('chatBody').innerHTML = '<div class="chat-empty"><span>Loading&hellip;</span></div>';
-        loadChat().catch(function () {});
+      return res.status(500).json({
+        error: 'Could not complete your registration. Please try again.'
       });
     }
+  });
 
-    throw e;
-  }
-}
+  // ============================================================
+  // QUADRO DE VIAGENS
+  //
+  // O parceiro vê as viagens por atribuir dos aeroportos que serve, e
+  // pega a que quiser. A corrida entre dois parceiros é resolvida
+  // dentro do claim_ride, no Postgres — não aqui.
+  // ============================================================
 
-function paintChatBadge(n) {
-  var b = $('chatBadge');
-  if (n > 0) { b.textContent = n; b.classList.remove('hidden'); }
-  else b.classList.add('hidden');
-}
-
-function subscribeChat() {
-  // A subscrição é por conversa. Ao mudar de ticket, a antiga tem
-  // de cair — senão o parceiro continuava a receber mensagens de
-  // uma conversa que já fechou.
-  if (chat.channel) {
-    try { db.removeChannel(chat.channel); } catch (e) {}
-    chat.channel = null;
-  }
-
-  if (!chat.id) return;
-
-  chat.channel = db.channel('partner-chat-' + chat.id)
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'partner_messages',
-      filter: 'chat_id=eq.' + chat.id
-    }, function (payload) {
-      var m = payload.new;
-
-      // A ler uma conversa antiga: o que chega é da atual e não
-      // deve saltar para o ecrã por cima do que se está a ler.
-      if (chat.reading) return;
-
-      // A nossa própria mensagem já foi acrescentada ao enviar.
-      if (chat.messages.some(function (x) { return x.id === m.id; })) return;
-
-      var box = $('chatBody');
-      var wasAtBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 90;
-
-      m.seq = ++msgSeq;
-      chat.messages.push(m);
-
-      // Se um agente respondeu, é porque pegou a conversa.
-      if (m.sender === 'admin') {
-        chat.support.assigned = true;
-        if (m.sender_name) chat.support.agent_name = m.sender_name;
-        paintPresence();
-      }
-
-      renderChat();
-
-      if (m.sender === 'admin' && !wasAtBottom && chat.open) {
-        $('chatJump').classList.remove('hidden');
-      }
-
-      if (m.sender === 'admin' && !chat.open) {
-        paintChatBadge(chat.messages.filter(function (x) {
-          return x.sender === 'admin' && !x.read_at;
-        }).length);
-      }
-    })
-    .subscribe();
-}
-
-function openChat() {
-  chat.open = true;
-  $('chatPanel').classList.remove('hidden');
-  $('chatFab').classList.add('hidden');
-  $('chatList').hidden = true;
-  paintChatBadge(0);
-  loadChat().catch(function () {});
-  setTimeout(function () { $('chatInput').focus(); }, 140);
-}
-
-function closeChat() {
-  chat.open = false;
-  $('chatPanel').classList.add('hidden');
-  $('chatFab').classList.remove('hidden');
-}
-
-$('chatAttach').addEventListener('click', function () { $('chatFile').click(); });
-
-$('chatFile').addEventListener('change', async function () {
-  var file = this.files && this.files[0];
-  if (!file) return;
-
-  if (file.size > 10 * 1024 * 1024) {
-    $('chatErr').textContent = 'That file is over the 10 MB limit.';
-    $('chatErr').style.display = 'block';
-    this.value = '';
-    return;
-  }
-
-  $('chatErr').style.display = 'none';
-  $('chatAttach').disabled = true;
-
-  // Aparece já com o nome, para se ver que está a subir.
-  var pending = {
-    id: 'pending-' + Date.now(),
-    sender: 'partner',
-    body: '',
-    attachment_name: file.name,
-    created_at: new Date().toISOString(),
-    seq: ++msgSeq
-  };
-
-  chat.messages.push(pending);
-  renderChat();
-
-  try {
-    if (!chat.id) await loadChat();
-
-    // A primeira pasta é o uuid do parceiro: é o que a política do
-    // balde verifica antes de deixar escrever.
-    var ext = (file.name.split('.').pop() || 'bin').toLowerCase();
-    var path = user.id + '/chat/' + Date.now() + '.' + ext;
-
-    var up = await db.storage.from('chat-attachments').upload(path, file, {
-      contentType: file.type || 'application/octet-stream'
-    });
-
-    if (up.error) throw new Error(up.error.message);
-
-    var res = await api('/api/partner/chat/send', {
-      body: '',
-      attachment_path: path,
-      attachment_name: file.name
-    });
-
-    var i = chat.messages.indexOf(pending);
-    if (i !== -1 && res.message) {
-      res.message.seq = pending.seq;
-      chat.messages[i] = res.message;
-    }
-
-    if (!chat.support.assigned && !chat.waitTimer) {
-      chat.support.waiting_minutes = 0;
-      paintPresence();
-    }
-  } catch (e) {
-    pending.failed = true;
-    pending.error = e.message;
-  } finally {
-    renderChat();
-    $('chatAttach').disabled = false;
-    $('chatFile').value = '';
-  }
-});
-
-/**
- * O parceiro fecha a conversa quando o assunto estiver resolvido.
- *
- * Fechar não apaga nada: fica na lista de conversas anteriores, com
- * o seu número, e reabre se ele escrever nos catorze dias
- * seguintes. É o que se diz na confirmação, senão ninguém carrega
- * com medo de perder o que escreveu.
- */
-$('chatResolve').addEventListener('click', async function () {
-  if (!chat.id || !chat.messages.length) return;
-
-  if (!await perguntar('Mark as resolved',
-      'Nothing is deleted. This conversation moves to your list of past ' +
-      'conversations, and you can reopen it or start a new one any time.',
-      'Mark as resolved')) return;
-
-  try {
-    await api('/api/partner/chat/close', {});
-    chat.support.assigned = false;
-    chat.status = 'closed';
-    stopWaitTimer();
-    paintPresence();
-
-    $('chatBody').innerHTML = '<div class="chat-empty">' +
-      '<span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-      'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M20 6 9 17l-5-5"/></svg></span>' +
-      '<strong>Marked as resolved</strong>' +
-      '<span>Thanks. ' + (chat.ticket ? esc(chat.ticket) + ' is ' : 'It is ') +
-      'in your past conversations now &mdash; open it from the history button above, ' +
-      'or start a new one whenever you need.</span></div>';
-
-    chat.messages = [];
-    chat.id = null;
-    chat.ticket = null;
-    chat.subject = null;
-  } catch (e) {
-    $('chatErr').textContent = e.message;
-    $('chatErr').style.display = 'block';
-  }
-});
-
-$('chatFab').addEventListener('click', openChat);
-$('chatClose').addEventListener('click', closeChat);
-
-$('chatInput').addEventListener('input', function () {
-  // Cresce com o texto, até um limite. Uma caixa de uma linha para
-  // uma mensagem de cinco esconde o que se está a escrever.
-  this.style.height = 'auto';
-  this.style.height = Math.min(118, this.scrollHeight) + 'px';
-});
-
-$('chatInput').addEventListener('keydown', function (e) {
-  // Enter envia, Shift+Enter faz parágrafo. É o que toda a gente
-  // espera de um chat.
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    $('chatSend').click();
-  }
-});
-
-$('chatSend').addEventListener('click', async function () {
-  var body = $('chatInput').value.trim();
-  if (!body) return;
-
-  $('chatErr').style.display = 'none';
-  $('chatSend').disabled = true;
-
-  // O chat pode não ter carregado — servidor a acordar, rede em
-  // baixo. Tentamos abrir agora em vez de recusar em silêncio.
-  if (!chat.id) {
+  // ============================================================
+  // QUADRO DE VIAGENS
+  //
+  // O parceiro vê as viagens por atribuir dos aeroportos que serve, e
+  // pega a que quiser. A corrida entre dois parceiros é resolvida
+  // dentro do claim_ride, no Postgres — não aqui.
+  // ============================================================
+  router.get('/api/partner/rides', async (req, res) => {
     try {
-      await loadChat();
-    } catch (e) {
-      $('chatSend').disabled = false;
-      $('chatErr').textContent = 'We could not reach the server. Your message is still ' +
-        'in the box — try again in a moment.';
-      $('chatErr').style.display = 'block';
-      return;
-    }
-  }
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
 
-  // Aparece já, antes da resposta do servidor. Uma mensagem que
-  // demora um segundo a aparecer parece que não foi enviada.
-  var pending = {
-    id: 'pending-' + Date.now(),
-    sender: 'partner',
-    body: body,
-    created_at: new Date().toISOString(),
-    seq: ++msgSeq
-  };
+      const [available, mine, partner] = await Promise.all([
+        // A vista já filtra por aeroporto e esconde os dados do
+        // passageiro: só aparecem depois de a viagem ser pegada.
+        supabase.from('available_rides').select('*')
+          .order('booking_date', { ascending: true }).limit(120),
+        supabase.from('bookings')
+          // As etapas do dia vão junto: sem elas o portal não sabe
+          // que botão mostrar — se o "cheguei", se o código, se o
+          // "acabei".
+          .select('id, booking_id, booking_reference, pickup, dropoff, booking_date, booking_time, passengers, flight_number, notes, driver_payout, currency, status, passenger_name, passenger_phone, full_name, phone, preferred_languages, claimed_at, driver_arrived_at, code_verified_at, trip_started_at, trip_ended_at, change_accept_by')
+          .eq('assigned_partner_id', user.id)
+          .order('booking_date', { ascending: true }),
+        supabase.from('driver_partners')
+          .select('status, operating_airports, payout_iban').eq('id', user.id).maybeSingle()
+      ]);
 
-  chat.messages.push(pending);
-  renderChat();
-  $('chatInput').value = '';
-  $('chatInput').style.height = 'auto';
+      if (available.error) throw available.error;
+      if (mine.error) throw mine.error;
 
-  try {
-    var res = await api('/api/partner/chat/send', { body: body });
-
-    // A primeira mensagem arranca o relógio da espera.
-    if (!chat.support.assigned && !chat.waitTimer) {
-      chat.support.waiting_minutes = 0;
-      paintPresence();
-    }
-
-    // A sequência da provisória fica com a real, senão a mensagem
-    // saltava para o fim ao ser substituída.
-    var i = chat.messages.indexOf(pending);
-    if (i !== -1 && res.message) {
-      res.message.seq = pending.seq;
-      chat.messages[i] = res.message;
-    }
-    renderChat();
-  } catch (e) {
-    // A mensagem FICA, marcada como falhada, com um botão para
-    // tentar de novo. Antes era apagada e o texto voltava à caixa —
-    // o que à vista é igual a não ter acontecido nada.
-    pending.failed = true;
-    pending.error = e.message;
-    renderChat();
-    console.error('[chat] send failed:', e);
-  } finally {
-    $('chatSend').disabled = false;
-    $('chatInput').focus();
-  }
-});
-
-// ---------- quadro de viagens ----------
-//
-// O parceiro vê o que há para fazer nos aeroportos que serve e pega
-// o que quiser. Substituiu o calendário: quem não quer trabalhar num
-// dia simplesmente não pega nada.
-
-async function loadBoard() {
-  $('boardList').innerHTML = '<div class="empty">Loading...</div>';
-
-  try {
-    board = await api('/api/partner/rides');
-  } catch (e) {
-    $('boardList').innerHTML = '<div class="empty">' + esc(e.message) + '</div>';
-    throw e;
-  }
-
-  renderBoard();
-}
-
-function hoursTo(day, time) {
-  var at = new Date(day + 'T' + (time || '00:00'));
-  if (isNaN(at.getTime())) return NaN;
-  return (at.getTime() - Date.now()) / 36e5;
-}
-
-function whenLabel(day, time) {
-  var d = new Date(day + 'T' + (time || '12:00'));
-  if (isNaN(d.getTime())) return day;
-  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) +
-    (time ? ' \u00b7 ' + String(time).slice(0, 5) : '');
-}
-
-function inLabel(hours) {
-  if (!isFinite(hours)) return '';
-  if (hours < 0) return 'in the past';
-  if (hours < 24) return 'in ' + Math.round(hours) + ' hours';
-  return 'in ' + Math.round(hours / 24) + ' days';
-}
-
-function rideCard(r, mine) {
-  var hours = hoursTo(r.booking_date, r.booking_time);
-  var cur = r.currency || 'EUR';
-
-  var facts = [
-    (r.passengers || 1) + ' passenger' + ((r.passengers || 1) === 1 ? '' : 's'),
-    r.pickup_airport,
-    r.flight_number ? 'Flight ' + r.flight_number : null,
-    r.distance_km ? Math.round(r.distance_km) + ' km' : null
-  ].filter(Boolean);
-
-  // Os dados do passageiro só existem depois de a viagem ser pegada.
-  // Não é o código que os esconde antes disso — a vista no Postgres
-  // não os devolve de todo.
-  var contact = mine
-    ? '<div class="ride-facts">' +
-      '<span class="ride-fact">' + esc(r.passenger_name || r.full_name || 'Passenger') + '</span>' +
-      (r.passenger_phone || r.phone
-        ? '<span class="ride-fact">' + esc(r.passenger_phone || r.phone) + '</span>' : '') +
-      (r.preferred_languages && r.preferred_languages.length
-        ? '<span class="ride-fact">speaks ' + esc(r.preferred_languages.join(', ')) + '</span>' : '') +
-      '</div>'
-    : '';
-
-  return '<div class="ride' + (mine ? ' mine' : '') + '">' +
-    '<div class="ride-top"><div>' +
-    '<div class="ride-when">' + esc(whenLabel(r.booking_date, r.booking_time)) + '</div>' +
-    '<div class="ride-in">' + esc(inLabel(hours)) + '</div></div>' +
-    '<div class="ride-pay"><div class="k">You receive</div>' +
-    '<div class="v">' + (r.driver_payout
-      ? esc(cur + ' ' + Number(r.driver_payout).toFixed(2))
-      : '&mdash;') + '</div></div></div>' +
-
-    '<div class="ride-leg"><span class="ride-dot p"></span>' +
-    '<span class="ride-place">' + esc(r.pickup || '') + '</span></div>' +
-    '<div class="ride-leg"><span class="ride-dot d"></span>' +
-    '<span class="ride-place">' + esc(r.dropoff || '') + '</span></div>' +
-
-    '<div class="ride-facts">' + facts.map(function (f) {
-      return '<span class="ride-fact">' + esc(f) + '</span>';
-    }).join('') + '</div>' +
-
-    contact +
-    (r.notes ? '<div class="ride-note" style="margin-top:12px">' + esc(r.notes) + '</div>' : '') +
-
-    /**
-     * As etapas do dia.
-     *
-     * Só aparecem quando a viagem é minha e está a menos de três
-     * horas. Antes disso não fazem sentido, e um botão de "cheguei"
-     * numa viagem de daqui a duas semanas só se carrega por
-     * engano.
-     */
-    /**
-     * Uma alteração por confirmar vem primeiro.
-     *
-     * Duas horas para responder, e não responder perde a viagem.
-     * Por isso está no topo do cartão e com cor: se ficar em baixo,
-     * lê-se depois de o prazo passar.
-     */
-    (mine && r.change_accept_by && new Date(r.change_accept_by) > new Date()
-      ? '<div class="change-alert">' +
-          '<b>This ride changed</b>' +
-          '<span>Confirm you can still do it, or it goes back to the queue. ' +
-          esc(String(Math.max(1, Math.round(
-            (new Date(r.change_accept_by) - Date.now()) / 60000)))) +
-          ' min left.</span>' +
-          '<div class="change-acts">' +
-            '<button class="btn teal sm" data-confirm-change="' + esc(r.id) +
-              '" type="button">I can still do it</button>' +
-            '<button class="btn line sm" data-hand-back="' + esc(r.id) +
-              '" type="button">Hand it back</button>' +
-          '</div>' +
-        '</div>'
-      : '') +
-
-    (mine && hours < 3 && hours > -6 && !r.trip_ended_at
-      ? '<div class="ride-steps">' +
-
-        (!r.driver_arrived_at
-          ? '<button class="btn teal sm" data-arrived="' + esc(r.id) +
-            '" type="button">I have arrived</button>' +
-            '<span class="ride-note">Tells the passenger you are there.</span>'
-          : '') +
-
-        (r.driver_arrived_at && !r.code_verified_at
-          ? '<div class="code-box">' +
-
-              /**
-               * O relógio da espera.
-               *
-               * Preenchido depois pelo servidor: o portal não sabe
-               * a hora de aterragem do voo, e calcular isto no
-               * browser daria contas erradas.
-               */
-              '<div class="wait-clock" data-wait-for="' + esc(r.id) + '"></div>' +
-
-              '<label>Passenger code</label>' +
-              '<div class="code-row">' +
-                '<input type="text" inputmode="numeric" maxlength="4" ' +
-                  'class="code-in" data-code-for="' + esc(r.id) + '" ' +
-                  'placeholder="0000">' +
-                '<button class="btn teal sm" data-verify="' + esc(r.id) +
-                  '" type="button">Start trip</button>' +
-              '</div>' +
-              '<span class="ride-note">Ask the passenger for their four ' +
-              'digits. It confirms the trip happened.</span>' +
-
-              '<button class="btn line sm noshow-btn" data-noshow="' + esc(r.id) +
-                '" type="button">Passenger did not show</button>' +
-            '</div>'
-          : '') +
-
-        (r.code_verified_at && !r.trip_ended_at
-          ? '<button class="btn line sm" data-completed="' + esc(r.id) +
-            '" type="button">Trip finished</button>' +
-            '<span class="ride-note">Started at ' +
-            esc(String(r.trip_started_at || '').slice(11, 16)) + '.</span>'
-          : '') +
-
-        '</div>'
-      : '') +
-
-    '<div class="ride-acts">' +
-    (mine
-      ? (hours >= 24
-          ? '<button class="btn line sm" data-release="' + esc(r.id) + '" type="button">Release this ride</button>' +
-            '<span class="ride-note">You can release it until 24 hours before pick-up.</span>'
-          : '<span class="ride-note">Too close to pick-up to release. Tell us in the chat if you cannot make it.</span>')
       /**
-       * Uma viagem OFERECIDA a mim é diferente de uma no quadro.
+       * As ofertas dirigidas a mim, com o tempo que falta.
        *
-       * A oferta tem prazo e é minha durante esse tempo — não há
-       * corrida com ninguém. E tem um botão para recusar, que o
-       * quadro aberto não precisa.
+       * Uma viagem oferecida é diferente de uma no quadro aberto:
+       * tem prazo, e é minha durante esse tempo. Sem isto, o portal
+       * mostrava as duas iguais e o parceiro não sabia que tinha
+       * minutos contados.
        */
-      : (r.offer
-          ? '<div class="offer-head">' +
-              '<b>Offered to you</b>' +
-              '<span class="offer-clock">' + esc(String(r.offer.minutes_left)) +
-              ' min left</span>' +
-            '</div>' +
-            '<button class="btn teal sm" data-accept="' + esc(r.id) +
-              '" type="button">Take this ride</button>' +
-            '<button class="btn line sm" data-decline="' + esc(r.id) +
-              '" type="button">Not this one</button>' +
-            '<span class="ride-note">Yours until the clock runs out. ' +
-            'Declining costs you nothing.</span>'
-          : '<button class="btn teal sm" data-claim="' + esc(r.id) +
-              '" type="button">Take this ride</button>' +
-            '<span class="ride-note">First to take it gets it.</span>')) +
-    '</div></div>';
-}
+      const { data: ofertas } = await supabase
+        .from('ride_offers')
+        .select('booking_id, expires_at, match_reason, rank')
+        .eq('partner_id', user.id)
+        .eq('outcome', 'pending')
+        .gt('expires_at', new Date().toISOString());
 
-function renderBoard() {
-  var gate = $('boardGate');
-  var partner = (S && S.partner) || {};
+      const porReserva = {};
 
-  // Quatro razões possíveis para o quadro estar vazio, e cada uma
-  // pede uma ação diferente. "Sem viagens" para todas seria enviar
-  // o parceiro à procura do problema errado.
-  if (partner.status !== 'approved') {
-    gate.innerHTML = '<div class="banner draft"><span class="mk">&#9679;</span><span>' +
-      '<strong>Not receiving rides yet</strong>' +
-      'Your account has to be approved before rides reach you. Finish the steps on the overview.' +
-      '<br><button class="btn amber sm" data-go="pgOverview" type="button">See what is left</button>' +
-      '</span></div>';
-  } else if (!(partner.operating_airports || []).length) {
-    gate.innerHTML = '<div class="banner draft"><span class="mk">&#9679;</span><span>' +
-      '<strong>No airports selected</strong>' +
-      'Rides are matched by pick-up airport. Until you pick at least one, nothing can reach you.' +
-      '<br><button class="btn amber sm" data-go="pgAreas" type="button">Choose airports</button>' +
-      '</span></div>';
-  } else if (!partner.payout_iban) {
-    gate.innerHTML = '<div class="banner draft"><span class="mk">&#9679;</span><span>' +
-      '<strong>No payout details</strong>' +
-      'We need somewhere to send your money before you can take a ride.' +
-      '<br><button class="btn amber sm" data-go="pgPayouts" type="button">Add them</button>' +
-      '</span></div>';
-  } else {
-    gate.innerHTML = '';
-  }
+      (ofertas || []).forEach((o) => {
+        porReserva[o.booking_id] = {
+          minutes_left: Math.max(1,
+            Math.round((new Date(o.expires_at) - Date.now()) / 60000)),
+          reason: o.match_reason,
+          rank: o.rank
+        };
+      });
 
-  $('boardAirports').innerHTML = (board.airports || []).map(function (code) {
-    var a = airportByCode(code);
-    return '<span class="airport-chip"><b>' + esc(code) + '</b>' +
-      esc(a ? a.city : '') + '</span>';
-  }).join('');
+      // As ofertas aparecem na lista de disponíveis, marcadas.
+      const disponiveis = (available.data || []).map((r) => ({
+        ...r,
+        offer: porReserva[r.id] || null
+      }));
 
-  var mine = (board.mine || []).filter(function (r) { return r.status !== 'cancelled'; });
-  var today = iso(new Date());
-  var upcoming = mine.filter(function (r) { return r.booking_date >= today; });
+      // E as que só existem como oferta — ainda não estão no quadro
+      // aberto — entram na mesma lista.
+      const jaListadas = new Set(disponiveis.map((r) => r.id));
+      const soOferta = Object.keys(porReserva).filter((id) => !jaListadas.has(id));
 
-  var html = '';
+      if (soOferta.length) {
+        const { data: extra } = await supabase
+          .from('bookings')
+          .select('*')
+          .in('id', soOferta);
 
-  if (upcoming.length) {
-    html += '<h2 style="font-family:var(--display);font-weight:700;font-size:18px;' +
-      'letter-spacing:-.02em;margin:0 0 12px">Your rides</h2>' +
-      upcoming.map(function (r) { return rideCard(r, true); }).join('') +
-      '<h2 style="font-family:var(--display);font-weight:700;font-size:18px;' +
-      'letter-spacing:-.02em;margin:26px 0 12px">Up for grabs</h2>';
-  }
+        (extra || []).forEach((r) => {
+          disponiveis.unshift({ ...r, offer: porReserva[r.id] });
+        });
+      }
 
-  html += (board.available || []).length
-    ? board.available.map(function (r) { return rideCard(r, false); }).join('')
-    : '<div class="empty">' + (
-        partner.status === 'approved'
-          ? 'Nothing available right now at your airports. New transfers appear here as they are booked.'
-          : 'Rides will appear here once your account is live.'
-      ) + '</div>';
-
-  $('boardList').innerHTML = html;
-
-  var n = (board.available || []).length;
-  if (n) { $('navBoard').textContent = n; $('navBoard').classList.remove('hidden'); }
-  else $('navBoard').classList.add('hidden');
-
-  qsa('[data-claim]').forEach(function (b) {
-    b.addEventListener('click', function () { claimRide(b.getAttribute('data-claim'), b); });
-  });
-  qsa('[data-release]').forEach(function (b) {
-    b.addEventListener('click', function () { releaseRide(b.getAttribute('data-release'), b); });
-  });
-  qsa('[data-confirm-change]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      confirmChange(b.getAttribute('data-confirm-change'), b);
-    });
+      return res.json({
+        // As ofertas primeiro: são as que têm relógio a correr.
+        available: disponiveis.sort((a, b) =>
+          (b.offer ? 1 : 0) - (a.offer ? 1 : 0)),
+        mine: mine.data || [],
+        airports: partner.data?.operating_airports || [],
+        ready: partner.data?.status === 'approved' && Boolean(partner.data?.payout_iban)
+      });
+    } catch (error) {
+      console.error('partner/rides error:', error);
+      return res.status(500).json({ error: 'Could not load the ride board.' });
+    }
   });
 
-  qsa('[data-hand-back]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      handBack(b.getAttribute('data-hand-back'), b);
-    });
+
+  router.post('/api/partner/rides/claim', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { ride_id } = req.body || {};
+      if (!ride_id) return res.status(400).json({ error: 'Missing ride_id' });
+
+      // A função claim_ride existe no Postgres para quem chamar com o
+      // JWT do parceiro. Aqui o cliente usa a service_role e não tem
+      // auth.uid(), por isso fazemos as mesmas verificações e o mesmo
+      // update condicional.
+      const partnerRes = await supabase.from('driver_partners')
+        .select('*').eq('id', user.id).maybeSingle();
+      const partner = partnerRes.data;
+
+      if (!partner || partner.status !== 'approved') {
+        return res.status(403).json({ error: 'Your partner account is not active yet.' });
+      }
+      if (!partner.payout_iban) {
+        return res.status(400).json({ error: 'Add your payout details before taking rides.' });
+      }
+
+      const [driversRes, vehiclesRes, rideRes] = await Promise.all([
+        supabase.from('drivers').select('id').eq('partner_id', user.id).eq('status', 'active'),
+        supabase.from('partner_vehicles').select('id, seats').eq('partner_id', user.id).eq('status', 'active'),
+        supabase.from('bookings').select('*').eq('id', ride_id).maybeSingle()
+      ]);
+
+      const ride = rideRes.data;
+      if (!ride) return res.status(404).json({ error: 'That ride no longer exists.' });
+
+      if (!(driversRes.data || []).length) {
+        return res.status(400).json({ error: 'Add at least one active driver first.' });
+      }
+
+      const seats = Math.max(0, ...(vehiclesRes.data || []).map((v) => v.seats || 0));
+      if (seats < (ride.passengers || 1)) {
+        return res.status(400).json({ error: 'None of your vehicles seats that many passengers.' });
+      }
+
+      const airports = partner.operating_airports || [];
+      if (!ride.pickup_airport || airports.indexOf(ride.pickup_airport) === -1) {
+        return res.status(400).json({ error: 'That ride is outside your service airports.' });
+      }
+
+      // A condição is null dentro do update é o que impede dois
+      // parceiros de ficarem com a mesma viagem. Um IF antes do
+      // update não chegava: entre o IF e o update cabe outro pedido.
+      const { data: claimed, error: claimError } = await supabase
+        .from('bookings')
+        .update({
+          assigned_partner_id: user.id,
+          assigned_at: new Date().toISOString(),
+          claimed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', ride_id)
+        .is('assigned_partner_id', null)
+        .select('id')
+        .maybeSingle();
+
+      if (claimError) throw claimError;
+
+      if (!claimed) {
+        return res.status(409).json({ error: 'Another partner took that ride first.' });
+      }
+
+      console.log('Ride claimed:', { partner: partner.email, ride: ride.booking_id || ride.id });
+
+      // O parceiro leva a viagem por email: no dia, não vai ter o
+      // portal aberto.
+      await notify.ride(partner, ride);
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('rides/claim error:', error);
+      return res.status(500).json({ error: 'Could not take that ride.' });
+    }
   });
 
-  qsa('[data-noshow]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      markNoShow(b.getAttribute('data-noshow'), b);
-    });
-  });
-
-  // O relógio da espera, para as viagens já com o motorista lá.
-  pintarEspera();
-
-  qsa('[data-arrived]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      markArrived(b.getAttribute('data-arrived'), b);
-    });
-  });
-
-  qsa('[data-verify]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      verifyCode(b.getAttribute('data-verify'), b);
-    });
-  });
-
-  qsa('[data-completed]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      markCompleted(b.getAttribute('data-completed'), b);
-    });
-  });
-
-  qsa('[data-accept]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      acceptOffer(b.getAttribute('data-accept'), b);
-    });
-  });
-
-  qsa('[data-decline]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      declineOffer(b.getAttribute('data-decline'), b);
-    });
-  });
-
-  qsa('#boardGate [data-go]').forEach(function (b) {
-    b.addEventListener('click', function () { goPage(b.getAttribute('data-go')); });
-  });
-}
-
-/**
- * Aceitar uma viagem oferecida a mim.
- *
- * Diferente do claim: aquele é o quadro aberto, onde quem chega
- * primeiro fica. Este é a oferta dirigida, com prazo — durante
- * esses minutos a viagem é minha se a quiser.
- */
-async function acceptOffer(id, button) {
-  hideMsgs();
-  button.disabled = true;
-  button.textContent = 'Taking...';
-
-  try {
-    await api('/api/partner/rides/accept', { booking_id: id });
-    await loadBoard();
-    loadRides();
-    renderOverview();
-    renderRides();
-  } catch (e) {
-    button.disabled = false;
-    button.textContent = 'Take this ride';
-    show($('boardErr'), null, esc(e.message));
-  }
-}
-
-/**
- * Recusar. Não penaliza.
- *
- * Se penalizasse, ensinávamos os parceiros a aceitar tudo e a
- * cancelar depois — muito pior para o cliente. Recusar cedo é
- * honesto e passa a viagem ao seguinte mais depressa.
- *
- * O que conta contra é IGNORAR até expirar.
- */
-async function declineOffer(id, button) {
-  var motivo = prompt(
-    'Why not this one? Optional — it helps us send you better ones.\n\n' +
-    'Declining does not count against you.'
-  );
-
-  // O prompt devolve null se cancelarem. Aí não se faz nada.
-  if (motivo === null) return;
-
-  hideMsgs();
-  button.disabled = true;
-  button.textContent = 'Passing...';
-
-  try {
-    await api('/api/partner/rides/decline', {
-      booking_id: id,
-      reason: motivo.trim() || null
-    });
-
-    await loadBoard();
-    loadRides();
-    renderOverview();
-    renderRides();
-  } catch (e) {
-    button.disabled = false;
-    button.textContent = 'Not this one';
-    show($('boardErr'), null, esc(e.message));
-  }
-}
-
-/**
- * Como me estou a portar.
- *
- * A taxa de CONCLUSÃO é o que conta, não a de aceitação. Recusar
- * cedo é honesto e não penaliza; ignorar até expirar é o que
- * estraga a viagem de alguém.
- *
- * Um número que o parceiro vê muda o comportamento dele. Escondido,
- * não muda nada.
- */
-async function loadStanding() {
-  var caixa = $('standing');
-  if (!caixa) return;
-
-  var d;
-
-  try {
-    d = await api('/api/partner/standing');
-  } catch (e) {
-    caixa.innerHTML = '';
-    return;
-  }
-
-  // Um parceiro novo não tem nada a mostrar, e um aviso vazio só
-  // preocuparia sem razão.
-  if (!d || d.standing === 'new') {
-    caixa.innerHTML = '';
-    return;
-  }
-
-  var textos = {
-    green: ['You are in good standing',
-      'You take what you accept and answer what we send. Keep it up.'],
-    amber: ['Worth a look',
-      'Either some rides you took did not happen, or offers are ' +
-      'expiring without an answer. Declining is fine — ignoring is what counts.'],
-    red: ['Your account is at risk',
-      'You are no longer first in line for new rides. You still see the ' +
-      'open board. Completing what you accept is what brings this back.']
-  };
-
-  var t = textos[d.standing] || textos.green;
 
   /**
-   * O custo de ignorar, em números concretos.
+   * Aceitar uma viagem oferecida.
    *
-   * Uma percentagem de noventa dias é abstrata. "Ignoraste 3 das
-   * últimas 10" é uma coisa que se pode corrigir esta semana.
+   * Diferente do claim: aquele é o quadro aberto, este é a oferta
+   * dirigida. Aceita se tiver oferta válida OU se a viagem já
+   * passou ao quadro aberto — que é o que acontece quando ninguém
+   * da cascata a quis.
    */
-  var recentes = null;
-
-  try {
-    recentes = await api('/api/partner/recent-offers');
-  } catch (e) {}
-
-  var aviso = (recentes && recentes.show)
-    ? '<div class="st-ignored">You let ' + recentes.ignored +
-      ' of your last ' + recentes.total + ' offers run out. ' +
-      'Declining is free and gets them to somebody else faster.</div>'
-    : '';
-
-  caixa.innerHTML =
-    '<div class="standing ' + esc(d.standing) + '">' +
-      '<div class="st-head">' +
-        '<b>' + esc(t[0]) + '</b>' +
-        '<span class="st-dot"></span>' +
-      '</div>' +
-      '<p>' + esc(t[1]) + '</p>' +
-      '<div class="st-nums">' +
-        '<span><b>' + (d.completion_rate != null ? d.completion_rate : 100) + '%</b>' +
-          '<small>rides completed</small></span>' +
-        '<span><b>' + (d.response_rate != null ? d.response_rate : 100) + '%</b>' +
-          '<small>offers answered</small></span>' +
-        (d.rides_completed != null
-          ? '<span><b>' + d.rides_completed + '</b><small>in 90 days</small></span>'
-          : '') +
-      '</div>' +
-      aviso +
-    '</div>';
-}
-
-/**
- * O relógio da espera, para cada viagem à espera.
- *
- * Vem do servidor: o portal não sabe a hora de aterragem do voo, e
- * calcular isto no browser daria contas erradas — que é o pior que
- * pode acontecer a um número que vai ser cobrado.
- */
-async function pintarEspera() {
-  var caixas = qsa('[data-wait-for]');
-  if (!caixas.length) return;
-
-  for (var i = 0; i < caixas.length; i++) {
-    var caixa = caixas[i];
-    var id = caixa.getAttribute('data-wait-for');
+  /**
+   * Dizer à API principal que a viagem tem motorista.
+   *
+   * O calendário vive lá — é onde estão as credenciais do Google.
+   * Este serviço só avisa; a API trata do resto.
+   */
+  async function avisarCalendario(bookingId, partnerId) {
+    if (!config.apiUrl || !config.cronSecret) return;
 
     try {
-      // Sem corpo, o api já usa GET. O terceiro argumento é um
-      // objeto de opções, não o método.
-      var w = await api('/api/partner/rides/' + id + '/waiting');
+      await fetch(config.apiUrl + '/api/internal/calendar-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': config.cronSecret
+        },
+        body: JSON.stringify({ booking_id: bookingId, partner_id: partnerId })
+      });
+    } catch (e) {
+      // Uma falha aqui não desfaz a aceitação. O evento fica
+      // turquesa até alguém reparar, e isso é um problema de cor,
+      // não de operação.
+      console.error('calendar sync:', e.message);
+    }
+  }
 
-      if (w.owed > 0) {
-        caixa.className = 'wait-clock over';
-        caixa.innerHTML =
-          '<b>' + esc(String(w.minutes_over)) + ' min past the free time</b>' +
-          '<span>The passenger owes ' + esc(Number(w.owed).toFixed(0)) + ' ' +
-          esc(w.currency || 'EUR') +
-          (w.capped ? ' (maximum)' : '') + '</span>' +
-          '<span class="wait-hint">Show them this before you start. ' +
-          'They pay on the card they booked with.</span>';
+  router.post('/api/partner/rides/accept', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
 
-        // Guardado para o momento do código.
-        caixa.setAttribute('data-owed', w.owed);
-        caixa.setAttribute('data-minutes', w.minutes_over);
-      } else if (w.minutes_left != null && w.minutes_left > 0) {
-        caixa.className = 'wait-clock';
-        caixa.innerHTML = '<span>Free waiting: ' +
-          esc(String(w.minutes_left)) + ' min left</span>';
+      const { booking_id } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('accept_ride_offer', {
+        p_booking_id: booking_id
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        const mensagens = {
+          already_taken: 'Somebody else took this one.',
+          not_offered: 'This ride is not open to you.'
+        };
+        return res.status(409).json({ error: mensagens[data.reason] || 'Could not accept.' });
+      }
+
+      /**
+       * A viagem passa a azul escuro na agenda.
+       *
+       * É o que faz o calendário contar a história sem ninguém lhe
+       * tocar: turquesa é uma viagem por resolver, azul é uma
+       * resolvida. Um mês visto de relance diz onde faltou
+       * cobertura.
+       *
+       * Sem esperar pela resposta: o parceiro já aceitou e não deve
+       * ficar à espera do Google.
+       */
+      avisarCalendario(booking_id, user.id).catch(() => {});
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('rides/accept:', error);
+      return res.status(500).json({ error: 'Could not accept the ride.' });
+    }
+  });
+
+  /**
+   * Recusar, com motivo opcional.
+   *
+   * Recusar NÃO penaliza. Se penalizasse, ensinávamos os parceiros
+   * a aceitar tudo e a cancelar depois — muito pior para o cliente.
+   *
+   * O que conta contra é ignorar, e isso mede-se sozinho.
+   */
+  router.post('/api/partner/rides/decline', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id, reason } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('decline_ride_offer', {
+        p_booking_id: booking_id,
+        p_reason: reason || null
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(409).json({ error: 'That offer is no longer open.' });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('rides/decline:', error);
+      return res.status(500).json({ error: 'Could not decline the ride.' });
+    }
+  });
+
+  /**
+   * Como estou a portar-me.
+   *
+   * A taxa de conclusão e a de resposta, com o semáforo. Um número
+   * que o parceiro vê muda o comportamento dele; escondido, não
+   * muda nada.
+   */
+  /**
+   * As últimas dez ofertas, e quantas ignorei.
+   *
+   * "Ignoraste 3 das últimas 10" muda mais o comportamento do que
+   * qualquer penalização — e sem ensinar ninguém a aceitar tudo
+   * para depois cancelar.
+   *
+   * Dez e não noventa dias: um número que se pode corrigir esta
+   * semana move mais do que um que demora três meses a mudar.
+   */
+  router.get('/api/partner/recent-offers', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { data } = await asUser(req).rpc('partner_recent_offers', {
+        p_partner_id: user.id
+      });
+
+      return res.json(data || { show: false });
+    } catch (error) {
+      return res.json({ show: false });
+    }
+  });
+
+  /**
+   * Cheguei ao local.
+   *
+   * Dispara o email ao cliente. É a etapa que mais reduz chamadas:
+   * "onde está o meu motorista?" deixa de fazer sentido quando ele
+   * já avisou.
+   */
+  router.post('/api/partner/rides/arrived', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('driver_arrived', {
+        p_booking_id: booking_id
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      /**
+       * A ORDEM importa aqui.
+       *
+       * O aviso à API principal faz duas coisas: manda o email ao
+       * cliente e vai buscar a hora real de aterragem do voo.
+       *
+       * O relógio da espera lê essa hora. Se arrancasse primeiro,
+       * usaria a hora marcada — e um voo com duas horas de atraso
+       * queimava a hora grátis antes de o cliente aterrar.
+       *
+       * Por isso espera-se pelo aviso antes de arrancar o relógio.
+       */
+      /**
+       * O "cheguei" faz UMA coisa: avisar o cliente.
+       *
+       * Fazia duas — mandava o email e disparava a consulta do voo.
+       * Isso criava uma dependência que não devia existir: quem não
+       * carregasse no botão ficava sem a hora certa.
+       *
+       * A consulta vive agora onde é precisa, no cálculo da espera.
+       */
+      if (!data?.already) {
+        avisarChegada(booking_id, user.id).catch(() => {});
+      }
+
+      return res.json({ success: true, at: data?.at });
+    } catch (error) {
+      console.error('rides/arrived:', error);
+      return res.status(500).json({ error: 'Could not mark the arrival.' });
+    }
+  });
+
+  /**
+   * Quanto se deve de espera, agora.
+   *
+   * O portal pergunta enquanto o motorista espera, para lhe mostrar
+   * o relógio a contar — e outra vez no momento do código, para o
+   * valor a cobrar.
+   */
+  router.get('/api/partner/rides/:id/waiting', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      /**
+       * A aterragem, antes de contar.
+       *
+       * Estava presa ao botão de "cheguei", e um motorista que
+       * fosse direto ao código nunca a disparava — o cliente de um
+       * voo atrasado pagava espera que não devia.
+       *
+       * Aqui é onde faz falta, por isso é aqui que se pergunta. Se
+       * já soubermos, a rota devolve de imediato sem gastar quota.
+       */
+      await saberAterragem(req.params.id);
+
+      // E o relógio, se ainda não arrancou.
+      await asUser(req).rpc('start_waiting_clock', { p_booking_id: req.params.id });
+
+      const { data } = await asUser(req).rpc('waiting_owed', {
+        p_booking_id: req.params.id
+      });
+
+      return res.json(data || { owed: 0 });
+    } catch (error) {
+      return res.json({ owed: 0 });
+    }
+  });
+
+  /**
+   * O cliente aceitou pagar a espera.
+   *
+   * Registado antes de cobrar. Se a cobrança falhar, o aceite fica
+   * na mesma — e é isso que permite ao apoio resolver depois sem
+   * discussão sobre se ele concordou.
+   */
+  router.post('/api/partner/rides/accept-extra', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id, amount, minutes } = req.body || {};
+
+      if (!booking_id || amount == null) {
+        return res.status(400).json({ error: 'Send booking_id and amount.' });
+      }
+
+      const { data, error } = await asUser(req).rpc('accept_waiting_charge', {
+        p_booking_id: booking_id,
+        p_amount: Number(amount),
+        p_minutes: Number(minutes) || 0
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      /**
+       * A cobrança vai para a API principal, onde vive o Stripe.
+       *
+       * Sem esperar pela resposta: se o cartão falhar, a viagem
+       * começa na mesma. Um cliente deixado no aeroporto por causa
+       * de quinze euros é uma disputa e uma avaliação de uma
+       * estrela.
+       */
+      cobrarExtra(booking_id).catch(() => {});
+
+      return res.json({ success: true, amount: Number(amount) });
+    } catch (error) {
+      console.error('accept-extra:', error);
+      return res.status(500).json({ error: 'Could not register the charge.' });
+    }
+  });
+
+  /**
+   * O cliente não apareceu.
+   *
+   * Exige prova: fotografia do local e confirmação de que tentou
+   * ligar. Isso protege o cliente de um motorista apressado, e
+   * protege-nos numa disputa — uma fotografia com hora vale mais do
+   * que qualquer declaração nossa.
+   */
+  router.post('/api/partner/rides/no-show', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id, photo_path, called, note } = req.body || {};
+
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('mark_no_show', {
+        p_booking_id: booking_id,
+        p_photo: photo_path || null,
+        p_called: called === true,
+        p_note: note || null
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        const mensagens = {
+          photo_required: 'A photo of the pick-up point is needed.',
+          call_required: 'Confirm that you tried calling the passenger.',
+          too_early: 'The free waiting time has not run out yet.',
+          not_yours: 'That ride is not yours.'
+        };
+
+        return res.status(400).json({
+          error: mensagens[data.reason] || 'Could not mark the no-show.',
+          free_until: data.free_until
+        });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('no-show:', error);
+      return res.status(500).json({ error: 'Could not mark the no-show.' });
+    }
+  });
+
+  /** Pedir à API principal que cobre o extra. */
+  async function cobrarExtra(bookingId) {
+    if (!config.apiUrl || !config.cronSecret) return;
+
+    try {
+      await fetch(config.apiUrl + '/api/internal/charge-extra', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': config.cronSecret
+        },
+        body: JSON.stringify({ booking_id: bookingId })
+      });
+    } catch (e) {
+      console.error('extra charge:', e.message);
+    }
+  }
+
+  /**
+   * O código do passageiro.
+   *
+   * Quatro dígitos que só ele tem. Escrevê-los prova que os dois
+   * estiveram no mesmo sítio à mesma hora — e numa disputa isso
+   * vale mais do que qualquer registo nosso, porque o testemunho é
+   * do cliente.
+   *
+   * Verificar o código e começar a viagem são a mesma coisa: o
+   * motorista só o pede quando o passageiro está ali.
+   */
+  router.post('/api/partner/rides/verify-code', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id, code } = req.body || {};
+
+      if (!booking_id || !code) {
+        return res.status(400).json({ error: 'Send booking_id and the code.' });
+      }
+
+      // A última oportunidade de acertar a hora do voo: se o
+      // motorista foi direto ao código, é aqui que se descobre.
+      await saberAterragem(booking_id);
+
+      const { data, error } = await asUser(req).rpc('verify_pickup_code', {
+        p_booking_id: booking_id,
+        p_code: String(code)
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        const mensagens = {
+          wrong_code: data.attempts_left > 0
+            ? `That code is not right. ${data.attempts_left} ` +
+              `attempt${data.attempts_left === 1 ? '' : 's'} left.`
+            : 'That code is not right.',
+          too_many_attempts:
+            'Too many tries. Call support — they will sort it out with you.',
+          not_yours: 'That ride is not yours.',
+          not_found: 'Ride not found.'
+        };
+
+        return res.status(400).json({
+          error: mensagens[data.reason] || 'Could not check the code.',
+          attempts_left: data.attempts_left
+        });
+      }
+
+      return res.json({ success: true, started_at: data?.started_at });
+    } catch (error) {
+      console.error('rides/verify-code:', error);
+      return res.status(500).json({ error: 'Could not check the code.' });
+    }
+  });
+
+  /**
+   * Devolver uma viagem que mudou.
+   *
+   * Sem penalização: ele aceitou uma coisa e recebeu outra. Contar
+   * isto contra ele ensinaria os parceiros a não aceitar nada que
+   * pudesse mudar.
+   */
+  router.post('/api/partner/rides/hand-back', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id, reason } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('release_after_change', {
+        p_booking_id: booking_id,
+        p_reason: reason || null
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      // A cascata recomeça, com a viagem já alterada.
+      reatribuir(booking_id).catch(() => {});
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('hand-back:', error);
+      return res.status(500).json({ error: 'Could not hand the ride back.' });
+    }
+  });
+
+  /**
+   * Confirmar que ainda consegue fazer a viagem alterada.
+   *
+   * Duas horas para responder. Não responder tem o mesmo efeito que
+   * devolver — a viagem volta à fila — mas sem contar contra ele:
+   * não confirmar não é recusar.
+   */
+  router.post('/api/partner/rides/confirm-change', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('accept_booking_change', {
+        p_booking_id: booking_id
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('confirm-change:', error);
+      return res.status(500).json({ error: 'Could not confirm.' });
+    }
+  });
+
+  /** Pedir à API principal que reatribua. */
+  async function reatribuir(bookingId) {
+    if (!config.apiUrl || !config.cronSecret) return;
+
+    try {
+      await fetch(config.apiUrl + '/api/internal/reassign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': config.cronSecret
+        },
+        body: JSON.stringify({ booking_id: bookingId })
+      });
+    } catch (e) {
+      // O cron apanha as reservas sem parceiro de qualquer forma.
+      console.error('reassign:', e.message);
+    }
+  }
+
+  /** A viagem acabou. */
+  router.post('/api/partner/rides/completed', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { booking_id } = req.body || {};
+      if (!booking_id) return res.status(400).json({ error: 'Send booking_id.' });
+
+      const { data, error } = await asUser(req).rpc('trip_completed', {
+        p_booking_id: booking_id
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('rides/completed:', error);
+      return res.status(500).json({ error: 'Could not close the ride.' });
+    }
+  });
+
+  /**
+   * A hora de aterragem, se ainda não a soubermos.
+   *
+   * A API principal tem a chave da AeroDataBox. Devolve de imediato
+   * quando já sabe — não gasta quota por repetir.
+   */
+  async function saberAterragem(bookingId) {
+    if (!config.apiUrl || !config.cronSecret) return;
+
+    try {
+      await fetch(config.apiUrl + '/api/internal/flight-landing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': config.cronSecret
+        },
+        body: JSON.stringify({ booking_id: bookingId })
+      });
+    } catch (e) {
+      // Sem a hora do voo, o relógio usa a hora marcada. Não é o
+      // ideal, mas não trava nada.
+      console.error('flight landing:', e.message);
+    }
+  }
+
+  /** Pedir à API principal que avise o cliente. */
+  async function avisarChegada(bookingId, partnerId) {
+    if (!config.apiUrl || !config.cronSecret) return;
+
+    try {
+      await fetch(config.apiUrl + '/api/internal/driver-arrived', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': config.cronSecret
+        },
+        body: JSON.stringify({ booking_id: bookingId, partner_id: partnerId })
+      });
+    } catch (e) {
+      console.error('arrival notice:', e.message);
+    }
+  }
+
+  router.get('/api/partner/standing', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { data } = await supabase
+        .from('partner_reputation')
+        .select('*')
+        .eq('partner_id', user.id)
+        .maybeSingle();
+
+      return res.json(data || { standing: 'new', completion_rate: 100, response_rate: 100 });
+    } catch (error) {
+      return res.json({ standing: 'new' });
+    }
+  });
+
+  router.post('/api/partner/rides/release', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { ride_id, reason } = req.body || {};
+      if (!ride_id) return res.status(400).json({ error: 'Missing ride_id' });
+
+      const { data: ride } = await supabase.from('bookings')
+        .select('*').eq('id', ride_id).maybeSingle();
+
+      if (!ride || ride.assigned_partner_id !== user.id) {
+        return res.status(403).json({ error: 'That ride is not yours.' });
+      }
+
+      const pickupAt = new Date(`${ride.booking_date}T${ride.booking_time || '00:00'}`);
+      const hoursLeft = (pickupAt.getTime() - Date.now()) / 36e5;
+
+      if (!Number.isFinite(hoursLeft) || hoursLeft < 24) {
+        return res.status(400).json({
+          error: 'Less than 24 hours to pick-up. Contact support — do not leave the passenger waiting.'
+        });
+      }
+
+      const { error } = await supabase.from('bookings').update({
+        assigned_partner_id: null,
+        assigned_driver_id: null,
+        assigned_vehicle_id: null,
+        assigned_at: null,
+        claimed_at: null,
+        released_count: (ride.released_count || 0) + 1,
+        notes: (ride.notes || '') + (reason ? `\n[released] ${reason}` : ''),
+        updated_at: new Date().toISOString()
+      }).eq('id', ride_id);
+
+      if (error) throw error;
+
+      console.warn('Ride released:', {
+        partner: user.email,
+        ride: ride.booking_id || ride.id,
+        times: (ride.released_count || 0) + 1
+      });
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('rides/release error:', error);
+      return res.status(500).json({ error: 'Could not release that ride.' });
+    }
+  });
+
+
+  router.get('/api/partner/me', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      // A porta de entrada do portal. Se a linha de empresa faltar,
+      // é aqui que se repara — antes de qualquer outra coisa falhar
+      // por causa dela.
+      await ensurePartnerRow(user);
+
+      const state = await loadPartnerState(user.id);
+
+      return res.json({
+        email: user.email,
+        status: state.partner?.status || 'none',
+        ...state
+      });
+    } catch (error) {
+      console.error('partner/me error:', error);
+      return res.status(500).json({ error: 'Could not load your partner account.' });
+    }
+  });
+
+  // Dados da empresa. Cria o registo em rascunho na primeira gravação.
+
+  // Dados da empresa. Cria o registo em rascunho na primeira gravação.
+  router.post('/api/partner/company', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const b = req.body || {};
+
+      if (!b.legal_name || !b.vat_number || !b.contact_name || !b.contact_phone) {
+        return res.status(400).json({
+          error: 'Legal name, VAT number, contact name and contact phone are required.'
+        });
+      }
+
+      const { data: existing } = await supabase
+        .from('driver_partners').select('status').eq('id', user.id).maybeSingle();
+
+      if (existing && !PARTNER_EDITABLE_STATUSES.includes(existing.status)) {
+        // Depois de submetida, a candidatura fecha para edição. Sem
+        // isto, alguém trocava a empresa depois de aprovada.
+        return res.status(400).json({
+          error: 'Your application is under review and cannot be edited right now.'
+        });
+      }
+
+      // Só gravamos estas listas quando vêm no pedido. Sem isto, um
+      // ecrã que não as recolhe apagava-as ao gravar o resto.
+      const cities = Array.isArray(b.operating_cities)
+        ? b.operating_cities.map((c) => String(c).trim()).filter(Boolean).slice(0, 60)
+        : undefined;
+
+      const airports = Array.isArray(b.operating_airports)
+        ? b.operating_airports
+            .map((a) => String(a).trim().toUpperCase())
+            .filter((a) => /^[A-Z]{3}$/.test(a))
+            .slice(0, 120)
+        : undefined;
+
+      const { error } = await supabase.from('driver_partners').upsert({
+        id: user.id,
+        email: user.email,
+        legal_name: b.legal_name,
+        trading_name: b.trading_name || null,
+        vat_number: b.vat_number,
+        country: b.country || DEFAULT_COUNTRY,
+        registered_address: b.registered_address || null,
+        city: b.city || null,
+        postal_code: b.postal_code || null,
+        contact_name: b.contact_name,
+        contact_role: b.contact_role || null,
+        contact_phone: b.contact_phone,
+        emergency_phone: b.emergency_phone || null,
+        payout_iban: b.payout_iban || null,
+        payout_holder: b.payout_holder || null,
+        bank_details_at: b.payout_iban ? new Date().toISOString() : null,
+        ...(cities !== undefined ? { operating_cities: cities.length ? cities : null } : {}),
+        ...(airports !== undefined ? { operating_airports: airports.length ? airports : null } : {}),
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+      if (error) throw error;
+
+      // A empresa também é uma pessoa com email no sistema.
+      await supabase.from('contacts').upsert({
+        id: user.id, email: user.email, full_name: b.contact_name, is_admin: false
+      }, { onConflict: 'email' });
+
+      return res.json({ success: true, state: await loadPartnerState(user.id) });
+    } catch (error) {
+      console.error('partner/company error:', error);
+      return res.status(500).json({ error: 'Could not save your company details.' });
+    }
+  });
+
+
+  router.post('/api/partner/zones', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const zones = Array.isArray(req.body?.zones) ? req.body.zones : [];
+      if (!zones.length) return res.status(400).json({ error: 'Select at least one service zone.' });
+
+      await supabase.from('partner_zones').delete().eq('partner_id', user.id);
+
+      const { error } = await supabase.from('partner_zones')
+        .insert(zones.map((z) => ({ partner_id: user.id, zone_code: z })));
+
+      if (error) throw error;
+
+      return res.json({ success: true, state: await loadPartnerState(user.id) });
+    } catch (error) {
+      console.error('partner/zones error:', error);
+      return res.status(500).json({ error: 'Could not save your service zones.' });
+    }
+  });
+
+
+  router.post('/api/partner/driver', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const b = req.body || {};
+      if (!b.full_name || !b.phone) {
+        return res.status(400).json({ error: 'Driver name and phone are required.' });
+      }
+
+      const row = {
+        partner_id: user.id,
+        full_name: b.full_name,
+        phone: b.phone,
+        email: b.email || null,
+        date_of_birth: b.date_of_birth || null,
+        languages: Array.isArray(b.languages) ? b.languages : null,
+        updated_at: new Date().toISOString()
+      };
+
+      if (b.id) {
+        const { error } = await supabase.from('drivers').update(row)
+          .eq('id', b.id).eq('partner_id', user.id);
+        if (error) throw error;
       } else {
-        caixa.className = 'wait-clock';
-        caixa.innerHTML = '';
+        const { error } = await supabase.from('drivers').insert(row);
+        if (error) throw error;
       }
-    } catch (e) {
-      caixa.innerHTML = '';
-    }
-  }
-}
 
-/**
- * O cliente não apareceu.
- *
- * Exige fotografia do local e confirmação de que tentou ligar. Sem
- * isso não passa — e é de propósito: numa disputa, uma fotografia
- * com hora vale mais do que qualquer declaração nossa.
- */
-async function markNoShow(id, button) {
-  var ligou = confirm(
-    'Did you call the passenger?\n\n' +
-    'A no-show needs proof: a call and a photo of the pick-up point. ' +
-    'Without both we cannot charge for it, and you do not get paid.'
-  );
-
-  if (!ligou) return;
-
-  // A fotografia. O campo é criado agora e não fica no ecrã: só
-  // faz falta neste momento.
-  var input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  // No telemóvel abre a câmara em vez da galeria — a fotografia
-  // tem de ser tirada ali.
-  input.capture = 'environment';
-
-  input.addEventListener('change', async function () {
-    var file = input.files && input.files[0];
-    if (!file) return;
-
-    hideMsgs();
-    button.disabled = true;
-    button.textContent = 'Uploading...';
-
-    try {
-      var caminho = 'no-show/' + id + '-' + Date.now() + '.jpg';
-
-      var up = await db.storage.from('trip-evidence')
-        .upload(caminho, file, { contentType: file.type || 'image/jpeg' });
-
-      if (up.error) throw new Error(up.error.message);
-
-      var nota = prompt('Anything worth noting? (optional)') || '';
-
-      await api('/api/partner/rides/no-show', {
-        booking_id: id,
-        photo_path: caminho,
-        called: true,
-        note: nota.trim() || null
-      });
-
-      loadRides();
-      renderRides();
-      loadStanding();
-    } catch (e) {
-      button.disabled = false;
-      button.textContent = 'Passenger did not show';
-      show($('boardErr'), null, esc(e.message));
+      return res.json({ success: true, state: await loadPartnerState(user.id) });
+    } catch (error) {
+      console.error('partner/driver error:', error);
+      return res.status(500).json({ error: 'Could not save the driver.' });
     }
   });
 
-  input.click();
-}
 
-/** Sim, ainda consigo fazer a viagem alterada. */
-async function confirmChange(id, button) {
-  hideMsgs();
-  button.disabled = true;
-  button.textContent = 'Confirming...';
+  router.post('/api/partner/vehicle', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
 
-  try {
-    await api('/api/partner/rides/confirm-change', { booking_id: id });
-    loadRides();
-    renderRides();
-  } catch (e) {
-    button.disabled = false;
-    button.textContent = 'I can still do it';
-    show($('boardErr'), null, esc(e.message));
-  }
-}
+      const b = req.body || {};
+      if (!b.make || !b.model || !b.plate || !b.seats) {
+        return res.status(400).json({ error: 'Make, model, plate and seats are required.' });
+      }
 
-/**
- * Devolver uma viagem que mudou.
- *
- * Não penaliza: ele aceitou uma coisa e recebeu outra.
- */
-async function handBack(id, button) {
-  var motivo = prompt(
-    'Handing this back costs you nothing.\n\n' +
-    'Why does it no longer work? (optional)'
-  );
+      const seats = parseInt(b.seats, 10);
+      if (!Number.isFinite(seats) || seats < 1 || seats > 16) {
+        return res.status(400).json({ error: 'Seats must be between 1 and 16.' });
+      }
 
-  if (motivo === null) return;
+      const row = {
+        partner_id: user.id,
+        make: b.make, model: b.model,
+        year: b.year ? parseInt(b.year, 10) : null,
+        colour: b.colour || null,
+        plate: b.plate,
+        seats,
+        luggage: b.luggage ? parseInt(b.luggage, 10) : null,
+        vehicle_class: b.vehicle_class || 'standard',
+        updated_at: new Date().toISOString()
+      };
 
-  hideMsgs();
-  button.disabled = true;
-  button.textContent = 'Handing back...';
+      if (b.id) {
+        const { error } = await supabase.from('partner_vehicles').update(row)
+          .eq('id', b.id).eq('partner_id', user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('partner_vehicles').insert(row);
+        if (error) throw error;
+      }
 
-  try {
-    await api('/api/partner/rides/hand-back', {
-      booking_id: id,
-      reason: motivo.trim() || null
-    });
-
-    loadRides();
-    renderRides();
-  } catch (e) {
-    button.disabled = false;
-    button.textContent = 'Hand it back';
-    show($('boardErr'), null, esc(e.message));
-  }
-}
-
-/** Cheguei ao local. Avisa o passageiro. */
-async function markArrived(id, button) {
-  hideMsgs();
-  button.disabled = true;
-  button.textContent = 'Telling them...';
-
-  try {
-    await api('/api/partner/rides/arrived', { booking_id: id });
-    loadRides();
-    renderRides();
-  } catch (e) {
-    button.disabled = false;
-    button.textContent = 'I have arrived';
-    show($('boardErr'), null, esc(e.message));
-  }
-}
-
-/**
- * O código do passageiro.
- *
- * Quatro dígitos que só ele tem. Escrevê-los é a prova de que a
- * viagem aconteceu — e numa disputa vale mais do que qualquer
- * registo nosso, porque o testemunho é do cliente.
- */
-async function verifyCode(id, button) {
-  var campo = document.querySelector('[data-code-for="' + id + '"]');
-  var codigo = campo ? campo.value.trim() : '';
-
-  if (codigo.length !== 4) {
-    if (campo) campo.focus();
-    return show($('boardErr'), null, 'The code has four digits.');
-  }
-
-  /**
-   * Se há espera a pagar, o cliente aceita AGORA.
-   *
-   * É o momento certo: os dois estão ali, e a viagem só começa
-   * depois de resolvido. Nada fica pendente para o cliente
-   * descobrir no extrato daqui a uma semana.
-   */
-  var caixa = document.querySelector('[data-wait-for="' + id + '"]');
-  var devido = caixa ? Number(caixa.getAttribute('data-owed') || 0) : 0;
-
-  if (devido > 0) {
-    var aceita = confirm(
-      'Waiting time: ' + devido.toFixed(0) + ' EUR\n\n' +
-      'Show this to the passenger. It goes on the card they booked with.\n\n' +
-      'Have they agreed?'
-    );
-
-    if (!aceita) {
-      return show($('boardErr'), null,
-        'Without their agreement you can start the trip anyway, or mark ' +
-        'a no-show if they will not travel.');
+      return res.json({ success: true, state: await loadPartnerState(user.id) });
+    } catch (error) {
+      console.error('partner/vehicle error:', error);
+      if (String(error.message || '').includes('partner_vehicles_plate_idx')) {
+        return res.status(400).json({ error: 'You already have a vehicle with that plate.' });
+      }
+      return res.status(500).json({ error: 'Could not save the vehicle.' });
     }
-  }
+  });
 
-  hideMsgs();
-  button.disabled = true;
-  button.textContent = 'Checking...';
+  // O ficheiro sobe do browser para o Storage; aqui só registamos a
+  // referência. O estado fica 'pending' até um administrador o aprovar.
 
-  try {
-    // O aceite fica registado ANTES do código: se a cobrança
-    // falhar, sabemos na mesma que ele concordou.
-    if (devido > 0) {
-      await api('/api/partner/rides/accept-extra', {
-        booking_id: id,
-        amount: devido,
-        minutes: Number(caixa.getAttribute('data-minutes') || 0)
+  // O ficheiro sobe do browser para o Storage; aqui só registamos a
+  // referência. O estado fica 'pending' até um administrador o aprovar.
+  router.post('/api/partner/document', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const b = req.body || {};
+      if (!b.requirement_code || !b.file_path) {
+        return res.status(400).json({ error: 'Missing document reference.' });
+      }
+
+      const { data: requirement } = await supabase
+        .from('document_requirements').select('*').eq('code', b.requirement_code).maybeSingle();
+
+      if (!requirement) return res.status(400).json({ error: 'Unknown document type.' });
+
+      if (requirement.requires_expiry && !b.expires_on) {
+        return res.status(400).json({ error: `${requirement.label} needs an expiry date.` });
+      }
+
+      // Substitui a versão anterior do mesmo documento para a mesma
+      // entidade: o histórico útil é a validade, não os PDFs antigos.
+      let stale = supabase.from('compliance_documents').delete()
+        .eq('partner_id', user.id).eq('requirement_code', b.requirement_code);
+      stale = b.driver_id ? stale.eq('driver_id', b.driver_id) : stale.is('driver_id', null);
+      stale = b.vehicle_id ? stale.eq('vehicle_id', b.vehicle_id) : stale.is('vehicle_id', null);
+      await stale;
+
+      // Sem linha de empresa, a chave estrangeira recusa o
+      // documento — e o erro era "Could not register the document",
+      // que não dizia nada a ninguém.
+      const company = await ensurePartnerRow(user);
+
+      if (!company) {
+        return res.status(500).json({
+          error: 'We could not link this document to your company. ' +
+                 'Reload the page and try again — if it keeps happening, tell us in the chat.'
+        });
+      }
+
+      const { error } = await supabase.from('compliance_documents').insert({
+        partner_id: user.id,
+        driver_id: b.driver_id || null,
+        vehicle_id: b.vehicle_id || null,
+        requirement_code: b.requirement_code,
+        file_path: b.file_path,
+        file_name: b.file_name || null,
+        issued_on: b.issued_on || null,
+        expires_on: b.expires_on || null,
+        status: 'pending'
+      });
+
+      if (error) throw error;
+
+      // O documento antigo foi apagado acima, e com ele o motivo da
+      // recusa — que se referia ao ficheiro antigo. Se a conta estava
+      // à espera de correção, volta à fila de revisão assim que
+      // deixar de haver documentos recusados.
+      const state = await loadPartnerState(user.id);
+
+      if (state.partner?.status === 'action_required') {
+        const stillRejected = state.documents.some((d) => d.status === 'rejected');
+
+        if (!stillRejected) {
+          await supabase.from('driver_partners').update({
+            status: 'in_review',
+            submitted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }).eq('id', user.id);
+
+          return res.json({ success: true, state: await loadPartnerState(user.id) });
+        }
+      }
+
+      return res.json({ success: true, state });
+    } catch (error) {
+      console.error('partner/document error:', error.code, error.message);
+      // A mensagem real do Postgres. "Could not register the
+      // document" não diz a ninguém o que fazer a seguir, e este é
+      // exatamente o género de erro que se diagnostica pela causa.
+      return res.status(500).json({
+        error: error.message || 'Could not register the document.'
       });
     }
+  });
 
-    await api('/api/partner/rides/verify-code', { booking_id: id, code: codigo });
-    loadRides();
-    renderRides();
-  } catch (e) {
-    button.disabled = false;
-    button.textContent = 'Start trip';
-    if (campo) { campo.value = ''; campo.focus(); }
-    show($('boardErr'), null, esc(e.message));
-  }
-}
+  // Submeter para revisão. Só aceita candidaturas completas — é o que
+  // evita revisões a meio e devoluções sucessivas.
+  // Submeter para verificação.
+  //
+  // Exige apenas os TRÊS documentos de entrada e os dados da empresa.
+  // Motoristas, veículos, zonas e IBAN ficam para a fase de ativação,
+  // já dentro do painel: pedir tudo à porta afasta metade dos
+  // candidatos, e um parceiro verificado é mais fácil de acompanhar do
+  // que um candidato que desistiu a meio.
 
-/** A viagem acabou. */
-async function markCompleted(id, button) {
-  hideMsgs();
-  button.disabled = true;
-  button.textContent = 'Closing...';
+  // Submeter para revisão. Só aceita candidaturas completas — é o que
+  // evita revisões a meio e devoluções sucessivas.
+  // Submeter para verificação.
+  //
+  // Exige apenas os TRÊS documentos de entrada e os dados da empresa.
+  // Motoristas, veículos, zonas e IBAN ficam para a fase de ativação,
+  // já dentro do painel: pedir tudo à porta afasta metade dos
+  // candidatos, e um parceiro verificado é mais fácil de acompanhar do
+  // que um candidato que desistiu a meio.
+  router.post('/api/partner/submit', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
 
-  try {
-    await api('/api/partner/rides/completed', { booking_id: id });
-    loadRides();
-    renderRides();
-    loadStanding();
-  } catch (e) {
-    button.disabled = false;
-    button.textContent = 'Trip finished';
-    show($('boardErr'), null, esc(e.message));
-  }
-}
+      const state = await loadPartnerState(user.id);
+      const missing = [];
 
-async function claimRide(id, button) {
-  hideMsgs();
-  button.disabled = true;
-  button.textContent = 'Taking...';
-
-  try {
-    await api('/api/partner/rides/claim', { ride_id: id });
-    await loadBoard();
-    loadRides();
-    renderOverview();
-    renderRides();
-  } catch (e) {
-    // "Outro parceiro chegou primeiro" não é um erro do sistema, é
-    // o resultado normal de duas pessoas quererem a mesma viagem.
-    show($('boardMsg'), null, esc(e.message));
-    button.disabled = false;
-    button.textContent = 'Take this ride';
-    try { await loadBoard(); } catch (err) {}
-  }
-}
-
-async function releaseRide(id, button) {
-  hideMsgs();
-
-  if (!await perguntar('Release this ride',
-      'It goes back on the board for another partner. Doing this often affects how ' +
-      'much work we send you.', 'Release')) return;
-
-  button.disabled = true;
-  button.textContent = 'Releasing...';
-
-  try {
-    await api('/api/partner/rides/release', { ride_id: id });
-    await loadBoard();
-    loadRides();
-    renderOverview();
-    renderRides();
-  } catch (e) {
-    show($('boardMsg'), null, esc(e.message));
-    button.disabled = false;
-    button.textContent = 'Release this ride';
-  }
-}
-
-// ---------- viagens ----------
-//
-// A fonte é a mesma do quadro: board.mine já traz as viagens desta
-// empresa. Uma segunda chamada ao servidor seria trabalho a dobrar.
-function loadRides() {
-  rides = (board.mine || []).filter(function (r) { return r.status !== 'cancelled'; });
-  return rides;
-}
-
-function renderRides() {
-  var today = iso(new Date());
-  var upcoming = rides.filter(function (r) { return r.booking_date >= today; });
-  var past = rides.filter(function (r) { return r.booking_date < today; }).reverse();
-
-  var html = '<div class="card"><h2>Upcoming</h2>' +
-    '<p class="note">Rides confirmed to your company.</p>' +
-    (upcoming.length ? upcoming.map(rideRow).join('')
-      : '<div class="empty">Nothing upcoming. Offers appear here once you are live.</div>') + '</div>';
-
-  if (past.length) {
-    html += '<div class="card"><h2>Completed</h2>' +
-      '<p class="note">Everything you have driven for us.</p>' +
-      past.slice(0, 25).map(rideRow).join('') + '</div>';
-  }
-
-  $('ridesList').innerHTML = html;
-}
-
-// ============================================================
-// ARRANQUE
-// ============================================================
-(async function start() {
-  /**
-   * O ecrã de espera sai no fim, saiba-se o que se souber.
-   *
-   * Enquanto não se sabe se há sessão, mostrar o formulário de
-   * entrada é uma afirmação errada — e quem já estava autenticado
-   * via a página de login a piscar a cada refresh.
-   */
-  var pronto = function () {
-    $('bootWait').classList.add('hidden');
-    $('gate').classList.remove('hidden');
-  };
-
-  // Rede de segurança: se a verificação encravar, ao fim de oito
-  // segundos mostra-se o formulário na mesma. Melhor pedir a
-  // password outra vez do que deixar a pessoa a olhar para um ecrã
-  // parado.
-  var limite = setTimeout(pronto, 8000);
-
-  try {
-    var s = await db.auth.getSession();
-
-    if (s.data && s.data.session) {
-      var u = await db.auth.getUser();
-
-      if (!u.error && u.data && u.data.user) {
-        user = u.data.user;
-        clearTimeout(limite);
-        $('bootWait').classList.add('hidden');
-        await boot();
-        return;
+      if (!state.partner) {
+        return res.status(400).json({ error: 'Fill in your company details first.' });
       }
+      if (!state.partner.legal_name) missing.push('your registered company name');
+      if (!state.partner.contact_phone) missing.push('a contact phone number');
+      if (!req.body?.contract_accepted && !state.partner.contract_accepted_at) {
+        missing.push('the partner agreement');
+      }
+
+      // Os cinco passos, não só os documentos. Uma só revisão no fim
+      // é melhor para os dois lados: o parceiro não fica meio
+      // aprovado sem poder trabalhar, e tu decides uma vez em vez de
+      // duas.
+      state.requirements
+        .filter((r) => r.mandatory && r.scope === 'company' && r.stage === 'signup')
+        .forEach((r) => {
+          const doc = state.documents.find((d) =>
+            d.requirement_code === r.code && !d.driver_id && !d.vehicle_id);
+
+          if (!doc) missing.push(r.label);
+          else if (doc.status === 'rejected') {
+            missing.push(`${r.label} — ${doc.rejection_reason || 'needs replacing'}`);
+          }
+        });
+
+      if (!state.drivers.some((d) => d.status === 'active')) {
+        missing.push('at least one active driver');
+      }
+      if (!state.vehicles.some((v) => v.status === 'active')) {
+        missing.push('at least one active vehicle');
+      }
+      if (!(state.partner.operating_airports || []).length) {
+        missing.push('the airports you serve');
+      }
+      if (!state.partner.payout_iban) {
+        missing.push('your payout details');
+      }
+
+      if (missing.length) {
+        return res.status(400).json({
+          error: 'A few things are still missing before we can review your account.',
+          missing
+        });
+      }
+
+      const { error } = await supabase.from('driver_partners').update({
+        status: 'in_review',
+        submitted_at: new Date().toISOString(),
+        contract_accepted_at: state.partner.contract_accepted_at || new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }).eq('id', user.id);
+
+      if (error) throw error;
+
+      // state.partner é o que temos aqui, e já tem o email e o nome.
+      await notify.received(state.partner);
+
+      return res.json({ success: true, state: await loadPartnerState(user.id) });
+    } catch (error) {
+      console.error('partner/submit error:', error);
+      return res.status(500).json({ error: 'Could not submit your application.' });
     }
-  } catch (e) {
-    console.error('start:', e);
-  }
+  });
 
-  clearTimeout(limite);
-  pronto();
+  // Agenda. Guardamos só as exceções: por omissão o parceiro está
+  // disponível, e marcar 365 dias por ano para dizer "sim" seria
+  // trabalho inútil para ele e para a base de dados.
 
-  // O link vindo do site de marketing abre já no questionário.
-  // Depois de o ecrã estar montado, senão o clique não encontra
-  // nada para clicar.
-  if (/[?&]signup=1/.test(window.location.search)) $('siJoin').click();
-})();
-})();
-</script>
+  // Agenda. Guardamos só as exceções: por omissão o parceiro está
+  // disponível, e marcar 365 dias por ano para dizer "sim" seria
+  // trabalho inútil para ele e para a base de dados.
+  router.post('/api/partner/availability', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
 
-</body>
-</html>
+      const { day, available, note } = req.body || {};
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day || ''))) {
+        return res.status(400).json({ error: 'Invalid date.' });
+      }
+
+      if (available) {
+        const { error } = await supabase.from('partner_availability')
+          .delete().eq('partner_id', user.id).eq('day', day);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('partner_availability').upsert({
+          partner_id: user.id, day, status: 'unavailable',
+          note: note || null, updated_at: new Date().toISOString()
+        }, { onConflict: 'partner_id,day' });
+        if (error) throw error;
+      }
+
+      const { data } = await supabase.from('partner_availability')
+        .select('day, status, note').eq('partner_id', user.id)
+        .gte('day', new Date().toISOString().slice(0, 10));
+
+      return res.json({ success: true, availability: data || [] });
+    } catch (error) {
+      console.error('partner/availability error:', error);
+      return res.status(500).json({ error: 'Could not update your calendar.' });
+    }
+  });
+
+
+  router.get('/api/partner/availability', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { data, error } = await supabase.from('partner_availability')
+        .select('day, status, note').eq('partner_id', user.id);
+
+      if (error) throw error;
+      return res.json({ availability: data || [] });
+    } catch (error) {
+      console.error('partner/availability get error:', error);
+      return res.status(500).json({ error: 'Could not load your calendar.' });
+    }
+  });
+
+  // Revisão pelo admin.
+
+  router.get('/api/partner/chat', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      // O chat está aberto a qualquer conta autenticada, incluindo
+      // quem está a meio do registo — que é precisamente quem mais
+      // precisa de ajuda. Se faltar a linha de empresa, cria-se.
+      await ensurePartnerRow(user);
+
+      // Um assunto vindo do portal abre um ticket com título. Sem
+      // ele, continua a servir a conversa aberta que houver.
+      const chat = await chatFor(user.id, req.query.subject, req.query.topic);
+      if (!chat) return res.status(500).json({ error: 'Could not open your chat.' });
+
+      const [messagesRes, capacityRes, agenteRes] = await Promise.all([
+        supabase.from('partner_messages')
+          .select('*').eq('chat_id', chat.id)
+          // Aqui também, além da RLS. Duas barreiras: se uma falhar
+          // por engano numa migração, a outra segura.
+          .eq('internal', false)
+          .order('created_at').limit(200),
+        supabase.rpc('support_capacity'),
+
+        // Quem está a atender, se houver alguém. Vai na mesma volta
+        // que o resto: uma consulta a mais em série custaria outra
+        // ida ao servidor.
+        chat.assigned_to
+          ? supabase.from('support_presence')
+              .select('display_name, avatar_path')
+              .eq('user_id', chat.assigned_to)
+              .maybeSingle()
+          : Promise.resolve({ data: null })
+      ]);
+
+      const capacity = (capacityRes.data && capacityRes.data[0]) || {};
+      const agente = agenteRes?.data || null;
+
+      // Ao abrir, o que o admin escreveu passa a lido. Não o
+      // contrário: o admin marca as dele quando abre a conversa.
+      if (chat.unread_for_partner > 0) {
+        await supabase.from('partner_chats')
+          .update({ unread_for_partner: 0 })
+          .eq('id', chat.id);
+      }
+
+      // O histórico vai junto: o portal mostra as conversas
+      // anteriores ao lado da atual, sem um segundo pedido.
+      const history = await historyFor(user.id, 20);
+
+      return res.json({
+        chat,
+        messages: messagesRes.data || [],
+        history: history.filter((h) => h.chat_id !== chat.id),
+        // O parceiro precisa de saber três coisas diferentes: se há
+        // alguém, se já está a ser atendido, e há quanto tempo
+        // espera. Uma só bandeira "online" não distinguia nada disso.
+        support: {
+          agents_online: capacity.agents_online || 0,
+          free_slots: capacity.free_slots || 0,
+          waiting: capacity.waiting || 0,
+          assigned: Boolean(chat.assigned_to),
+          // Quem está do outro lado, com nome e fotografia.
+          //
+          // O portal mostrava "Airportlink" mesmo com um agente
+          // atribuído — falar com uma pessoa é diferente de falar
+          // com uma marca, e o nome já estava em cada mensagem.
+          agent_name: agente?.display_name || null,
+          agent_avatar: agente?.avatar_path || null,
+          waiting_minutes: chat.waiting_since
+            ? Math.round((Date.now() - new Date(chat.waiting_since).getTime()) / 60000)
+            : 0
+        }
+      });
+    } catch (error) {
+      console.error('partner/chat error:', error);
+      return res.status(500).json({ error: error.message || 'Could not load your chat.' });
+    }
+  });
+
+  /**
+   * Uma conversa antiga do próprio parceiro.
+   *
+   * Só de leitura: para responder tem de usar a conversa aberta,
+   * ou reabrir esta. Sem isto, o portal mostrava a lista mas não
+   * deixava abrir nenhuma.
+   */
+
+  /**
+   * Uma conversa antiga do próprio parceiro.
+   *
+   * Só de leitura: para responder tem de usar a conversa aberta,
+   * ou reabrir esta. Sem isto, o portal mostrava a lista mas não
+   * deixava abrir nenhuma.
+   */
+  router.get('/api/partner/chat/:id', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      const { data: chat } = await supabase
+        .from('partner_chats')
+        .select('*')
+        .eq('id', req.params.id)
+        // A verificação que interessa: é dele ou não é.
+        .eq('partner_id', user.id)
+        .maybeSingle();
+
+      if (!chat) return res.status(404).json({ error: 'Conversation not found.' });
+
+      const { data: messages } = await supabase
+        .from('partner_messages')
+        .select('*')
+        .eq('chat_id', chat.id)
+        .eq('internal', false)
+        .order('created_at')
+        .limit(300);
+
+      return res.json({ chat, messages: messages || [] });
+    } catch (error) {
+      console.error('partner/chat/:id error:', error);
+      return res.status(500).json({ error: 'Could not load that conversation.' });
+    }
+  });
+
+  /**
+   * Reabrir uma conversa fechada.
+   *
+   * Até 14 dias depois de fechada, e só se não houver outra aberta.
+   * As regras estão no Postgres para valerem venha o pedido de onde
+   * vier.
+   */
+
+  /**
+   * Reabrir uma conversa fechada.
+   *
+   * Até 14 dias depois de fechada, e só se não houver outra aberta.
+   * As regras estão no Postgres para valerem venha o pedido de onde
+   * vier.
+   */
+  router.post('/api/partner/chat/reopen', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      const { data: chat } = await supabase
+        .from('partner_chats')
+        .select('id')
+        .eq('id', req.body?.chat_id)
+        .eq('partner_id', user.id)
+        .maybeSingle();
+
+      if (!chat) return res.status(404).json({ error: 'Conversation not found.' });
+
+      const { data: ok } = await supabase.rpc('reopen_partner_chat', {
+        p_chat_id: chat.id
+      });
+
+      if (!ok) {
+        return res.status(409).json({
+          error: 'That conversation cannot be reopened. Start a new one instead.'
+        });
+      }
+
+      return res.json({ ok: true, chat_id: chat.id });
+    } catch (error) {
+      console.error('reopen error:', error);
+      return res.status(500).json({ error: 'Could not reopen that conversation.' });
+    }
+  });
+
+
+  router.post('/api/partner/chat/send', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      const body = String(req.body?.body || '').trim();
+      const attachmentPath = req.body?.attachment_path || null;
+
+      if (!body && !attachmentPath) {
+        return res.status(400).json({ error: 'Write something first.' });
+      }
+
+      if (body.length > 4000) {
+        return res.status(400).json({ error: 'That message is too long.' });
+      }
+
+      await ensurePartnerRow(user);
+
+      const chat = await chatFor(user.id);
+      if (!chat) return res.status(500).json({ error: 'Could not open your chat.' });
+
+      const { data: partner } = await supabase
+        .from('driver_partners')
+        .select('legal_name, trading_name, contact_name')
+        .eq('id', user.id).maybeSingle();
+
+      const { data, error } = await supabase
+        .from('partner_messages')
+        .insert({
+          chat_id: chat.id,
+          sender: 'partner',
+          sender_id: user.id,
+          sender_name: partner?.trading_name || partner?.legal_name || null,
+          body: body || null,
+          attachment_path: attachmentPath,
+          attachment_name: req.body?.attachment_name || null
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Toca a alguém. O gatilho no Postgres já pôs a conversa em
+      // espera; isto escolhe quem atende e arranca os 30 segundos.
+      try { await supabase.rpc('offer_chat', { p_chat_id: chat.id }); } catch (e) {
+        console.error('offer_chat failed:', e.message);
+      }
+
+      return res.json({ success: true, message: data });
+    } catch (error) {
+      console.error('partner/chat/send error:', error);
+      return res.status(500).json({
+        error: error.message || 'Your message did not send. Try again.'
+      });
+    }
+  });
+
+
+  router.post('/api/partner/chat/close', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in.' });
+
+      const chat = await chatFor(user.id);
+      if (!chat) return res.status(400).json({ error: 'No conversation to close.' });
+
+      const { data, error } = await asUser(req).rpc('close_chat_as_partner', {
+        p_chat_id: chat.id
+      });
+
+      if (error) throw error;
+      if (!data?.ok) return res.status(400).json({ error: 'Could not close that conversation.' });
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('partner/chat/close error:', error);
+      return res.status(500).json({ error: error.message || 'Could not close the conversation.' });
+    }
+  });
+
+  // ---------- lado do admin ----------
+
+  /**
+   * Marca as mensagens do parceiro como lidas.
+   *
+   * Chamado quando o agente abre a conversa. O parceiro passa a ver
+   * que o que escreveu chegou — é daí que vêm as mensagens
+   * repetidas quando não há resposta imediata.
+   */
+
+  return router;
+}
