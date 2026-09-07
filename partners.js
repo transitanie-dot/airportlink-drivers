@@ -909,6 +909,77 @@ export function createPartnerRoutes({
     }
   }
 
+  /**
+   * Os meus ganhos.
+   *
+   * O parceiro vê viagens e não vê quanto ganhou. Sem esse número
+   * não confia — e um parceiro que não confia não aceita viagens.
+   *
+   * Três coisas: o que já está pago, o que está por pagar, e o que
+   * este mês vai somando.
+   */
+  router.get('/api/partner/earnings', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const hoje = new Date();
+      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+        .toISOString().slice(0, 10);
+
+      const [pagamentos, esteMes] = await Promise.all([
+        supabase.from('partner_payouts')
+          .select('*')
+          .eq('partner_id', user.id)
+          .order('period_start', { ascending: false })
+          .limit(12),
+
+        supabase.from('bookings')
+          .select('driver_payout, status, booking_date')
+          .eq('assigned_partner_id', user.id)
+          .gte('booking_date', inicioMes)
+      ]);
+
+      const linhas = pagamentos.data || [];
+      const viagens = esteMes.data || [];
+
+      const feitas = viagens.filter((v) => v.status === 'completed');
+      const porFazer = viagens.filter((v) =>
+        v.status !== 'completed' && v.status !== 'cancelled');
+
+      return res.json({
+        // O que está fechado e pago.
+        paid: linhas
+          .filter((l) => l.status === 'paid')
+          .reduce((t, l) => t + Number(l.amount || 0), 0),
+
+        // Fechado e à espera da transferência.
+        pending: linhas
+          .filter((l) => l.status !== 'paid')
+          .reduce((t, l) => t + Number(l.amount || 0), 0),
+
+        /**
+         * Este mês, que ainda não fechou.
+         *
+         * Separado em feito e por fazer: um parceiro com dez
+         * viagens marcadas quer ver as duas coisas, e somá-las
+         * daria um número que não é dinheiro nenhum.
+         */
+        this_month: {
+          done: feitas.reduce((t, v) => t + Number(v.driver_payout || 0), 0),
+          upcoming: porFazer.reduce((t, v) => t + Number(v.driver_payout || 0), 0),
+          rides_done: feitas.length,
+          rides_upcoming: porFazer.length
+        },
+
+        periods: linhas
+      });
+    } catch (error) {
+      console.error('earnings:', error);
+      return res.status(500).json({ error: 'Could not load your earnings.' });
+    }
+  });
+
   router.get('/api/partner/standing', async (req, res) => {
     try {
       const user = await getUserFromRequest(req);
