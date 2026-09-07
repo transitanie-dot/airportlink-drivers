@@ -1090,6 +1090,86 @@ export function createSupportRoutes({
   });
 
   /**
+   * O que há a pagar aos parceiros.
+   *
+   * Com o IBAN, para se poder transferir sem ir a outro lado. Só
+   * supervisores: é dinheiro.
+   */
+  router.get('/api/admin/payouts', async (req, res) => {
+    const { user: admin, error: supError } = await requireSupervisor(req);
+    if (!admin) return res.status(403).json({ error: supError || 'Supervisors only.' });
+
+    try {
+      const { data, error } = await supabase
+        .from('payouts_due')
+        .select('*')
+        .limit(200);
+
+      if (error) throw error;
+
+      const linhas = data || [];
+
+      return res.json({
+        payouts: linhas,
+        summary: {
+          pending: linhas.filter((p) => p.status === 'pending').length,
+          due_amount: linhas
+            .filter((p) => p.status !== 'paid')
+            .reduce((t, p) => t + Number(p.amount || 0), 0),
+          // Um parceiro sem IBAN não se pode pagar, e é melhor
+          // sabê-lo antes de tentar.
+          missing_iban: linhas.filter((p) => p.missing_iban && p.status !== 'paid').length
+        }
+      });
+    } catch (err) {
+      console.error('payouts:', err.message);
+      return res.json({ payouts: [], summary: {} });
+    }
+  });
+
+  /** Marcar um pagamento como feito. */
+  router.post('/api/admin/payouts/paid', async (req, res) => {
+    const { user: admin, error: supError } = await requireSupervisor(req);
+    if (!admin) return res.status(403).json({ error: supError || 'Supervisors only.' });
+
+    const { payout_id, reference, note } = req.body || {};
+    if (!payout_id) return res.status(400).json({ error: 'Send payout_id.' });
+
+    const { data, error } = await asUser(req).rpc('mark_payout_paid', {
+      p_payout_id: payout_id,
+      p_reference: reference || null,
+      p_note: note || null
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if (data && data.ok === false) {
+      return res.status(400).json({ error: 'Already paid, or not found.' });
+    }
+
+    return res.json({ success: true });
+  });
+
+  /**
+   * Fechar o mês.
+   *
+   * Junta as viagens feitas e os extras numa linha por parceiro.
+   * Corrido à mão ou pelo cron no dia 1.
+   */
+  router.post('/api/admin/payouts/close', async (req, res) => {
+    const { user: admin, error: supError } = await requireSupervisor(req);
+    if (!admin) return res.status(403).json({ error: supError || 'Supervisors only.' });
+
+    const { data, error } = await supabase.rpc('close_payout_period', {
+      p_month: req.body?.month || null
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json(data || { ok: true });
+  });
+
+  /**
    * O mapa de cobertura.
    *
    * A peça mais importante disto tudo, e a que ninguém pede.
