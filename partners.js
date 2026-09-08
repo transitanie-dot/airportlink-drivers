@@ -840,6 +840,71 @@ export function createPartnerRoutes({
     }
   }
 
+  /**
+   * Procurar um aeroporto.
+   *
+   * O portal tinha uma lista de cinquenta e três, dos ficheiros de
+   * SEO. Um parceiro em Bangkok escrevia "BKK" e não encontrava
+   * nada — e um em Dubai acabou por escrever "auh" no campo de
+   * cidades, porque era o único sítio onde cabia.
+   *
+   * Agora são quase seis mil, o mundo inteiro.
+   */
+  router.get('/api/partner/airports', async (req, res) => {
+    const q = String(req.query.q || '').trim();
+
+    if (q.length < 2) return res.json({ airports: [] });
+
+    try {
+      const { data, error } = await supabase.rpc('search_airports', {
+        p_query: q,
+        p_limit: 12
+      });
+
+      if (error) throw error;
+
+      return res.json({ airports: data || [] });
+    } catch (e) {
+      console.error('airport search:', e.message);
+      return res.json({ airports: [] });
+    }
+  });
+
+  /**
+   * Guardar os aeroportos que o parceiro cobre.
+   *
+   * Substitui a lista inteira. E marca cada um como ativo — um
+   * aeroporto com parceiro é um aeroporto onde servimos.
+   */
+  router.post('/api/partner/airports', async (req, res) => {
+    try {
+      const user = await getUserFromRequest(req);
+      if (!user) return res.status(401).json({ error: 'Not signed in' });
+
+      const { codes } = req.body || {};
+
+      if (!Array.isArray(codes)) {
+        return res.status(400).json({ error: 'Send codes as a list.' });
+      }
+
+      const { data, error } = await asUser(req).rpc('set_partner_airports', {
+        p_partner_id: user.id,
+        p_codes: codes.slice(0, 200).map((c) => String(c).toUpperCase())
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(403).json({ error: 'Not your account.' });
+      }
+
+      return res.json({ success: true, saved: data?.saved || 0 });
+    } catch (error) {
+      console.error('save airports:', error);
+      return res.status(500).json({ error: 'Could not save your airports.' });
+    }
+  });
+
   /** A viagem acabou. */
   router.post('/api/partner/rides/completed', async (req, res) => {
     try {
