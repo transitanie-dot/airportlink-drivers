@@ -898,7 +898,18 @@ export function createPartnerRoutes({
         return res.status(403).json({ error: 'Not your account.' });
       }
 
-      return res.json({ success: true, saved: data?.saved || 0 });
+      /**
+       * Os que não aceitámos, com o nome.
+       *
+       * "Two airports were not saved" gera um email a perguntar
+       * quais. Dizer os códigos poupa essa conversa — e diz ao
+       * parceiro que não foi um erro dele.
+       */
+      return res.json({
+        success: true,
+        saved: data?.saved || 0,
+        rejected: data?.rejected || []
+      });
     } catch (error) {
       console.error('save airports:', error);
       return res.status(500).json({ error: 'Could not save your airports.' });
