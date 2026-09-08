@@ -313,17 +313,49 @@ export function createSupportRoutes({
     // que elas existem.
     const { data: messages, error } = await supabase
       .from('partner_messages')
-      .select('*, support_attachments(file_path, file_name, file_type, file_size)')
+      .select('*')
       .eq('chat_id', req.params.chatId)
       .order('created_at').limit(300);
 
     if (error) return res.status(500).json({ error: error.message });
 
+    /**
+     * Os anexos, numa consulta à parte.
+     *
+     * Não há chave estrangeira entre partner_messages e
+     * support_attachments — o Supabase recusa o join sem ela.
+     */
+    const { data: anexos } = await supabase
+      .from('support_attachments')
+      .select('*')
+      .eq('chat_id', req.params.chatId);
+
+    const porMsg = {};
+
+    (anexos || []).forEach((a) => {
+      if (a.message_id) porMsg[a.message_id] = a;
+    });
+
     await supabase.from('partner_chats')
       .update({ unread_for_admin: 0 })
       .eq('id', req.params.chatId);
 
-    return res.json({ messages: messages || [] });
+    // Cada anexo colado à mensagem dele.
+    return res.json({
+      messages: (messages || []).map((m) => {
+        const a = porMsg[m.id];
+
+        return a
+          ? {
+              ...m,
+              file_path: a.file_path,
+              file_name: a.file_name,
+              file_type: a.file_type,
+              file_size: a.file_size
+            }
+          : m;
+      })
+    });
   });
 
 
@@ -722,20 +754,48 @@ export function createSupportRoutes({
       if (!chat) return res.status(404).json({ error: 'Conversation not found.' });
 
       const { data: messages } = await supabase
-        ./**
-       * Com os anexos.
-       *
-       * O ficheiro vive na support_attachments, ligado pelo
-       * message_id. Sem este join, a mensagem chegava com o nome do
-       * ficheiro no corpo e nada para abrir.
-       */
-      from('partner_messages')
-        .select('*, support_attachments(file_path, file_name, file_type, file_size)')
+        .from('partner_messages')
+        .select('*')
         .eq('chat_id', req.params.id)
         .order('created_at')
         .limit(500);
 
-      return res.json({ chat, messages: messages || [] });
+      /**
+       * Os anexos, numa consulta à parte.
+       *
+       * Não há chave estrangeira entre as duas tabelas, e sem ela o
+       * Supabase recusa o join: "Could not find a relationship
+       * between partner_messages and support_attachments".
+       *
+       * Duas consultas e uma junção aqui. É o que o lado dos
+       * clientes já fazia.
+       */
+      const { data: anexos } = await supabase
+        .from('support_attachments')
+        .select('*')
+        .eq('chat_id', req.params.id);
+
+      const porMensagem = {};
+
+      (anexos || []).forEach((a) => {
+        if (a.message_id) porMensagem[a.message_id] = a;
+      });
+
+      const comAnexos = (messages || []).map((m) => {
+        const a = porMensagem[m.id];
+
+        return a
+          ? {
+              ...m,
+              file_path: a.file_path,
+              file_name: a.file_name,
+              file_type: a.file_type,
+              file_size: a.file_size
+            }
+          : m;
+      });
+
+      return res.json({ chat, messages: comAnexos });
     } catch (err) {
       console.error('admin chat full error:', err.message);
       return res.status(500).json({ error: 'Could not load that conversation.' });
