@@ -1811,6 +1811,29 @@ const internal = req.body.internal === true;
      * parceiros lhes chama. Sem esta tradução vinha undefined e o
      * ecrã dava "Cannot read properties of undefined".
      */
+    /**
+     * Num ticket, o cliente recebe um email.
+     *
+     * Ao vivo não: ele está no ecrã e acabou de ler a mensagem.
+     * Num ticket fechou o separador e foi-se embora — sem o email,
+     * a resposta fica num sítio que ninguém vai ver.
+     *
+     * As notas internas nunca saem: o cliente não as vê no chat, e
+     * não as deve ver no email.
+     */
+    if (!internal && existe) {
+      const { data: conversa } = await supabase
+        .from('support_chats')
+        .select('id, email, ticket, mode')
+        .eq('id', chat_id)
+        .maybeSingle();
+
+      if (conversa?.mode === 'ticket' && conversa.email) {
+        notify.ticketReply(conversa, String(body).trim(), presence)
+          .catch((e) => console.error('ticket reply email:', e.message));
+      }
+    }
+
     const message = data && {
       id: data.id,
       chat_id: data.chat_id,
