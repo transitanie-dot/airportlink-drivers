@@ -71,6 +71,14 @@ export function createShared({
     ride: email.sendRideConfirmedToPartner || (async () => {}),
     // A oferta com prazo. Sem ela, o parceiro não sabe que tem uma
     // viagem à espera e a cascata expira sempre.
+    /**
+     * Um agente respondeu a um ticket.
+     *
+     * Só nos tickets: ao vivo o cliente está no ecrã e um email a
+     * dizer o que ele acabou de ler é ruído.
+     */
+    ticketReply: email.sendTicketReply || (async () => {}),
+
     rideOffer: email.sendRideOffer || (async () => {}),
     // O empurrão a meio do prazo, que é o que mais reduz o
     // ignorar.
