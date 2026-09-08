@@ -480,104 +480,37 @@ export function createSupportRoutes({
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
 
     /**
-     * Oito estados, não um interruptor.
+     * A batida, com a hora do servidor.
      *
-     * Quem vai almoçar não fica offline: fica em pausa, e continua
-     * a contar como pessoa ao serviço. E "duas horas em break" é
-     * uma coisa diferente de "duas horas em formação" — distinguir
-     * é o que torna o relatório do dia útil.
+     * Escrevia new Date() do browser. Um portátil com o relógio dois
+     * minutos atrasado dava-se como ausente a cada batida — e essa
+     * era a causa do "fiquei offline sozinho".
      *
-     * Só live e active recebem chats novos. O escalating fica de
-     * fora de propósito: quem está a resolver um caso com o
-     * supervisor não deve ser interrompido.
+     * Agora é o Postgres que carimba, com now().
      */
     const allowed = ['live', 'active', 'escalating', 'follow-up',
-                     'training', 'admin', 'break', 'offline'];
+                     'training', 'admin', 'break', 'lunch', 'offline'];
+
     const state = allowed.includes(req.body?.state) ? req.body.state : null;
 
-    const patch = {
-      user_id: admin.id,
-      last_seen_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-
-    /**
-     * O nome NÃO entra em todas as batidas.
-     *
-     * Este upsert corre de dois em dois minutos. Se puséssemos aqui
-     * `display_name: req.body.display_name || email`, uma batida sem
-     * corpo apagava o nome escolhido e punha o email no lugar — de
-     * dois em dois minutos, para sempre.
-     *
-     * Só se escreve quando vem um nome no pedido. Se não vier, a
-     * coluna fica como está. E se ainda não existir linha nenhuma,
-     * o email serve de valor inicial.
-     */
-    const enviado = String(req.body?.display_name || '').trim();
-
-    if (enviado) {
-      patch.display_name = enviado;
-    } else {
-      const { data: atual } = await supabase
-        .from('support_presence')
-        .select('display_name')
-        .eq('user_id', admin.id)
-        .maybeSingle();
-
-      if (!atual?.display_name) {
-        patch.display_name = admin.email.split('@')[0];
-      }
-    }
-
-    /**
-     * Mudar de estado passa pela função do Postgres.
-     *
-     * Ela fecha o período anterior, abre o novo e atualiza a
-     * presença — três escritas que têm de acontecer juntas. Feitas
-     * daqui uma a uma, uma falha a meio deixava um período aberto
-     * para sempre e o relatório do dia passava a mentir.
-     *
-     * Sem 'state' no corpo é só a batida do ponto, e essa continua
-     * a ser um upsert simples: não muda o estado de quem entretanto
-     * foi almoçar.
-     */
-    if (state) {
-      const { data, error: rpcError } = await supabase.rpc('set_agent_state', {
-        p_user_id: admin.id,
+    try {
+      const { data, error } = await asUser(req).rpc('heartbeat', {
         p_state: state,
-        p_display_name: enviado || null,
-        p_automatic: Boolean(req.body?.automatic)
+        p_name: req.body?.display_name || null,
+        p_avatar: req.body?.avatar_path || null
       });
 
-      if (rpcError) return res.status(500).json({ error: rpcError.message });
+      if (error) throw error;
 
-      /**
-       * A função pode recusar a mudança.
-       *
-       * Sair de serviço com conversas abertas deixa pessoas à espera
-       * de quem já não está lá — e as conversas não voltam à fila
-       * sozinhas, ficam com o nome dele para sempre.
-       *
-       * A recusa vem com a razão e a contagem, para o painel poder
-       * dizer o que fazer em vez de só dizer que não.
-       */
-      if (data && data.ok === false) {
-        return res.status(409).json({
-          error: data.message || 'That change was refused.',
-          reason: data.reason,
-          open_chats: data.open_chats
-        });
-      }
+      // O estado completo volta na mesma resposta: o painel não
+      // precisa de uma segunda chamada para saber onde ficou.
+      const { data: agora } = await asUser(req).rpc('my_presence');
 
-      return res.json({ success: true, state, ...(data || {}) });
+      return res.json({ success: true, ...(data || {}), presence: agora });
+    } catch (e) {
+      console.error('heartbeat:', e.message);
+      return res.status(500).json({ error: e.message });
     }
-
-    const { error } = await supabase.from('support_presence')
-      .upsert(patch, { onConflict: 'user_id' });
-
-    if (error) return res.status(500).json({ error: error.message });
-
-    return res.json({ success: true, state });
   });
 
   /** O nome que o parceiro vê quando este agente responde. */
@@ -2110,7 +2043,23 @@ const internal = req.body.internal === true;
       return res.status(401).json({ error: 'Session could not be read.' });
     }
 
-    return res.json(data);
+    /**
+     * A presença vem da fonte única.
+     *
+     * O agent_session juntava peças de três sítios, e quando
+     * discordavam escolhia a mais pessimista. O my_presence
+     * responde à pergunta uma vez.
+     */
+    const { data: presenca } = await asUser(req).rpc('my_presence');
+
+    return res.json({
+      ...data,
+      presence: presenca || null,
+
+      // O que o painel lê para saber se pode receber conversas.
+      state: presenca?.state || data.state,
+      present: presenca?.present || false
+    });
   });
 
   /** Guardar uma preferência. Só o que mudou. */
