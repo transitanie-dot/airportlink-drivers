@@ -335,6 +335,42 @@ export function createSupportRoutes({
       return res.status(400).json({ error: 'Send chat_id and a message.' });
     }
 
+    /**
+     * A conversa está mesmo nesta tabela?
+     *
+     * O painel escolhe a rota pela fonte da conversa, e às vezes
+     * engana-se — uma conversa aberta da pesquisa não estava na
+     * lista carregada, e a função caía no palpite.
+     *
+     * O Postgres recusava com "partner_messages_chat_id_fkey", que
+     * não diz nada a ninguém. Em vez de recusar, verifica-se: se
+     * estiver na outra tabela, diz-se qual.
+     */
+    const { data: existe } = await supabase
+      .from('partner_chats')
+      .select('id')
+      .eq('id', chat_id)
+      .maybeSingle();
+
+    if (!existe) {
+      const { data: naOutra } = await supabase
+        .from('support_chats')
+        .select('id')
+        .eq('id', chat_id)
+        .maybeSingle();
+
+      if (naOutra) {
+        return res.status(409).json({
+          error: 'That is a customer conversation.',
+          use: '/api/admin/support/send'
+        });
+      }
+
+      return res.status(404).json({
+        error: 'That conversation no longer exists.'
+      });
+    }
+
     const internal = req.body.internal === true;
 
     // O nome de apresentação é o que o parceiro lê. Guardado na
@@ -1690,7 +1726,39 @@ export function createSupportRoutes({
       return res.status(400).json({ error: 'Send chat_id and a message.' });
     }
 
-    const internal = req.body.internal === true;
+        /**
+     * A conversa está mesmo nesta tabela?
+     *
+     * O painel escolhe a rota pela fonte da conversa e às vezes
+     * engana-se. Em vez de deixar o Postgres recusar com um erro
+     * de chave estrangeira, diz-se qual é a certa.
+     */
+    const { data: existe } = await supabase
+      .from('support_chats')
+      .select('id')
+      .eq('id', chat_id)
+      .maybeSingle();
+
+    if (!existe) {
+      const { data: naOutra } = await supabase
+        .from('partner_chats')
+        .select('id')
+        .eq('id', chat_id)
+        .maybeSingle();
+
+      if (naOutra) {
+        return res.status(409).json({
+          error: 'That is a partner conversation.',
+          use: '/api/admin/chat/send'
+        });
+      }
+
+      return res.status(404).json({
+        error: 'That conversation no longer exists.'
+      });
+    }
+
+const internal = req.body.internal === true;
 
     // O nome que o cliente lê vem da presença, não do browser.
     // Assim é o mesmo em todas as conversas.
