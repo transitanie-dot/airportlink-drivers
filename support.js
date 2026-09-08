@@ -313,7 +313,8 @@ export function createSupportRoutes({
     // que elas existem.
     const { data: messages, error } = await supabase
       .from('partner_messages')
-      .select('*').eq('chat_id', req.params.chatId)
+      .select('*, support_attachments(file_path, file_name, file_type, file_size)')
+      .eq('chat_id', req.params.chatId)
       .order('created_at').limit(300);
 
     if (error) return res.status(500).json({ error: error.message });
@@ -412,16 +413,51 @@ export function createSupportRoutes({
         sender_name: displayName || admin.email.split('@')[0],
         sender_avatar: avatar,
         body: String(body).trim(),
-        internal,
-        attachment_path: req.body.attachment_path || null,
-        attachment_name: req.body.attachment_name || null
+        internal
       })
       .select()
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
 
-    return res.json({ success: true, message: data });
+    /**
+     * O anexo vai para a tabela própria.
+     *
+     * Ia para colunas attachment_path e attachment_name na
+     * partner_messages — que podem não existir. O Supabase ignora
+     * colunas desconhecidas sem dar erro, e o anexo desaparecia em
+     * silêncio: a mensagem chegava com o nome do ficheiro e nada
+     * para abrir.
+     *
+     * É a mesma tabela que o lado dos clientes usa, e o painel já
+     * a sabe ler.
+     */
+    let anexo = null;
+
+    if (req.body.attachment_path && data) {
+      const { data: a } = await supabase.from('support_attachments').insert({
+        chat_id,
+        message_id: data.id,
+        file_url: '',
+        file_path: req.body.attachment_path,
+        file_name: req.body.attachment_name || 'file',
+        file_type: req.body.attachment_type || 'application/octet-stream',
+        file_size: req.body.attachment_size || null,
+        sender_type: 'admin'
+      }).select().maybeSingle();
+
+      anexo = a || null;
+    }
+
+    return res.json({
+      success: true,
+      message: data && {
+        ...data,
+        file_path: anexo ? anexo.file_path : null,
+        file_name: anexo ? anexo.file_name : null,
+        file_type: anexo ? anexo.file_type : null
+      }
+    });
   });
 
   /**
@@ -753,8 +789,15 @@ export function createSupportRoutes({
       if (!chat) return res.status(404).json({ error: 'Conversation not found.' });
 
       const { data: messages } = await supabase
-        .from('partner_messages')
-        .select('*')
+        ./**
+       * Com os anexos.
+       *
+       * O ficheiro vive na support_attachments, ligado pelo
+       * message_id. Sem este join, a mensagem chegava com o nome do
+       * ficheiro no corpo e nada para abrir.
+       */
+      from('partner_messages')
+        .select('*, support_attachments(file_path, file_name, file_type, file_size)')
         .eq('chat_id', req.params.id)
         .order('created_at')
         .limit(500);
@@ -1435,6 +1478,45 @@ export function createSupportRoutes({
     } catch (err) {
       console.error('coverage map:', err.message);
       return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * Respondi, agora espero.
+   *
+   * Diferente de resolver: o ticket continua aberto e o cliente
+   * pode responder. Sai é da lista de "a fazer", porque a bola
+   * está do lado dele.
+   *
+   * Sem isto, o agente escolhia entre deixar o ticket na lista
+   * para sempre ou fechá-lo antes de o cliente confirmar.
+   */
+  router.post('/api/admin/chat/replied', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { chat_id } = req.body || {};
+    if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
+
+    try {
+      const { data, error } = await asUser(req).rpc('mark_replied', {
+        p_chat_id: chat_id
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        return res.status(400).json({
+          error: data.reason === 'not_found'
+            ? 'That conversation no longer exists.'
+            : 'Could not update it.'
+        });
+      }
+
+      return res.json({ success: true, ...(data || {}) });
+    } catch (e) {
+      console.error('mark replied:', e.message);
+      return res.status(500).json({ error: e.message });
     }
   });
 
