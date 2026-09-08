@@ -1207,6 +1207,17 @@ export function createSupportRoutes({
       return res.status(403).json({ error: 'That conversation is not yours.' });
     }
 
+    /**
+     * E o agente entra em follow-up.
+     *
+     * Depois de fechar há trabalho por fazer: a nota, o email, a
+     * reserva a atualizar. Sem isto recebia outra chamada a meio.
+     *
+     * A função decide se aplica: só de 'live', e só se ele ficou
+     * sem conversas abertas.
+     */
+    await asUser(req).rpc('enter_followup').catch(() => {});
+
     return res.json({ success: true, ...(data || {}) });
   });
 
@@ -1342,6 +1353,79 @@ export function createSupportRoutes({
     if (error) return res.status(500).json({ error: error.message });
 
     return res.json(data || { ok: true });
+  });
+
+  /**
+   * O mapa de cobertura.
+   *
+   * Cada aeroporto com as viaturas que lá temos, por classe, e a
+   * procura dos últimos noventa dias.
+   *
+   * Uma lista diz quantos parceiros há em cada zona; o mapa mostra
+   * que os buracos são geográficos — uma região inteira sem
+   * ninguém, e não uma zona isolada.
+   */
+  router.get('/api/admin/coverage-map', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const { data, error } = await supabase
+        .from('coverage_map')
+        .select('*');
+
+      if (error) throw error;
+
+      const zonas = data || [];
+
+      return res.json({
+        zones: zonas,
+        summary: {
+          full: zonas.filter((z) => z.status === 'full').length,
+          partial: zonas.filter((z) => z.status === 'partial').length,
+          none: zonas.filter((z) => z.status === 'none').length,
+
+          /**
+           * A procura que não se consegue servir.
+           *
+           * É o número que decide onde recrutar: uma zona sem
+           * cobertura e sem procura é um problema teórico.
+           */
+          demand_uncovered: zonas
+            .filter((z) => z.status !== 'full')
+            .reduce((t, z) => t + Number(z.bookings_90d || 0), 0)
+        }
+      });
+    } catch (err) {
+      console.error('coverage map:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * Procurar parceiros por zona.
+   *
+   * Com cinquenta parceiros e cinquenta zonas, "quem cobre Faro?"
+   * é a pergunta mais frequente que existe — e não havia forma de
+   * a fazer no painel.
+   */
+  router.get('/api/admin/partners/by-zone', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const { data, error } = await supabase.rpc('partners_by_zone', {
+        p_zone: req.query.zone || null,
+        p_status: req.query.status || null
+      });
+
+      if (error) throw error;
+
+      return res.json({ partners: data || [] });
+    } catch (err) {
+      console.error('partners by zone:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   /**
@@ -1538,7 +1622,10 @@ export function createSupportRoutes({
         supabase.from('bookings')
           // O id vai junto: sem ele o painel não consegue abrir a
           // reserva a partir daqui.
-          .select('id, booking_reference, booking_date, pickup, dropoff, status, price, currency')
+          // O booking_id junto: a coluna booking_reference está vazia
+          // em todas as reservas, e é a única que o agente diz ao
+          // telefone.
+          .select('id, booking_id, booking_reference, booking_date, pickup, dropoff, status, price, currency')
           .eq('email', chat.email)
           .neq('status', 'cancelled')
           .order('booking_date', { ascending: false })
