@@ -117,6 +117,13 @@ export async function sendRideOffer(partner, booking, offer) {
 }
 
 
+/** Um agente respondeu a um ticket. */
+export async function sendTicketReply(chat, mensagem, agente) {
+  if (!chat?.email) return { sent: false, reason: 'no-email' };
+  return pedirEmail('ticket_reply', { chat, mensagem, agente });
+}
+
+
 /** A viagem que ele aceitou mudou. */
 export async function sendRideChanged(partner, booking, mudanca) {
   if (!partner?.email || !booking) return { sent: false, reason: 'missing-data' };
