@@ -2536,7 +2536,26 @@ $('apSave').addEventListener('click', async function () {
      * Agora são a mesma coisa: escolher um aeroporto é passar a
      * receber viagens dele.
      */
-    await api('/api/partner/airports', { codes: areaAirports });
+    var guardados = await api('/api/partner/airports', { codes: areaAirports });
+
+    /**
+     * Se algum não foi aceite, dizer quais.
+     *
+     * Só operamos em alguns aeroportos. Um parceiro que escolha um
+     * de fora tem de saber — senão fica à espera de ofertas que
+     * nunca chegam, e culpa-nos por isso.
+     */
+    if (guardados.rejected && guardados.rejected.length) {
+      areaAirports = areaAirports.filter(function (c) {
+        return guardados.rejected.indexOf(c) === -1;
+      });
+
+      pintarAirports();
+
+      show($('apMsg'), $('apOk'),
+        'We do not operate in ' + guardados.rejected.join(', ') +
+        ' yet, so those were not saved. The rest is in.');
+    }
     await refresh(r.state);
     show($('apOk'), $('apMsg'), areaAirports.length + ' airport' +
       (areaAirports.length === 1 ? '' : 's') + ' saved.');
