@@ -2450,38 +2450,63 @@ function renderAirportTags() {
  * Lisboa escreve "Lisboa"; um que trabalhe com companhias escreve
  * "LIS". Os dois têm de funcionar.
  */
+/**
+ * A pesquisa vai ao servidor.
+ *
+ * Tinha uma lista de cinquenta e três aeroportos carregada no
+ * arranque — os dos ficheiros de SEO. Um parceiro em Bangkok
+ * escrevia "BKK" e não encontrava nada.
+ *
+ * Agora são quase seis mil e vivem na base. Carregá-los todos no
+ * browser seriam 400 KB por cada visita ao portal.
+ */
+var apTimer = null;
+
 $('apSearch').addEventListener('input', function () {
-  var q = $('apSearch').value.trim().toLowerCase();
+  var q = $('apSearch').value.trim();
   var box = $('apResults');
+
+  clearTimeout(apTimer);
 
   if (q.length < 2) { box.innerHTML = ''; return; }
 
-  var hits = (S.airports || []).filter(function (a) {
-    if (areaAirports.indexOf(a.iata) !== -1) return false;
-    return a.iata.toLowerCase().indexOf(q) === 0 ||
-           a.city.toLowerCase().indexOf(q) !== -1 ||
-           a.name.toLowerCase().indexOf(q) !== -1;
-  }).slice(0, 6);
+  /**
+   * Um quarto de segundo de espera.
+   *
+   * Sem isto, escrever "Amsterdam" fazia nove chamadas ao servidor
+   * — uma por letra — e as respostas chegavam fora de ordem.
+   */
+  apTimer = setTimeout(async function () {
+    try {
+      var r = await api('/api/partner/airports?q=' + encodeURIComponent(q));
 
-  box.innerHTML = hits.length
-    ? hits.map(function (a) {
-        return '<div class="ap-hit" data-add="' + esc(a.iata) + '">' +
-          '<span class="ap-code">' + esc(a.iata) + '</span>' +
-          '<span><span class="ap-name">' + esc(a.name) + '</span><br>' +
-          '<span class="ap-where">' + esc(a.city) + ', ' + esc(a.country) + '</span></span></div>';
-      }).join('')
-    : '<div class="ap-hit" style="cursor:default;color:var(--muted);font-size:13.5px">' +
-      'No airport matches that. Add it as a city below instead.</div>';
+      var hits = (r.airports || []).filter(function (a) {
+        return areaAirports.indexOf(a.iata) === -1;
+      });
 
-  qsa('#apResults [data-add]').forEach(function (h) {
-    h.addEventListener('click', function () {
-      var code = h.getAttribute('data-add');
-      if (areaAirports.indexOf(code) === -1) areaAirports.push(code);
-      $('apSearch').value = '';
+      box.innerHTML = hits.length
+        ? hits.map(function (a) {
+            return '<div class="ap-hit" data-add="' + esc(a.iata) + '">' +
+              '<b>' + esc(a.iata) + '</b> ' + esc(a.city || '') +
+              '<span>' + esc(a.country || '') + '</span></div>';
+          }).join('')
+        : '<div class="ap-hit muted">Nothing found</div>';
+
+      qsa('#apResults [data-add]').forEach(function (h) {
+        h.addEventListener('click', function () {
+          var code = h.getAttribute('data-add');
+          if (!code) return;
+
+          areaAirports.push(code);
+          $('apSearch').value = '';
+          box.innerHTML = '';
+          pintarAirports();
+        });
+      });
+    } catch (e) {
       box.innerHTML = '';
-      renderAirportTags();
-    });
-  });
+    }
+  }, 250);
 });
 
 $('apSave').addEventListener('click', async function () {
@@ -2499,6 +2524,19 @@ $('apSave').addEventListener('click', async function () {
       contact_phone: p.contact_phone, emergency_phone: p.emergency_phone,
       operating_airports: areaAirports
     });
+
+    /**
+     * E as zonas de distribuição.
+     *
+     * O operating_airports é o que o parceiro DIZ que cobre. As
+     * partner_zones são por onde a cascata distribui — e eram
+     * dezanove regiões portuguesas, o que deixava de fora todos os
+     * parceiros que não estivessem em Portugal.
+     *
+     * Agora são a mesma coisa: escolher um aeroporto é passar a
+     * receber viagens dele.
+     */
+    await api('/api/partner/airports', { codes: areaAirports });
     await refresh(r.state);
     show($('apOk'), $('apMsg'), areaAirports.length + ' airport' +
       (areaAirports.length === 1 ? '' : 's') + ' saved.');
