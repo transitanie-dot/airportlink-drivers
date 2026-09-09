@@ -1484,7 +1484,7 @@ export function createSupportRoutes({
    * Sem isto, o agente escolhia entre deixar o ticket na lista
    * para sempre ou fechá-lo antes de o cliente confirmar.
    */
-  router.post('/api/admin/chat/replied', async (req, res) => {
+  router.post('/api/admin/chat/close', async (req, res) => {
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
 
@@ -1492,7 +1492,7 @@ export function createSupportRoutes({
     if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
 
     try {
-      const { data, error } = await asUser(req).rpc('mark_replied', {
+      const { data, error } = await asUser(req).rpc('close_chat', {
         p_chat_id: chat_id
       });
 
