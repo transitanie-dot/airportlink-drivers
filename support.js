@@ -1494,6 +1494,127 @@ export function createSupportRoutes({
   });
 
   /**
+   * Abrir a conta de alguém, em modo leitura.
+   *
+   * Um agente ao telefone com quem diz "não vejo a minha reserva"
+   * precisa de ver o ecrã dele, não os dados. A diferença é entre
+   * saber que a reserva existe e perceber porque não aparece.
+   *
+   * Devolve um código de dez minutos. Não é um token da conta: com
+   * um token real, tudo o que o cliente pode fazer o agente também
+   * podia — e um clique errado cancela uma reserva a sério.
+   */
+  router.post('/api/admin/view-as', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { email, kind, reason, chat_id } = req.body || {};
+
+    if (!email) return res.status(400).json({ error: 'Send an email.' });
+
+    try {
+      const { data, error } = await asUser(req).rpc('open_view_as', {
+        p_email: email,
+        p_kind: kind || 'customer',
+        p_reason: reason || null,
+        p_chat_id: chat_id || null
+      });
+
+      if (error) throw error;
+
+      if (data && data.ok === false) {
+        const msg = {
+          not_allowed: 'Administrator access required.',
+          no_email: 'Send an email.',
+          too_many: data.message || 'Too many accounts opened this hour.'
+        };
+
+        return res.status(400).json({ error: msg[data.reason] || 'Could not open it.' });
+      }
+
+      /**
+       * O endereço completo, pronto a abrir.
+       *
+       * O painel só tem de o abrir numa janela nova — não precisa
+       * de saber como se monta.
+       */
+      const base = data.kind === 'partner'
+        ? (process.env.DRIVERS_URL || 'https://drivers.airportlink.app')
+        : (process.env.SITE_ORIGIN || 'https://www.airportlink.app');
+
+      const caminho = data.kind === 'partner' ? '/'
+        : data.kind === 'agency' ? '/agency'
+        : '/myaccount';
+
+      return res.json({
+        success: true,
+        ...data,
+        url: `${base}${caminho}?viewas=${data.code}`
+      });
+    } catch (e) {
+      console.error('view as:', e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+
+  /**
+   * Os dados da conta, para a página em modo leitura.
+   *
+   * Sem autenticação de agente: quem tem o código tem acesso, e o
+   * código dura dez minutos e foi criado por um agente
+   * autenticado.
+   *
+   * Isto permite que a página do cliente — que não sabe nada de
+   * agentes — a chame diretamente.
+   */
+  router.get('/api/view-as/:code', async (req, res) => {
+    try {
+      const { data, error } = await supabase.rpc('view_as_data', {
+        p_code: req.params.code
+      });
+
+      if (error) throw error;
+
+      if (!data || data.ok === false) {
+        return res.status(404).json({
+          error: 'That link has expired. Ask for a new one.'
+        });
+      }
+
+      // Registar a página vista, para a auditoria.
+      await supabase.rpc('use_view_as', {
+        p_code: req.params.code,
+        p_page: req.query.page || null
+      });
+
+      return res.json(data);
+    } catch (e) {
+      console.error('view as data:', e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+
+  /** Quem viu a conta de quem. Só supervisores. */
+  router.get('/api/admin/view-as-log', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    try {
+      const { data, error } = await asUser(req).rpc('view_as_log', {
+        p_days: Number(req.query.days) || 7
+      });
+
+      if (error) throw error;
+
+      return res.json({ log: data || [] });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  /**
    * Procurar parceiros por zona.
    *
    * Com cinquenta parceiros e cinquenta zonas, "quem cobre Faro?"
