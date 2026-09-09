@@ -810,37 +810,7 @@ export function createSupportRoutes({
    * diferentes conforme quem atende.
    */
 
-  /**
-   * As respostas rápidas.
-   *
-   * Partilhadas por toda a equipa de propósito: se cada agente
-   * tiver as suas, a voz da empresa desfaz-se em cinco vozes
-   * diferentes conforme quem atende.
-   */
-  router.get('/api/admin/snippets', async (req, res) => {
-    const { user, error } = await requireAdmin(req);
-    if (error) return res.status(403).json({ error });
-
-    try {
-      const { data, error: err } = await supabase
-        .from('support_snippets')
-        .select('*')
-        .eq('active', true)
-        .order('sort_order');
-
-      if (err) throw err;
-
-      return res.json({ snippets: data || [] });
-    } catch (err) {
-      console.error('snippets error:', err.message);
-      // Sem respostas rápidas o painel funciona na mesma. Devolver
-      // lista vazia é melhor do que partir a abertura do separador.
-      return res.json({ snippets: [] });
-    }
-  });
-
-
-  router.get('/api/admin/team', async (req, res) => {
+    router.get('/api/admin/team', async (req, res) => {
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
 
