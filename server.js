@@ -256,6 +256,36 @@ if (!process.env.CRON_SECRET) {
  */
 /**
  * ---------------------------------------------------------------
+ * OS CABEÇALHOS DE SEGURANÇA
+ *
+ * Escritos à mão em vez do helmet: seis linhas contra uma
+ * dependência de 90 KB, e cada uma explicada.
+ * ---------------------------------------------------------------
+ */
+app.use((req, res, next) => {
+  // Só HTTPS, e o browser lembra-se por um ano.
+  res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+
+  // O browser não adivinha o tipo do ficheiro: um upload com HTML
+  // dentro não é servido como página.
+  res.set('X-Content-Type-Options', 'nosniff');
+
+  // Ninguém nos põe num iframe para sobrepor botões invisíveis.
+  res.set('X-Frame-Options', 'DENY');
+
+  // O endereço não viaja para sites externos.
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // Nada de câmara, microfone ou localização — não usamos nenhum.
+  res.set('Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(self)');
+
+  next();
+});
+
+
+/**
+ * ---------------------------------------------------------------
  * UM LIMITE POR ENDEREÇO
  *
  * Duas rotas aqui são públicas: o registo de parceiro e a pesquisa
