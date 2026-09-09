@@ -33,6 +33,20 @@ import {
 } from './emailclient.js';
 
 const app = express();
+
+/**
+ * O IP verdadeiro, atrás do proxy.
+ *
+ * O Render põe o endereço do visitante no x-forwarded-for e o seu
+ * próprio no req.ip. Sem esta linha, o limitador via todos os
+ * pedidos como vindos do mesmo sítio — e bloqueava toda a gente
+ * ao mesmo tempo, ou ninguém.
+ *
+ * O 1 diz "confia num proxy". Confiar em todos deixaria alguém
+ * forjar o cabeçalho e contornar o limite.
+ */
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 3000;
 
 if (!process.env.SUPABASE_URL) throw new Error('SUPABASE_URL is required');
@@ -240,6 +254,94 @@ if (!process.env.CRON_SECRET) {
  * Sem isto, um erro no portal de motoristas ou no call centre só
  * aparecia na consola do Render, onde ninguém olha.
  */
+/**
+ * ---------------------------------------------------------------
+ * UM LIMITE POR ENDEREÇO
+ *
+ * Duas rotas aqui são públicas: o registo de parceiro e a pesquisa
+ * de aeroportos. A segunda é chamada a cada tecla escrita, e sem
+ * limite um script enche a base de linhas ou gasta a ligação.
+ *
+ * Um Map em memória, sem dependências. Não é proteção contra um
+ * ataque a sério — é contra o caso comum: um script, um bot, um
+ * botão carregado vinte vezes.
+ * ---------------------------------------------------------------
+ */
+const janelas = new Map();
+
+function limitar(nome, req, res, { max, segundos }) {
+  // O IP real, atrás do proxy do Render.
+  const ip = String(req.headers['x-forwarded-for'] || '')
+    .split(',')[0].trim() || req.ip || 'sem-ip';
+
+  const chave = `${nome}:${ip}`;
+  const agora = Date.now();
+
+  let j = janelas.get(chave);
+
+  if (!j || agora > j.ate) {
+    j = { contagem: 0, ate: agora + segundos * 1000 };
+    janelas.set(chave, j);
+  }
+
+  j.contagem += 1;
+
+  if (j.contagem > max) {
+    const faltam = Math.ceil((j.ate - agora) / 1000);
+
+    res.set('Retry-After', String(faltam));
+
+    res.status(429).json({
+      error: 'Too many requests. Wait a moment and try again.',
+      retry_after_seconds: faltam
+    });
+
+    return true;
+  }
+
+  return false;
+}
+
+// A memória não cresce sem fim.
+setInterval(() => {
+  const agora = Date.now();
+  for (const [k, j] of janelas) if (agora > j.ate) janelas.delete(k);
+}, 60000).unref();
+
+
+/**
+ * As duas rotas públicas.
+ *
+ * Feito aqui e não em cada uma: elas vivem no partners.js, que é
+ * montado como router — e um middleware antes dele apanha as duas
+ * sem lhes tocar.
+ */
+app.use((req, res, next) => {
+  if (req.path === '/api/partner/signup') {
+    /**
+     * Três registos por hora.
+     *
+     * Ninguém se regista três vezes numa hora sem ser por engano.
+     * Cada tentativa cria uma linha e manda um email.
+     */
+    if (limitar('signup', req, res, { max: 3, segundos: 3600 })) return;
+  }
+
+  if (req.path === '/api/partner/airports') {
+    /**
+     * Sessenta pesquisas por minuto.
+     *
+     * É chamada a cada tecla, com um quarto de segundo de espera
+     * entre elas. Sessenta dá para escrever à vontade e para
+     * mudar de ideias.
+     */
+    if (limitar('airports', req, res, { max: 60, segundos: 60 })) return;
+  }
+
+  next();
+});
+
+
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api/')) return next();
 
