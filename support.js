@@ -1484,7 +1484,17 @@ export function createSupportRoutes({
    * Sem isto, o agente escolhia entre deixar o ticket na lista
    * para sempre ou fechá-lo antes de o cliente confirmar.
    */
-  router.post('/api/admin/chat/close', async (req, res) => {
+  /**
+   * Respondi, espero pelo cliente.
+   *
+   * Chamava-se /chat/close e colidia com a rota de resolver, que
+   * já existia com esse nome — o Express usa a primeira que
+   * encontra, e esta nunca era chamada.
+   *
+   * Dois botões chamados "Close chat" na mesma barra, um deles a
+   * dar erro. O nome certo diz o que faz.
+   */
+  router.post('/api/admin/chat/awaiting-reply', async (req, res) => {
     const { user: admin, error: adminError } = await requireAdmin(req);
     if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
 
@@ -1492,7 +1502,7 @@ export function createSupportRoutes({
     if (!chat_id) return res.status(400).json({ error: 'Send chat_id.' });
 
     try {
-      const { data, error } = await asUser(req).rpc('close_chat', {
+      const { data, error } = await asUser(req).rpc('await_customer', {
         p_chat_id: chat_id
       });
 
