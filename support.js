@@ -2903,6 +2903,68 @@ const internal = req.body.internal === true;
       if (error) throw error;
 
       const resumo = data || {};
+
+      /**
+       * As conversas novas desde a última passagem.
+       *
+       * Aqui e não num gatilho SQL. Um gatilho precisava da
+       * extensão pg_net, de um segredo guardado na base e de uma
+       * rota pública — três coisas a manter para ganhar cinquenta
+       * segundos.
+       *
+       * O tick corre a cada minuto. Um ticket que chegue às 14:00
+       * e 10 avisa às 14:01, e ninguém repara na diferença.
+       */
+      try {
+        const desde = new Date(Date.now() - 70000).toISOString();
+
+        const { data: novas } = await supabase
+          .from('support_chats')
+          .select('ticket, full_name, email, audience')
+          .gte('created_at', desde)
+
+          /**
+           * Só as que o cliente abriu.
+           *
+           * Uma conversa que nós começámos já é conhecida de quem
+           * a começou — avisar sobre ela seria avisar-nos de nós
+           * próprios.
+           */
+          .is('assigned_to', null);
+
+        for (const c of (novas || [])) {
+          await notify.newChat({
+            audience: c.audience || 'customer',
+            name: c.full_name,
+            email: c.email,
+            ticket: c.ticket
+          }).catch(() => {});
+        }
+
+        const { data: novasP } = await supabase
+          .from('partner_chats')
+          .select('ticket, email, partner_id')
+          .gte('created_at', desde)
+          .is('assigned_to', null);
+
+        for (const c of (novasP || [])) {
+          const { data: p } = await supabase
+            .from('driver_partners')
+            .select('trading_name, legal_name')
+            .eq('id', c.partner_id)
+            .maybeSingle();
+
+          await notify.newChat({
+            audience: 'partner',
+            name: p?.trading_name || p?.legal_name,
+            email: c.email,
+            ticket: c.ticket
+          }).catch(() => {});
+        }
+      } catch (e) {
+        // Um aviso que falha não trava o tick.
+        console.error('new chat alerts:', e.message);
+      }
       const avisos = resumo.warnings || [];
 
       // Só escreve nos registos quando aconteceu alguma coisa. Um
