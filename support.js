@@ -1569,9 +1569,28 @@ export function createSupportRoutes({
 
       const { data: chat } = await supabase
         .from(tabela)
-        .select('id, ticket, email')
+        .select(parceiro
+          ? 'id, ticket, email, partner_id'
+          : 'id, ticket, email, full_name')
         .eq('id', data.chat_id)
         .maybeSingle();
+
+      /**
+       * O nome de quem lê, para a saudação.
+       *
+       * A partner_chats guarda o id da empresa, não um nome. Sem
+       * isto, o email de um parceiro começava com "Hello," quando
+       * temos o nome do contacto na ficha dele.
+       */
+      if (parceiro && chat?.partner_id) {
+        const { data: p } = await supabase
+          .from('driver_partners')
+          .select('contact_name, trading_name, legal_name')
+          .eq('id', chat.partner_id)
+          .maybeSingle();
+
+        chat.full_name = p?.contact_name || p?.trading_name || p?.legal_name || null;
+      }
 
       const { data: presenca } = await supabase
         .from('support_presence')
@@ -1595,7 +1614,14 @@ export function createSupportRoutes({
         {
           outbound: true,
           fromDriver: req.body?.from === 'driver',
-          fromPartner: req.body?.from === 'partner'
+          fromPartner: req.body?.from === 'partner',
+
+          // Para um parceiro, o que interessa é que veio do
+          // cliente — o motorista é dele.
+          fromCustomer: req.body?.from === 'customer',
+
+          // Para onde vai o botão: o portal ou o site.
+          toPartner: parceiro
         }
       ).catch((e) => console.error('outbound email:', e.message));
 
