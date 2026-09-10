@@ -73,6 +73,32 @@ export function createPartnerRoutes({
         });
       }
 
+      /**
+       * E o telefone tem de ter dígitos.
+       *
+       * Verificava-se que existia, não que servia: "n/a" e "-"
+       * passavam. É o número que marcamos quando uma viagem corre
+       * mal e ninguém responde no portal.
+       *
+       * Seis dígitos, a mesma regra do checkout. Chega para um
+       * fixo local e não recusa formatos estrangeiros.
+       */
+      if (String(b.contact_phone).replace(/\D/g, '').length < 6) {
+        return res.status(400).json({
+          error: 'That phone number is too short. ' +
+                 'We call it when a ride needs sorting out.'
+        });
+      }
+
+      // O de emergência, quando vem.
+      if (b.emergency_phone &&
+          String(b.emergency_phone).replace(/\D/g, '').length < 6) {
+        return res.status(400).json({
+          error: 'That emergency number is too short. ' +
+                 'Leave it empty if you do not have one.'
+        });
+      }
+
       // Ao contrário dos clientes, aqui a confirmação é exigida. Um
       // parceiro vai ter acesso a dados de passageiros e a receber
       // dinheiro, e ninguém está a meio de uma compra ao registar-se
@@ -1163,6 +1189,21 @@ export function createPartnerRoutes({
         });
       }
 
+      // Seis dígitos, como no registo. Um número que não serve é
+      // pior do que nenhum: parece preenchido.
+      if (String(b.contact_phone).replace(/\D/g, '').length < 6) {
+        return res.status(400).json({
+          error: 'That phone number is too short.'
+        });
+      }
+
+      if (b.emergency_phone &&
+          String(b.emergency_phone).replace(/\D/g, '').length < 6) {
+        return res.status(400).json({
+          error: 'That emergency number is too short.'
+        });
+      }
+
       const { data: existing } = await supabase
         .from('driver_partners').select('status').eq('id', user.id).maybeSingle();
 
@@ -1255,6 +1296,28 @@ export function createPartnerRoutes({
       const b = req.body || {};
       if (!b.full_name || !b.phone) {
         return res.status(400).json({ error: 'Driver name and phone are required.' });
+      }
+
+      /**
+       * O número do motorista é o que o cliente vê.
+       *
+       * Vai no SMS de "o seu motorista está a caminho", com o nome
+       * e a matrícula. Um número que não marca é uma pessoa
+       * sozinha num aeroporto à noite sem forma de perguntar por
+       * ninguém.
+       *
+       * É o campo onde esta validação mais importa, e era o único
+       * dos três que não a tinha.
+       */
+      if (String(b.phone).replace(/\D/g, '').length < 6) {
+        return res.status(400).json({
+          error: 'That phone number is too short. ' +
+                 'The client sees it when the driver is on the way.'
+        });
+      }
+
+      if (String(b.full_name).trim().length < 2) {
+        return res.status(400).json({ error: 'The driver name is too short.' });
       }
 
       const row = {
