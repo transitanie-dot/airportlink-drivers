@@ -15,6 +15,19 @@ import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import { createShared } from './support-shared.js';
+
+/**
+ * Os avisos do Telegram.
+ *
+ * Vivem na API principal, mas o ficheiro é partilhado — as
+ * variáveis de ambiente são as mesmas nos dois serviços.
+ */
+import {
+  telegramNewChat,
+  telegramNewAccount,
+  telegramNewAgency,
+  telegramNewPartner
+} from './telegram.js';
 import { createPartnerRoutes } from './partners.js';
 import { createSupportRoutes } from './support.js';
 // Os emails são pedidos à API principal, onde o emailService vive.
@@ -481,6 +494,21 @@ const shared = createShared({
   supabase,
   getUserFromRequest,
   email: emailFns,
+
+  /**
+   * Os avisos do Telegram.
+   *
+   * Um email de "conversa nova" chega a uma caixa que ninguém
+   * vigia ao domingo. O canal está no telemóvel de quem está de
+   * serviço.
+   */
+  telegram: {
+    newChat: telegramNewChat,
+    newAccount: telegramNewAccount,
+    newAgency: telegramNewAgency,
+    newPartner: telegramNewPartner
+  },
+
   config: {
     defaultCountry: process.env.DEFAULT_PARTNER_COUNTRY || 'PT'
   }
