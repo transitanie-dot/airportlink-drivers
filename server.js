@@ -429,6 +429,29 @@ app.use((req, res, next) => {
         return jsonOriginal(body);
       }
 
+      /**
+       * Um 400 de validação não é um erro nosso.
+       *
+       * Um parceiro que escreva um telefone com três dígitos e
+       * seja recusado é o código a funcionar. Avisar sobre isso é
+       * avisar que as verificações existem.
+       */
+      /**
+       * A resposta diz se é validação.
+       *
+       * Comparar o texto da mensagem funcionava até alguém mudar
+       * uma palavra — e depois o canal enchia-se outra vez, sem
+       * ninguém perceber porquê.
+       *
+       * Um campo na resposta é explícito: quem escreve a
+       * validação decide, e não há regex a adivinhar.
+       */
+      const validacao = codigo === 400 && body?.field_error === true;
+
+      if (validacao) {
+        return jsonOriginal(body);
+      }
+
       if (codigo >= 500 || (codigo === 400 && critico)) {
         avisarOps(`${req.method} ${req.path}`,
           body?.error || `HTTP ${codigo}`);
@@ -588,6 +611,33 @@ app.use((req, res) => {
 
   res.sendFile('index.html', { root: 'public' });
 });
+
+/**
+ * O último apanhador, depois de todas as rotas.
+ *
+ * Um erro que escape a uma rota sai como HTML sem cabeçalhos de
+ * CORS, e o browser mostra "Failed to fetch" — que não diz nada
+ * sobre a causa.
+ */
+app.use((err, req, res, next) => {
+  console.error('[erro não tratado]', req.method, req.path, err);
+
+  avisarOps(`${req.method} ${req.path}`, `Unhandled: ${err.message}`);
+
+  if (res.headersSent) return next(err);
+
+  const origin = req.headers.origin;
+
+  if (origin && typeof originAllowed === 'function' && originAllowed(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  return res.status(500).json({
+    error: 'Something went wrong on our side. Please try again.'
+  });
+});
+
 
 app.listen(PORT, () => {
   console.log(`Drivers portal running on ${PORT}`);
