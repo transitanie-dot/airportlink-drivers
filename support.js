@@ -1494,6 +1494,106 @@ export function createSupportRoutes({
   });
 
   /**
+   * Escrever primeiro.
+   *
+   * Só se respondia a quem escrevia. Um agente que precise de
+   * avisar alguém — o voo mudou, o motorista atrasou-se, falta um
+   * dado — não tinha por onde.
+   *
+   * Nasce como ticket: o cliente não está no ecrã à espera, e um
+   * chat ao vivo mandaria um email a dizer que ninguém apareceu
+   * quando fomos nós que começámos.
+   */
+  router.post('/api/admin/chat/new', async (req, res) => {
+    const { user: admin, error: adminError } = await requireAdmin(req);
+    if (!admin) return res.status(403).json({ error: adminError || 'Administrator access required.' });
+
+    const { to, kind, subject, message, booking_id } = req.body || {};
+
+    if (!to) return res.status(400).json({ error: 'Send who it is for.' });
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ error: 'Write something first.' });
+    }
+
+    try {
+      const parceiro = kind === 'partner';
+
+      const { data, error } = await asUser(req).rpc(
+        parceiro ? 'open_outbound_partner_chat' : 'open_outbound_chat',
+        parceiro
+          ? {
+              p_partner_id: to,
+              p_subject: subject || null,
+              p_message: String(message).trim(),
+              p_booking_id: booking_id || null
+            }
+          : {
+              p_email: String(to).trim(),
+              p_subject: subject || null,
+              p_message: String(message).trim(),
+              p_booking_id: booking_id || null
+            }
+      );
+
+      if (error) throw error;
+
+      if (data?.ok === false) {
+        const msg = {
+          not_allowed: 'Administrator access required.',
+          no_email: 'Send an email address.',
+          no_message: 'Write something first.',
+          partner_not_found: 'That partner does not exist.'
+        };
+
+        return res.status(400).json({
+          error: msg[data.reason] || 'Could not open it.'
+        });
+      }
+
+      /**
+       * E o email, sempre.
+       *
+       * Uma conversa que começa do nosso lado não tem quem esteja
+       * a olhar para o ecrã. Sem email, a mensagem fica num painel
+       * que ele não sabe que existe.
+       */
+      /**
+       * O ticket, para o email o poder mostrar.
+       *
+       * O sendTicketReply recebe o chat inteiro — precisa do id e
+       * da referência para montar o link. Ler a linha depois de a
+       * criar é uma consulta a mais, mas é a única forma de ter a
+       * referência que o gatilho gerou.
+       */
+      const tabela = parceiro ? 'partner_chats' : 'support_chats';
+
+      const { data: chat } = await supabase
+        .from(tabela)
+        .select('id, ticket, email')
+        .eq('id', data.chat_id)
+        .maybeSingle();
+
+      const { data: presenca } = await supabase
+        .from('support_presence')
+        .select('display_name')
+        .eq('user_id', admin.id)
+        .maybeSingle();
+
+      await notify.ticketReply(
+        chat || { id: data.chat_id, email: data.email },
+        String(message).trim(),
+        presenca || { display_name: 'Airportlink' }
+      ).catch((e) => console.error('outbound email:', e.message));
+
+      return res.json({ success: true, ...data });
+    } catch (e) {
+      console.error('outbound chat:', e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+
+  /**
    * Abrir a conta de alguém, em modo leitura.
    *
    * Um agente ao telefone com quem diz "não vejo a minha reserva"
