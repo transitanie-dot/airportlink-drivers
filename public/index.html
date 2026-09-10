@@ -755,6 +755,12 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
   .earn-row{gap:18px}
   .earn-row b{font-size:19px}
 }
+
+/* Mudar a palavra-passe. */
+.pw-msg{margin:12px 0 0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.pw-msg.bad{color:#B42318}
+.pw-msg.ok{color:#065F46}
+.pw-msg[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -1235,6 +1241,33 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
           <div id="stMsg" class="msg err"></div>
           <div id="stOk" class="msg ok"></div>
         </div>
+
+        <!-- Mudar a palavra-passe.
+             A conta existia e não se geria: quem quisesse mudar
+             tinha de sair e fingir que se tinha esquecido. -->
+        <div class="card">
+          <div class="page-head"><h1>Password</h1><p>Changing it here does not sign you out of other devices.</p></div>
+
+          <div class="grid2">
+            <div class="field full">
+              <label for="pwCurrent">Current password</label>
+              <input id="pwCurrent" type="password" autocomplete="current-password">
+            </div>
+            <div class="field">
+              <label for="pwNew">New password</label>
+              <input id="pwNew" type="password" autocomplete="new-password"
+                     placeholder="At least 8 characters">
+            </div>
+            <div class="field">
+              <label for="pwConfirm">Repeat it</label>
+              <input id="pwConfirm" type="password" autocomplete="new-password">
+            </div>
+          </div>
+
+          <button class="btn" id="pwSave" type="button">Change password</button>
+          <p class="pw-msg" id="pwMsg" hidden></p>
+        </div>
+
       </div>
     </div>
   </div>
@@ -4424,8 +4457,89 @@ function renderRides() {
   // Depois de o ecrã estar montado, senão o clique não encontra
   // nada para clicar.
   if (/[?&]signup=1/.test(window.location.search)) $('siJoin').click();
+
 })();
+
+/**
+ * Mudar a palavra-passe.
+ *
+ * A verificação da antiga é feita no servidor. Aqui só se confirma
+ * que as duas novas são iguais — isso é um erro de digitação e não
+ * vale uma ida ao servidor.
+ *
+ * A rota vive na API principal, não neste serviço: é a mesma
+ * tabela de utilizadores por trás dos quatro portais.
+ */
+(function () {
+  var btn = $('pwSave');
+  if (!btn || btn.__missing) return;
+
+  var MAIN_API = 'https://airportlink.onrender.com';
+
+  btn.addEventListener('click', async function () {
+    var msg = $('pwMsg');
+    var atual = $('pwCurrent').value;
+    var nova = $('pwNew').value;
+    var repete = $('pwConfirm').value;
+
+    msg.hidden = false;
+    msg.className = 'pw-msg bad';
+
+    if (!atual) { msg.textContent = 'Enter your current password.'; return; }
+
+    if (nova.length < 8) {
+      msg.textContent = 'The new password needs at least 8 characters.';
+      return;
+    }
+
+    if (nova !== repete) {
+      msg.textContent = 'The two new passwords do not match.';
+      return;
+    }
+
+    btn.disabled = true;
+    var antes = btn.textContent;
+    btn.textContent = 'Changing...';
+
+    try {
+      var sess = await db.auth.getSession();
+      var token = sess.data && sess.data.session && sess.data.session.access_token;
+
+      if (!token) throw new Error('Your session expired. Please sign in again.');
+
+      var res = await fetch(MAIN_API + '/api/account/password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ current_password: atual, new_password: nova })
+      });
+
+      var d = await res.json();
+
+      if (!res.ok) {
+        msg.textContent = d.error || 'Could not change it.';
+        return;
+      }
+
+      msg.className = 'pw-msg ok';
+      msg.textContent = d.message || 'Password changed.';
+
+      $('pwCurrent').value = '';
+      $('pwNew').value = '';
+      $('pwConfirm').value = '';
+    } catch (e) {
+      msg.textContent = e.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = antes;
+    }
+  });
 })();
+
+})();
+
 </script>
 
 </body>
