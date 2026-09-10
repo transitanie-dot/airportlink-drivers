@@ -1862,6 +1862,14 @@ async function boot() {
   $('gate').style.display = 'none';
   $('app').classList.add('on');
 
+  /**
+   * E o chat, se a pessoa veio de um email.
+   *
+   * Aqui e não antes: o painel do chat vive dentro do #app, e
+   * abri-lo com o portão ainda por cima não mostrava nada.
+   */
+  abrirChatDoLink();
+
   var p = S.partner || {};
   $('tbCompany').textContent = p.trading_name || p.legal_name || 'Your company';
   $('tbAvatar').textContent = initials(p.trading_name || p.legal_name || S.email);
@@ -3285,6 +3293,24 @@ function subscribeChat() {
     })
     .subscribe();
 }
+
+/**
+ * O link do email abre o chat sozinho.
+ *
+ * O botão "Reply to this message" traz ?chat=<id>. O portal tem
+ * uma conversa só, por isso o id não escolhe nada — mas o
+ * parâmetro diz que a pessoa veio de um email a pedir resposta, e
+ * deixá-la na página inicial obrigava-a a procurar o balão.
+ */
+function abrirChatDoLink() {
+  if (!new URLSearchParams(location.search).get('chat')) return;
+
+  openChat();
+
+  // O endereço fica limpo: uma atualização não volta a abrir.
+  history.replaceState({}, '', location.pathname);
+}
+
 
 function openChat() {
   chat.open = true;
