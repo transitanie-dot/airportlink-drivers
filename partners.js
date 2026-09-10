@@ -162,6 +162,20 @@ export function createPartnerRoutes({
 
       await notify.verify(b.email, b.contact_name, 'partner');
 
+      /**
+       * E o canal de vendas.
+       *
+       * Um parceiro novo é uma cidade a mais onde podemos operar.
+       * Ficava só no registo do servidor — e um registo que
+       * ninguém lê é o mesmo que não existir.
+       */
+      await notify.newPartner({
+        trading_name: b.trading_name,
+        legal_name: b.legal_name,
+        country: b.country,
+        email: b.email
+      }).catch(() => {});
+
       return res.json({
         success: true,
         // O portal precisa de saber que não pode entrar já: com
