@@ -390,6 +390,32 @@ app.use((req, res, next) => {
        */
       const critico = /ride|offer|payout|chat|partner|booking/.test(req.path);
 
+      /**
+       * As rotas que batem sozinhas não alarmam.
+       *
+       * A presença e o tick correm de poucos em poucos segundos.
+       * Quando o Render adormece, a primeira chamada de cada uma
+       * dá 504 — e o canal enchia-se de avisos sobre uma coisa que
+       * se resolve sozinha ao acordar.
+       *
+       * O que importa saber é que o serviço adormeceu, e isso o
+       * ping já diz. Vinte alarmes a dizer o mesmo não dizem mais.
+       */
+      const bateSozinha = /\/(presence|tick|health|ping|heartbeat)/.test(req.path);
+
+      /**
+       * E o 504 é do proxy, não nosso.
+       *
+       * Um Gateway Timeout é o Render a acordar ou a rede a
+       * falhar. O código nem chegou a correr — avisar sobre ele é
+       * avisar sobre o tempo.
+       */
+      const daInfraestrutura = codigo === 502 || codigo === 503 || codigo === 504;
+
+      if (bateSozinha || daInfraestrutura) {
+        return jsonOriginal(body);
+      }
+
       if (codigo >= 500 || (codigo === 400 && critico)) {
         avisarOps(`${req.method} ${req.path}`,
           body?.error || `HTTP ${codigo}`);
