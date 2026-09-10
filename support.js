@@ -481,6 +481,47 @@ export function createSupportRoutes({
       anexo = a || null;
     }
 
+    /**
+     * E o email, quando é um ticket.
+     *
+     * Um parceiro com o portal fechado não sabe que lhe
+     * escrevemos. As respostas aos clientes já mandavam email; as
+     * aos parceiros não — e é a mesma necessidade dos dois lados.
+     *
+     * Só nos tickets: ao vivo ele está no ecrã, e um email a dizer
+     * o que acabou de ler é ruído.
+     */
+    if (!internal && data) {
+      try {
+        const { data: conversa } = await supabase
+          .from('partner_chats')
+          .select('id, email, ticket, mode, partner_id')
+          .eq('id', chat_id)
+          .maybeSingle();
+
+        if (conversa?.mode === 'ticket' && conversa.email) {
+          // O nome do contacto, para a saudação.
+          const { data: p } = await supabase
+            .from('driver_partners')
+            .select('contact_name, trading_name, legal_name')
+            .eq('id', conversa.partner_id)
+            .maybeSingle();
+
+          conversa.full_name =
+            p?.contact_name || p?.trading_name || p?.legal_name || null;
+
+          await notify.ticketReply(
+            conversa,
+            String(body).trim(),
+            { display_name: displayName },
+            { toPartner: true }
+          );
+        }
+      } catch (e) {
+        console.error('partner ticket email:', e.message);
+      }
+    }
+
     return res.json({
       success: true,
       message: data && {
@@ -2138,9 +2179,16 @@ const internal = req.body.internal === true;
      * não as deve ver no email.
      */
     if (!internal && existe) {
+      /**
+       * O nome, para a saudação.
+       *
+       * Esta rota é a dos clientes — o "existe" confirma que a
+       * conversa está na support_chats. Os parceiros respondem
+       * pela rota deles.
+       */
       const { data: conversa } = await supabase
         .from('support_chats')
-        .select('id, email, ticket, mode')
+        .select('id, email, ticket, mode, full_name')
         .eq('id', chat_id)
         .maybeSingle();
 
