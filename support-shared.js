@@ -29,6 +29,10 @@ import { createClient } from '@supabase/supabase-js';
 export function createShared({
   supabase,
   getUserFromRequest,
+
+  // Os avisos do Telegram. Opcional: sem eles, o notify chama
+  // funções vazias e nada rebenta.
+  telegram = {},
   // As funções de email. O notify usa-as, e ele é partilhado pelas
   // duas metades — daí viverem aqui e não em cada uma.
   email = {},
@@ -87,7 +91,22 @@ export function createShared({
     // Sem função de escalada configurada, o aviso fica no registo.
     // O painel continua a mostrá-lo — o email é o segundo caminho,
     // para quando ninguém tem o painel aberto.
-    escalation: email.sendSupportEscalation || (async () => {})
+    escalation: email.sendSupportEscalation || (async () => {}),
+
+    /**
+     * E o Telegram, para o que precisa de ser visto agora.
+     *
+     * Um email de "conversa nova" chega a uma caixa que ninguém
+     * vigia ao domingo. O canal está no telemóvel de quem está de
+     * serviço.
+     *
+     * O email diz o que aconteceu; o Telegram diz que aconteceu
+     * agora.
+     */
+    newChat: telegram.newChat || (async () => {}),
+    newAccount: telegram.newAccount || (async () => {}),
+    newAgency: telegram.newAgency || (async () => {}),
+    newPartner: telegram.newPartner || (async () => {})
   };
 
   /**
