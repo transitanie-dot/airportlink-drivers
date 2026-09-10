@@ -1582,7 +1582,21 @@ export function createSupportRoutes({
       await notify.ticketReply(
         chat || { id: data.chat_id, email: data.email },
         String(message).trim(),
-        presenca || { display_name: 'Airportlink' }
+        presenca || { display_name: 'Airportlink' },
+
+        /**
+         * De onde vem a mensagem.
+         *
+         * Uma citação do motorista lê-se de outra maneira quando
+         * se sabe que é dele. E "nós escrevemos-lhe" não é o mesmo
+         * que "respondemos ao que escreveu" — o segundo é falso
+         * quando ninguém escreveu.
+         */
+        {
+          outbound: true,
+          fromDriver: req.body?.from === 'driver',
+          fromPartner: req.body?.from === 'partner'
+        }
       ).catch((e) => console.error('outbound email:', e.message));
 
       return res.json({ success: true, ...data });
