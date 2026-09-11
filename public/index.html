@@ -785,6 +785,17 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
 
 /* O [hidden] global já esconde as vistas — estas linhas eram
    duplicados de uma regra que já existe. */
+
+/* Os aeroportos onde recebe viagens. */
+.ap-tags{display:flex;flex-wrap:wrap;gap:7px}
+
+.ap-tag{display:inline-flex;align-items:center;gap:6px;
+  padding:6px 11px;border-radius:100px;
+  background:var(--card-2,#F3F4F0);border:1px solid var(--line,#E2E5E0);
+  font-size:12.5px;color:var(--text)}
+
+.ap-tag b{font-family:var(--mono,monospace);font-size:11.5px;
+  letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -1113,6 +1124,19 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
         <div class="metrics" id="metrics"></div>
 
         <div class="qa-grid" id="quickActions"></div>
+
+        <!-- Onde recebe viagens.
+             O parceiro escolheu aeroportos no registo e depois
+             nunca mais os via. Sem isto, não sabe se está a
+             receber tudo o que devia — nem se falta acrescentar
+             um. -->
+        <div class="card">
+          <h2>Where you get rides</h2>
+          <p class="note">Bookings from these airports come to you.</p>
+          <div id="myAirports"></div>
+          <button class="btn line sm" id="goAirports" type="button"
+                  style="margin-top:12px">Add or remove airports</button>
+        </div>
 
         <div class="card">
           <h2>Next up</h2>
@@ -2692,6 +2716,50 @@ $('apSave').addEventListener('click', async function () {
   }
 });
 
+/**
+ * Os aeroportos onde recebe viagens, no dashboard.
+ *
+ * Ele escolhe-os no registo e depois nunca mais os vê. Sem isto,
+ * não sabe se está a receber tudo o que devia — nem se falta
+ * acrescentar um.
+ *
+ * É também onde se nota um erro: um parceiro em Lisboa que veja
+ * "FAO" na lista sabe logo que algo está mal.
+ */
+function renderMyAirports() {
+  var caixa = $('myAirports');
+  if (!caixa || caixa.__missing) return;
+
+  var lista = (S.partner && S.partner.operating_airports) || [];
+
+  if (!lista.length) {
+    caixa.innerHTML =
+      '<p class="note" style="margin:0">' +
+      'You have not chosen any airports yet. Until you do, no ' +
+      'bookings can reach you.</p>';
+    return;
+  }
+
+  /**
+   * O código e a cidade, quando a sabemos.
+   *
+   * "DUB" sozinho não diz nada a quem tem doze aeroportos. O
+   * estado traz os nomes quando os tem; quando não, o código
+   * serve.
+   */
+  var nomes = (S.airportNames || {});
+
+  caixa.innerHTML =
+    '<div class="ap-tags">' +
+    lista.map(function (iata) {
+      var cidade = nomes[iata];
+      return '<span class="ap-tag"><b>' + esc(iata) + '</b>' +
+        (cidade ? ' ' + esc(cidade) : '') + '</span>';
+    }).join('') +
+    '</div>';
+}
+
+
 function renderAreas() {
   var p = S.partner || {};
   areaCities.length = 0;
@@ -2701,10 +2769,20 @@ function renderAreas() {
   areaAirports.length = 0;
   (p.operating_airports || []).forEach(function (c) { areaAirports.push(c); });
   renderAirportTags();
+  renderMyAirports();
 
-  // As zonas formais só existem onde já operamos.
-  var live = LIVE_COUNTRIES.indexOf(p.country) !== -1 && S.serviceZones.length;
-  $('zoneCard').classList.toggle('hidden', !live);
+  /**
+   * As zonas formais deixaram de existir.
+   *
+   * Havia duas maneiras de dizer onde se opera: "service zones"
+   * por região, só para Portugal, e aeroportos para o resto do
+   * mundo. Duas listas para a mesma pergunta, e o parceiro
+   * português tinha de preencher as duas sem saber qual contava.
+   *
+   * Conta a dos aeroportos: é a que o submit exige e a que a
+   * cascata usa para encontrar quem serve uma viagem.
+   */
+  $('zoneCard').classList.add('hidden');
   if (!live) return;
 
   var byRegion = {};
@@ -3572,6 +3650,17 @@ async function guardarNova() {
     btn.textContent = 'Save and sign in';
   }
 }
+
+
+/**
+ * O botão leva à página onde se escolhem os aeroportos.
+ *
+ * Um botão que não faz nada é pior do que não haver botão: a
+ * pessoa carrega, não acontece nada, e desconfia do resto.
+ */
+$('goAirports').addEventListener('click', function () {
+  goPage('pgAreas');
+});
 
 
 $('pwSendCode').addEventListener('click', pedirCodigo);
