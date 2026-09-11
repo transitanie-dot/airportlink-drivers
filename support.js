@@ -37,6 +37,62 @@ export function createSupportRoutes({
 
   const router = Router();
 
+  /**
+   * Uma rede de segurança por baixo de todas as rotas.
+   *
+   * Trinta e sete rotas deste ficheiro fazem await sem try. Quando
+   * uma delas lança, o Express responde com HTML e sem cabeçalhos
+   * de CORS — e o browser diz "Failed to fetch".
+   *
+   * Pior: o trabalho já foi feito. O ticket fecha, o RPC corre, e
+   * só a resposta é que se perde. O agente vê um erro e não sabe
+   * se repetir a ação é seguro.
+   *
+   * Envolver os métodos do router é uma correção para as trinta e
+   * sete. Escrever try em cada uma seria trinta e sete
+   * oportunidades de esquecer.
+   */
+  for (const metodo of ['get', 'post', 'put', 'patch', 'delete']) {
+    const original = router[metodo].bind(router);
+
+    router[metodo] = (caminho, ...handlers) => {
+      const seguros = handlers.map((h) => {
+        if (typeof h !== 'function') return h;
+
+        return async (req, res, next) => {
+          try {
+            await h(req, res, next);
+          } catch (erro) {
+            console.error('[support]', metodo.toUpperCase(), caminho, erro);
+
+            if (res.headersSent) return;
+
+            /**
+             * O CORS reposto à mão.
+             *
+             * O middleware já correu; uma resposta de erro sai sem
+             * ele, e o browser esconde a mensagem por trás de
+             * "Failed to fetch".
+             */
+            const origin = req.headers.origin;
+
+            if (origin) {
+              res.setHeader('Access-Control-Allow-Origin', origin);
+              res.setHeader('Access-Control-Allow-Credentials', 'true');
+            }
+
+            res.status(500).json({
+              error: 'Something went wrong on our side. ' +
+                     'The action may have gone through — refresh before retrying.'
+            });
+          }
+        };
+      });
+
+      return original(caminho, ...seguros);
+    };
+  }
+
 
   // Revisão pelo admin.
   router.post('/api/admin/partner/review', async (req, res) => {
@@ -1299,7 +1355,22 @@ export function createSupportRoutes({
      * A função decide se aplica: só de 'live', e só se ele ficou
      * sem conversas abertas.
      */
-    await asUser(req).rpc('enter_followup').catch(() => {});
+    /**
+     * O follow-up, num try em vez de um .catch.
+     *
+     * O construtor do Supabase é um "thenable": tem .then, e o
+     * await funciona — mas nem todas as versões expõem .catch. A
+     * chamada rebentava com "rpc(...).catch is not a function"
+     * DEPOIS de o ticket já estar fechado.
+     *
+     * Daí o "fechou mas deu erro": o trabalho fez-se e só a
+     * resposta se perdeu.
+     */
+    try {
+      await asUser(req).rpc('enter_followup');
+    } catch (e) {
+      console.error('enter_followup:', e.message);
+    }
 
     return res.json({ success: true, ...(data || {}) });
   });
