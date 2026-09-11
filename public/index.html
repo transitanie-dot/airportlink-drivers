@@ -782,9 +782,9 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
   letter-spacing:.22em;text-align:center;font-weight:600}
 
 #pwReset .field{margin-bottom:14px}
-#pwReset[hidden]{display:none}
-#pwStep2[hidden]{display:none}
-#pwStep1[hidden]{display:none}
+
+/* O [hidden] global já esconde as vistas — estas linhas eram
+   duplicados de uma regra que já existe. */
 </style>
 </head>
 <body>
@@ -839,13 +839,26 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
       <div class="field"><label for="siPassword">Password</label><input id="siPassword" type="password" autocomplete="current-password"></div>
       <button class="btn block" id="siBtn" type="button">Sign in</button>
 
-      <!-- Definir a palavra-passe, em dois passos.
 
-           Primeiro o email, depois o código e as duas
+      <div style="display:flex;justify-content:space-between;gap:12px;margin-top:16px;flex-wrap:wrap">
+        <button class="linkish" id="siForgot" type="button">Forgot your password?</button>
+        <button class="linkish" id="siJoin" type="button">Become a partner</button>
+      </div>
+      <div id="siErr" class="msg err"></div>
+      <div id="siOk" class="msg ok"></div>
+    </div>
+
+    <!-- Definir a palavra-passe.
+
+         Uma vista à parte, não um bloco dentro do login: com os
+         dois no mesmo sítio ficavam seis campos no ecrã e a
+         pessoa não sabia quais preencher. -->
+    <div class="gate-inner hidden" id="pwResetView">
+      <h2>Set your password</h2>
+      <!-- Primeiro o email, depois o código e as duas
            palavras-passe. Pedir tudo de uma vez obrigava a ter o
-           email aberto ao lado antes de saber que ia precisar
-           dele. -->
-      <div id="pwReset" hidden>
+           email aberto antes de saber que ia precisar dele. -->
+      <div id="pwReset">
         <div id="pwStep1">
           <p class="pw-intro">We send a six-digit code to your email.
           It works for 30 minutes.</p>
@@ -859,7 +872,7 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
           <button class="btn block" id="pwSendCode" type="button">Send me a code</button>
         </div>
 
-        <div id="pwStep2" hidden>
+        <div id="pwStep2" class="hidden">
           <p class="pw-intro">Check your email. The code is six digits.</p>
 
           <div class="field">
@@ -889,13 +902,8 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
         <button class="linkish" id="pwBack" type="button"
                 style="margin-top:14px">&larr; Back to sign in</button>
       </div>
-      <div style="display:flex;justify-content:space-between;gap:12px;margin-top:16px;flex-wrap:wrap">
-        <button class="linkish" id="siForgot" type="button">Forgot your password?</button>
-        <button class="linkish" id="siJoin" type="button">Become a partner</button>
-      </div>
-      <div id="siErr" class="msg err"></div>
-      <div id="siOk" class="msg ok"></div>
     </div>
+
 
     <!-- questionário -->
     <div class="wiz hidden" id="wizView">
@@ -3434,27 +3442,32 @@ function subscribeChat() {
 var MAIN_API_RESET = 'https://airportlink.onrender.com';
 
 
+/**
+ * Trocar entre o login e o formulário de palavra-passe.
+ *
+ * São duas vistas irmãs, e só uma se vê de cada vez. Antes eu
+ * escondia campo a campo dentro da mesma caixa — e o que ficava
+ * era um formulário com título de login e campos de outra coisa.
+ */
 function mostrarReset(mostrar) {
-  $('pwReset').hidden = !mostrar;
+  /**
+   * A classe, não o atributo.
+   *
+   * O resto do ficheiro usa classList com .hidden, que é
+   * display:none!important. O atributo hidden do HTML é ignorado
+   * em elementos com display definido — e o formulário aparecia
+   * por baixo do login, com seis campos no ecrã.
+   */
+  $('signInView').classList.toggle('hidden', mostrar);
+  $('pwResetView').classList.toggle('hidden', !mostrar);
 
-  ['siEmail', 'siPassword'].forEach(function (id) {
-    var campo = $(id);
-    if (campo && campo.closest) {
-      var f = campo.closest('.field');
-      if (f) f.hidden = mostrar;
-    }
-  });
+  if (!mostrar) return;
 
-  $('siBtn').hidden = mostrar;
-  $('siForgot').hidden = mostrar;
-  $('siJoin').hidden = mostrar;
+  // O email já escrito segue: uma coisa a menos para escrever.
+  var jaEscrito = $('siEmail').value.trim();
+  if (jaEscrito && !$('pwEmail').value) $('pwEmail').value = jaEscrito;
 
-  if (mostrar) {
-    // O email já escrito segue para o formulário: uma coisa a
-    // menos para escrever.
-    $('pwEmail').value = $('siEmail').value.trim();
-    $('pwEmail').focus();
-  }
+  $('pwEmail').focus();
 }
 
 
@@ -3480,8 +3493,8 @@ async function pedirCodigo() {
 
     if (!res.ok) throw new Error(d.error || 'Could not send the code.');
 
-    $('pwStep1').hidden = true;
-    $('pwStep2').hidden = false;
+    $('pwStep1').classList.add('hidden');
+    $('pwStep2').classList.remove('hidden');
     $('pwCode').focus();
 
     show($('siOk'), $('siErr'),
@@ -3565,15 +3578,15 @@ $('pwSendCode').addEventListener('click', pedirCodigo);
 $('pwResetBtn').addEventListener('click', guardarNova);
 
 $('pwResend').addEventListener('click', function () {
-  $('pwStep2').hidden = true;
-  $('pwStep1').hidden = false;
+  $('pwStep2').classList.add('hidden');
+  $('pwStep1').classList.remove('hidden');
   $('pwCode').value = '';
 });
 
 $('pwBack').addEventListener('click', function () {
   mostrarReset(false);
-  $('pwStep1').hidden = false;
-  $('pwStep2').hidden = true;
+  $('pwStep1').classList.remove('hidden');
+  $('pwStep2').classList.add('hidden');
 });
 
 // Enter no código salta para a palavra-passe; enter na segunda
