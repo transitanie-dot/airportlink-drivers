@@ -761,6 +761,30 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
 .pw-msg.bad{color:#B42318}
 .pw-msg.ok{color:#065F46}
 .pw-msg[hidden]{display:none}
+
+/* ============================================================
+   DEFINIR A PALAVRA-PASSE
+
+   Dois passos: o email, depois o código e as duas
+   palavras-passe. Pedir tudo de uma vez obrigava a ter o email
+   aberto antes de saber que ia precisar dele.
+   ============================================================ */
+.pw-intro{margin:0 0 16px;font-size:13.5px;line-height:1.55;
+  color:var(--muted)}
+
+/**
+ * O código, grande e espaçado.
+ *
+ * Seis dígitos escrevem-se de um telemóvel para um computador, e
+ * o espaçamento ajuda a não trocar dois.
+ */
+.pw-code{font-family:var(--mono,monospace);font-size:22px;
+  letter-spacing:.22em;text-align:center;font-weight:600}
+
+#pwReset .field{margin-bottom:14px}
+#pwReset[hidden]{display:none}
+#pwStep2[hidden]{display:none}
+#pwStep1[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -814,6 +838,57 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
       <div class="field"><label for="siEmail">Email</label><input id="siEmail" type="email" autocomplete="email" placeholder="you@company.com"></div>
       <div class="field"><label for="siPassword">Password</label><input id="siPassword" type="password" autocomplete="current-password"></div>
       <button class="btn block" id="siBtn" type="button">Sign in</button>
+
+      <!-- Definir a palavra-passe, em dois passos.
+
+           Primeiro o email, depois o código e as duas
+           palavras-passe. Pedir tudo de uma vez obrigava a ter o
+           email aberto ao lado antes de saber que ia precisar
+           dele. -->
+      <div id="pwReset" hidden>
+        <div id="pwStep1">
+          <p class="pw-intro">We send a six-digit code to your email.
+          It works for 30 minutes.</p>
+
+          <div class="field">
+            <label for="pwEmail">Your email</label>
+            <input id="pwEmail" type="email" autocomplete="email"
+                   placeholder="you@company.com">
+          </div>
+
+          <button class="btn block" id="pwSendCode" type="button">Send me a code</button>
+        </div>
+
+        <div id="pwStep2" hidden>
+          <p class="pw-intro">Check your email. The code is six digits.</p>
+
+          <div class="field">
+            <label for="pwCode">Code</label>
+            <input id="pwCode" type="text" inputmode="numeric"
+                   autocomplete="one-time-code" maxlength="6"
+                   placeholder="123456" class="pw-code">
+          </div>
+
+          <div class="field">
+            <label for="pwNew1">New password</label>
+            <input id="pwNew1" type="password" autocomplete="new-password"
+                   placeholder="At least 8 characters">
+          </div>
+
+          <div class="field">
+            <label for="pwNew2">Repeat it</label>
+            <input id="pwNew2" type="password" autocomplete="new-password">
+          </div>
+
+          <button class="btn block" id="pwResetBtn" type="button">Save and sign in</button>
+
+          <button class="linkish" id="pwResend" type="button"
+                  style="margin-top:12px">Send another code</button>
+        </div>
+
+        <button class="linkish" id="pwBack" type="button"
+                style="margin-top:14px">&larr; Back to sign in</button>
+      </div>
       <div style="display:flex;justify-content:space-between;gap:12px;margin-top:16px;flex-wrap:wrap">
         <button class="linkish" id="siForgot" type="button">Forgot your password?</button>
         <button class="linkish" id="siJoin" type="button">Become a partner</button>
@@ -1665,16 +1740,18 @@ $('siBtn').addEventListener('click', async function () {
 });
 $('siPassword').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('siBtn').click(); });
 
-$('siForgot').addEventListener('click', async function () {
-  var email = $('siEmail').value.trim();
-  if (!email) return show($('siErr'), $('siOk'), 'Enter your email first.');
-  try {
-    // O /resetpassword foi eliminado: o formulário de nova password
-    // vive dentro do /login.
-    await db.auth.resetPasswordForEmail(email, { redirectTo: SITE + '/login' });
-  } catch (e) { console.error(e); }
-  // Resposta genérica: não revelamos que emails existem.
-  show($('siOk'), $('siErr'), 'If an account exists for that email, a reset link has been sent.');
+/**
+ * O "esqueci-me" abre o ecrã, não manda um email.
+ *
+ * Antes chamava o resetPasswordForEmail do Supabase — que usa o
+ * serviço de email deles, com limites baixos e recusas
+ * silenciosas. A pessoa via "enviámos" e não recebia nada.
+ *
+ * Agora abre um formulário nosso: email, código, palavra-passe
+ * duas vezes.
+ */
+$('siForgot').addEventListener('click', function () {
+  mostrarReset(true);
 });
 
 $('navSignOut').addEventListener('click', async function () {
@@ -3343,6 +3420,177 @@ function subscribeChat() {
  * — e evita que escreva outro por engano, o que dá um "não
  * encontrámos essa conta" sem explicação.
  */
+/**
+ * Definir a palavra-passe, com um código nosso.
+ *
+ * O resetPasswordForEmail do Supabase usa o serviço de email
+ * deles, que no plano gratuito manda poucos por hora e recusa em
+ * silêncio. Era por isso que o "esqueci-me" não funcionava.
+ *
+ * O código vai pelo Resend — o mesmo caminho de todos os outros
+ * emails — e não é um link: escreve-se. Um link parte quando o
+ * email é aberto no telemóvel e a conta está no computador.
+ */
+var MAIN_API_RESET = 'https://airportlink.onrender.com';
+
+
+function mostrarReset(mostrar) {
+  $('pwReset').hidden = !mostrar;
+
+  ['siEmail', 'siPassword'].forEach(function (id) {
+    var campo = $(id);
+    if (campo && campo.closest) {
+      var f = campo.closest('.field');
+      if (f) f.hidden = mostrar;
+    }
+  });
+
+  $('siBtn').hidden = mostrar;
+  $('siForgot').hidden = mostrar;
+  $('siJoin').hidden = mostrar;
+
+  if (mostrar) {
+    // O email já escrito segue para o formulário: uma coisa a
+    // menos para escrever.
+    $('pwEmail').value = $('siEmail').value.trim();
+    $('pwEmail').focus();
+  }
+}
+
+
+async function pedirCodigo() {
+  var email = $('pwEmail').value.trim();
+
+  if (!email || email.indexOf('@') < 0) {
+    return show($('siErr'), $('siOk'), 'Enter the email you registered with.');
+  }
+
+  var btn = $('pwSendCode');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    var res = await fetch(MAIN_API_RESET + '/api/account/reset-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    });
+
+    var d = await res.json();
+
+    if (!res.ok) throw new Error(d.error || 'Could not send the code.');
+
+    $('pwStep1').hidden = true;
+    $('pwStep2').hidden = false;
+    $('pwCode').focus();
+
+    show($('siOk'), $('siErr'),
+      'If there is an account for that email, the code is on its way.');
+  } catch (e) {
+    show($('siErr'), $('siOk'), e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send me a code';
+  }
+}
+
+
+async function guardarNova() {
+  var codigo = $('pwCode').value.trim();
+  var a = $('pwNew1').value;
+  var b = $('pwNew2').value;
+
+  if (codigo.length !== 6) {
+    return show($('siErr'), $('siOk'), 'The code has six digits.');
+  }
+
+  if (a.length < 8) {
+    return show($('siErr'), $('siOk'),
+      'The password needs at least 8 characters.');
+  }
+
+  if (a !== b) {
+    return show($('siErr'), $('siOk'), 'The two passwords do not match.');
+  }
+
+  var btn = $('pwResetBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    var res = await fetch(MAIN_API_RESET + '/api/account/reset-confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: $('pwEmail').value.trim(),
+        code: codigo,
+        password: a
+      })
+    });
+
+    var d = await res.json();
+
+    if (!res.ok) throw new Error(d.error || 'Could not save it.');
+
+    /**
+     * E entra, sem pedir a palavra-passe outra vez.
+     *
+     * Ele acabou de a escrever duas vezes. Pedi-la uma terceira
+     * seria fazer-lhe perder tempo por nada.
+     */
+    show($('siOk'), $('siErr'), 'Done. Signing you in...');
+
+    var entrada = await db.auth.signInWithPassword({
+      email: $('pwEmail').value.trim(),
+      password: a
+    });
+
+    if (entrada.error) {
+      mostrarReset(false);
+      $('siEmail').value = $('pwEmail').value.trim();
+      return show($('siOk'), $('siErr'),
+        'Password saved. Sign in with it below.');
+    }
+
+    window.location.reload();
+  } catch (e) {
+    show($('siErr'), $('siOk'), e.message);
+    btn.disabled = false;
+    btn.textContent = 'Save and sign in';
+  }
+}
+
+
+$('pwSendCode').addEventListener('click', pedirCodigo);
+$('pwResetBtn').addEventListener('click', guardarNova);
+
+$('pwResend').addEventListener('click', function () {
+  $('pwStep2').hidden = true;
+  $('pwStep1').hidden = false;
+  $('pwCode').value = '';
+});
+
+$('pwBack').addEventListener('click', function () {
+  mostrarReset(false);
+  $('pwStep1').hidden = false;
+  $('pwStep2').hidden = true;
+});
+
+// Enter no código salta para a palavra-passe; enter na segunda
+// guarda.
+$('pwCode').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') $('pwNew1').focus();
+});
+
+$('pwNew2').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') $('pwResetBtn').click();
+});
+
+$('pwEmail').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') $('pwSendCode').click();
+});
+
+
 function preencherDoLink() {
   var q = new URLSearchParams(location.search);
   var email = q.get('forgot');
@@ -3353,13 +3601,24 @@ function preencherDoLink() {
   if (campo && !campo.__missing) campo.value = email;
 
   /**
+   * E abre já o formulário.
+   *
+   * Quem clica em "Set my password" no email quer definir a
+   * palavra-passe. Deixá-lo no ecrã de entrada, com o email
+   * preenchido e uma instrução para carregar noutro sítio, é um
+   * passo a mais.
+   */
+  mostrarReset(true);
+  $('pwEmail').value = email;
+
+  /**
    * E diz-lhe o que fazer.
    *
    * Um campo preenchido sozinho, sem explicação, parece um erro
    * do site. Uma linha resolve.
    */
   show($('siOk'), $('siErr'),
-    'Press "Forgot your password?" below and we will send you a link.');
+    'Set a password to sign in for the first time.');
 
   // O endereço fica limpo: uma atualização não repete a mensagem.
   history.replaceState({}, '', location.pathname);
@@ -4489,8 +4748,16 @@ function renderRides() {
   // nada para clicar.
   if (/[?&]signup=1/.test(window.location.search)) $('siJoin').click();
 
-  // E o email, se vier de um link nosso.
-  preencherDoLink();
+  /**
+   * A recuperação primeiro.
+   *
+   * Se a pessoa chegou de um link de recuperação, o que interessa
+   * é o formulário de nova palavra-passe — não preencher o email
+   * para ela carregar no "esqueci-me" outra vez.
+   */
+  if (!(await tratarRecuperacao())) {
+    preencherDoLink();
+  }
 
 })();
 
