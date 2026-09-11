@@ -796,6 +796,33 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
 
 .ap-tag b{font-family:var(--mono,monospace);font-size:11.5px;
   letter-spacing:.04em}
+
+/* ============================================================
+   OS IDIOMAS DO MOTORISTA
+
+   Uma grelha de caixas, não um campo de texto. "Français",
+   "french" e "FR" são a mesma coisa para uma pessoa e três
+   coisas diferentes para o sistema.
+   ============================================================ */
+.lang-picker{display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(132px,1fr));
+  gap:7px;margin:4px 0 6px}
+
+.lang-opt{display:flex;align-items:center;gap:8px;
+  padding:9px 11px;border-radius:10px;cursor:pointer;
+  border:1px solid var(--line,#E2E5E0);
+  background:var(--card,#fff);
+  font-size:13px;transition:border-color .12s,background .12s}
+
+.lang-opt:hover{border-color:var(--teal,#0F766E)}
+
+.lang-opt input{width:15px;height:15px;margin:0;cursor:pointer;
+  accent-color:var(--teal,#0F766E)}
+
+.lang-opt:has(input:checked){border-color:var(--teal,#0F766E);
+  background:var(--teal-soft,#E6F2F0)}
+
+.warn-text{color:var(--amber,#B45309);font-weight:500}
 </style>
 </head>
 <body>
@@ -1193,7 +1220,26 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
             <div class="field"><label for="dvName">Full name</label><input id="dvName" type="text"></div>
             <div class="field"><label for="dvPhone">Phone</label><input id="dvPhone" type="tel" placeholder="+351 ..."></div>
             <div class="field"><label for="dvEmail">Email <span class="opt-tag">optional</span></label><input id="dvEmail" type="email"></div>
-            <div class="field"><label for="dvLangs">Languages <span class="opt-tag">optional</span></label><input id="dvLangs" type="text" placeholder="English, Spanish"></div>
+            <!-- Os idiomas, de uma lista.
+
+                 Era um campo de texto livre e opcional. "Français",
+                 "french" e "FR" são a mesma coisa para uma pessoa e
+                 três coisas diferentes para o sistema — e o cliente
+                 escolhe de uma lista de códigos.
+
+                 Os dois lados nunca batiam, e a preferência de
+                 idioma do cliente não valia nada.
+
+                 Obrigatório porque vale 50 pontos na distribuição,
+                 mais do que a taxa de conclusão. Um motorista sem
+                 idiomas é sempre o último a receber viagens. -->
+            <div class="field wide">
+              <label for="dvLangs">Languages the driver speaks</label>
+              <div class="lang-picker" id="dvLangs"></div>
+              <span class="hint">Pick every language they can hold a
+              conversation in. Customers who ask for one of these get
+              this driver first.</span>
+            </div>
           </div>
           <button class="btn teal" id="dvAdd" type="button">Add driver</button>
           <div id="dvMsg" class="msg err"></div>
@@ -2500,14 +2546,71 @@ $('submitBtn').addEventListener('click', async function () {
 });
 
 // ---------- motoristas ----------
+/**
+ * Os idiomas que o cliente pode pedir.
+ *
+ * A mesma lista do checkout, e pelos mesmos códigos. Duas listas
+ * para a mesma pergunta é como elas divergem — e aqui divergir
+ * significa que a preferência do cliente deixa de valer.
+ */
+var IDIOMAS = [
+  ['en', 'English'], ['pt', 'Portugues'], ['es', 'Espanol'],
+  ['fr', 'Francais'], ['de', 'Deutsch'], ['it', 'Italiano'],
+  ['nl', 'Nederlands'], ['pl', 'Polski'], ['ru', 'Russian'],
+  ['ar', 'Arabic'], ['zh', 'Chinese']
+];
+
+
+function renderLangPicker() {
+  var caixa = $('dvLangs');
+  if (!caixa || caixa.__missing) return;
+
+  caixa.innerHTML = IDIOMAS.map(function (l) {
+    return '<label class="lang-opt">' +
+      '<input type="checkbox" value="' + l[0] + '">' +
+      '<span>' + esc(l[1]) + '</span></label>';
+  }).join('');
+}
+
+
+function idiomasEscolhidos() {
+  return Array.prototype.slice.call(
+    document.querySelectorAll('#dvLangs input:checked')
+  ).map(function (c) { return c.value; });
+}
+
+
+function limparIdiomas() {
+  document.querySelectorAll('#dvLangs input:checked')
+    .forEach(function (c) { c.checked = false; });
+}
+
+
+/**
+ * O código para o nome, para mostrar na lista.
+ */
+function nomeDoIdioma(codigo) {
+  var achado = IDIOMAS.filter(function (l) { return l[0] === codigo; })[0];
+  return achado ? achado[1] : codigo;
+}
+
+
 function renderDrivers() {
+  // A lista de idiomas desenha-se uma vez, quando o painel abre.
+  if (!$('dvLangs').__pronto) {
+    renderLangPicker();
+    $('dvLangs').__pronto = true;
+  }
+
   $('driversList').innerHTML = S.drivers.length
     ? S.drivers.map(function (d) {
         return '<div class="row"><div class="row-top"><div>' +
           '<p class="row-title">' + esc(d.full_name) + '</p>' +
           '<span class="row-sub">' + esc(d.phone) +
           (d.email ? ' · ' + esc(d.email) : '') +
-          (d.languages && d.languages.length ? ' · ' + esc(d.languages.join(', ')) : '') +
+          (d.languages && d.languages.length
+            ? ' · ' + esc(d.languages.map(nomeDoIdioma).join(', '))
+            : ' · <span class="warn-text">no languages</span>') +
           '</span></div><span class="pill ' + (d.status === 'active' ? 'ok' : 'warn') + '">' +
           esc(d.status) + '</span></div></div>';
       }).join('')
@@ -2520,16 +2623,33 @@ $('dvAdd').addEventListener('click', async function () {
     full_name: $('dvName').value.trim(),
     phone: $('dvPhone').value.trim(),
     email: $('dvEmail').value.trim(),
-    languages: $('dvLangs').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean)
+    languages: idiomasEscolhidos()
   };
+
   if (!body.full_name || !body.phone) {
     return show($('dvMsg'), null, 'Name and phone are required.');
+  }
+
+  /**
+   * Pelo menos um idioma.
+   *
+   * Vale 50 pontos na distribuição, mais do que a taxa de
+   * conclusão. Um motorista sem idiomas fica sempre atrás de
+   * qualquer outro — e o parceiro não percebe porquê.
+   *
+   * Melhor obrigar aqui do que explicar depois.
+   */
+  if (!body.languages.length) {
+    return show($('dvMsg'), null,
+      'Pick at least one language. It decides which rides reach ' +
+      'this driver first.');
   }
   $('dvAdd').disabled = true;
   try {
     var r = await api('/api/partner/driver', body);
     await refresh(r.state);
-    ['dvName','dvPhone','dvEmail','dvLangs'].forEach(function (id) { $(id).value = ''; });
+    ['dvName','dvPhone','dvEmail'].forEach(function (id) { $(id).value = ''; });
+    limparIdiomas();
   } catch (e) {
     show($('dvMsg'), null, esc(e.message));
   } finally {
