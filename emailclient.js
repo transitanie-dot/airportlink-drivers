@@ -153,6 +153,52 @@ export async function sendRideConfirmedToPartner(partner, booking) {
  * O link só pode ser gerado pela API principal: é ela que tem o
  * cliente Supabase com a chave de administração.
  */
+/**
+ * Um aviso do Telegram, pedido à API principal.
+ *
+ * O telegram.js vive no repositório da API, não neste. Uma cópia
+ * aqui seriam dois sítios a manter e duas verdades sobre o que se
+ * avisa — e o dia em que divergissem, um canal ficava calado sem
+ * ninguém saber.
+ *
+ * O mesmo caminho dos emails: um pedido com o CRON_SECRET.
+ */
+export async function pedirAviso(tipo, dados) {
+  if (!process.env.CRON_SECRET) {
+    console.warn(`[aviso] CRON_SECRET em falta — ${tipo} não enviado`);
+    return { sent: false, reason: 'no-secret' };
+  }
+
+  try {
+    const res = await fetch(`${MAIN_API}/api/internal/alert`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-cron-secret': process.env.CRON_SECRET
+      },
+      body: JSON.stringify({ tipo, dados })
+    });
+
+    if (!res.ok) {
+      console.error(`[aviso] ${tipo}: HTTP ${res.status}`);
+      return { sent: false, reason: `http-${res.status}` };
+    }
+
+    return { sent: true };
+  } catch (e) {
+    /**
+     * Um aviso que falha não trava nada.
+     *
+     * É melhor perder um aviso do que perder a ação que o
+     * provocou — um parceiro que se regista deve ficar
+     * registado, mesmo que o Telegram esteja em baixo.
+     */
+    console.error(`[aviso] ${tipo}:`, e.message);
+    return { sent: false, reason: e.message };
+  }
+}
+
+
 export async function sendVerification(email, name, kind) {
   if (!email) {
     console.warn('[email] verify: no address');
