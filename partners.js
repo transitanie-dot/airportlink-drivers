@@ -86,7 +86,8 @@ export function createPartnerRoutes({
       if (String(b.contact_phone).replace(/\D/g, '').length < 6) {
         return res.status(400).json({
           error: 'That phone number is too short. ' +
-                 'We call it when a ride needs sorting out.'
+                 'We call it when a ride needs sorting out.',
+          field_error: true
         });
       }
 
@@ -95,7 +96,8 @@ export function createPartnerRoutes({
           String(b.emergency_phone).replace(/\D/g, '').length < 6) {
         return res.status(400).json({
           error: 'That emergency number is too short. ' +
-                 'Leave it empty if you do not have one.'
+                 'Leave it empty if you do not have one.',
+          field_error: true
         });
       }
 
@@ -160,7 +162,27 @@ export function createPartnerRoutes({
 
       console.log('Partner signed up:', { email: b.email, country: b.country });
 
-      await notify.verify(b.email, b.contact_name, 'partner');
+      /**
+       * O email de confirmação.
+       *
+       * O notify.verify chega à API principal, que gera o link com
+       * o Supabase e manda-o pelo Resend.
+       *
+       * Isto esteve semanas a não fazer nada: a função do lado da
+       * API era um stub que devolvia { sent: true } sem enviar
+       * nada, porque assumia que o Supabase tinha enviado. O
+       * admin.createUser não envia.
+       *
+       * Era por isso que havia registos e nenhuma conta validada.
+       */
+      const verificacao = await notify.verify(
+        b.email, b.contact_name, 'partner'
+      );
+
+      if (!verificacao?.sent) {
+        console.error('[partner] email de verificação não saiu:',
+          b.email, verificacao?.reason);
+      }
 
       /**
        * E o canal de vendas.
@@ -1331,7 +1353,7 @@ export function createPartnerRoutes({
       }
 
       if (String(b.full_name).trim().length < 2) {
-        return res.status(400).json({ error: 'The driver name is too short.' });
+        return res.status(400).json({ error: 'The driver name is too short.', field_error: true });
       }
 
       const row = {
@@ -1373,7 +1395,7 @@ export function createPartnerRoutes({
 
       const seats = parseInt(b.seats, 10);
       if (!Number.isFinite(seats) || seats < 1 || seats > 16) {
-        return res.status(400).json({ error: 'Seats must be between 1 and 16.' });
+        return res.status(400).json({ error: 'Seats must be between 1 and 16.', field_error: true });
       }
 
       const row = {
