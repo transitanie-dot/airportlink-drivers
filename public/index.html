@@ -990,10 +990,15 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
           <select id="w2Country"><option value="">Select a country</option></select>
           <div class="err">Please choose a country.</div></div>
         <div id="w2Notice" class="msg"></div>
-        <div class="field"><label for="w2City">Cities you cover <span class="opt-tag">optional</span></label>
-          <input id="w2City" type="text" placeholder="Type a city and press Enter">
-          <div class="help">Add as many as you like. You can change these later.</div>
-          <div class="tags" id="w2Tags"></div></div>
+        <!-- As cidades saíram do registo.
+
+             Eram texto livre e não davam em nada: a distribuição
+             procura por código de aeroporto, e "Faro" escrito à
+             mão não é "FAO".
+
+             Os aeroportos escolhem-se dentro do portal, de uma
+             lista — onde se vê quais estão abertos. Pedir aqui
+             uma coisa que não conta era pedir por pedir. -->
         <div class="wiz-nav">
           <button class="btn line" data-back="1" type="button">Back</button>
           <button class="btn teal" data-next="3" type="button">Continue</button>
@@ -1282,22 +1287,26 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
           <div id="apOk" class="msg ok"></div>
         </div>
 
-        <div class="card">
-          <h2>Other cities</h2>
-          <p class="note">Anywhere else you can pick up that is not an airport &mdash; hotels, stations, ports. Type and press Enter.</p>
-          <div class="field"><input id="arCity" type="text" placeholder="Cascais"></div>
-          <div class="tags" id="arTags"></div>
-          <button class="btn line" id="arSave" type="button" style="margin-top:18px">Save cities</button>
-          <div id="arMsg" class="msg err"></div>
-          <div id="arOk" class="msg ok"></div>
-        </div>
-        <div class="card hidden" id="zoneCard">
-          <h2>Service zones</h2>
-          <p class="note">We are live in your country, so you can pick the formal zones we dispatch by.</p>
-          <div id="zoneList"></div>
-          <button class="btn teal" id="znSave" type="button" style="margin-top:18px">Save zones</button>
-          <div id="znMsg" class="msg err"></div>
-        </div>
+        <!-- O bloco "Other cities" foi removido.
+
+             Havia três formas de dizer onde se opera: aeroportos,
+             cidades soltas, e "service zones" por região. Três
+             listas para a mesma pergunta, e o parceiro não sabia
+             qual contava.
+
+             Conta a dos aeroportos: é a que o submit exige e a
+             única que a cascata usa para encontrar quem serve uma
+             viagem. As outras duas eram campos que se preenchiam
+             e não faziam nada. -->
+
+        <!-- O cartão "Service zones" foi removido.
+
+             Era a terceira forma de dizer onde se opera, a seguir
+             aos aeroportos e às cidades. Só funcionava em Portugal
+             e nenhuma delas contava para a distribuição — que
+             procura por código de aeroporto.
+
+             Fica uma: os aeroportos. -->
       </div>
 
       <!-- PAYOUTS -->
@@ -1560,7 +1569,7 @@ function safeEl(id) {
 var $ = function (id) { return safeEl(id); };
 
 var user = null, S = null, rides = [], board = { available: [], mine: [], airports: [] };
-var wizStep = 1, wizCities = [], wizOwner = null, areaCities = [], areaAirports = [];
+var wizStep = 1, wizOwner = null, areaAirports = [];
 
 // Os principais países do mundo, por população e por movimento de
 // aeroporto. Sem marcas de "ainda não estamos aí": queremos o
@@ -1930,8 +1939,8 @@ function tagInput(inputId, tagsId, store) {
   });
   return render;
 }
-var renderWizTags = tagInput('w2City', 'w2Tags', wizCities);
-var renderAreaTags = tagInput('arCity', 'arTags', areaCities);
+/* O tagInput das cidades saiu: os aeroportos escolhem-se no portal. */
+/* O tagInput das cidades saiu com o bloco. */
 
 qsa('[data-owner]').forEach(function (b) {
   b.addEventListener('click', function () {
@@ -1974,7 +1983,6 @@ $('wizSubmit').addEventListener('click', async function () {
     contact_phone: $('w1Phone').value.trim(),
     emergency_phone: $('w1Emergency').value.trim(),
     country: $('w2Country').value,
-    operating_cities: wizCities,
     fleet_size: $('w3Fleet').value,
     owner_drives: wizOwner,
     registered_address: $('w3Address').value.trim(),
@@ -2882,84 +2890,17 @@ function renderMyAirports() {
 
 function renderAreas() {
   var p = S.partner || {};
-  areaCities.length = 0;
-  (p.operating_cities || []).forEach(function (c) { areaCities.push(c); });
-  renderAreaTags();
 
   areaAirports.length = 0;
   (p.operating_airports || []).forEach(function (c) { areaAirports.push(c); });
   renderAirportTags();
   renderMyAirports();
 
-  /**
-   * As zonas formais deixaram de existir.
-   *
-   * Havia duas maneiras de dizer onde se opera: "service zones"
-   * por região, só para Portugal, e aeroportos para o resto do
-   * mundo. Duas listas para a mesma pergunta, e o parceiro
-   * português tinha de preencher as duas sem saber qual contava.
-   *
-   * Conta a dos aeroportos: é a que o submit exige e a que a
-   * cascata usa para encontrar quem serve uma viagem.
-   */
-  $('zoneCard').classList.add('hidden');
-  if (!live) return;
-
-  var byRegion = {};
-  S.serviceZones.forEach(function (z) { (byRegion[z.region] = byRegion[z.region] || []).push(z); });
-
-  $('zoneList').innerHTML = Object.keys(byRegion).map(function (region) {
-    return '<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:18px 0 10px">' +
-      esc(region) + '</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px">' +
-      byRegion[region].map(function (z) {
-        var on = (S.zones || []).indexOf(z.code) !== -1;
-        return '<label class="opt" style="display:flex;align-items:center;gap:10px;padding:12px 14px' +
-          (on ? ';border-color:var(--teal);background:var(--teal-soft)' : '') + '">' +
-          '<input type="checkbox" value="' + esc(z.code) + '"' + (on ? ' checked' : '') +
-          ' style="width:17px;height:17px">' +
-          '<span style="font-size:14px">' + esc(z.name) + '</span>' +
-          (z.airport ? '<span style="margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted)">' +
-            esc(z.airport) + '</span>' : '') + '</label>';
-      }).join('') + '</div>';
-  }).join('');
 }
 
-$('arSave').addEventListener('click', async function () {
-  hideMsgs();
-  $('arSave').disabled = true;
-  try {
-    var p = S.partner || {};
-    var r = await api('/api/partner/company', {
-      legal_name: p.legal_name, trading_name: p.trading_name, vat_number: p.vat_number,
-      registered_address: p.registered_address, city: p.city, postal_code: p.postal_code,
-      contact_name: p.contact_name, contact_role: p.contact_role,
-      contact_phone: p.contact_phone, emergency_phone: p.emergency_phone,
-      operating_cities: areaCities
-    });
-    await refresh(r.state);
-    show($('arOk'), $('arMsg'), 'Work areas saved.');
-  } catch (e) {
-    show($('arMsg'), $('arOk'), esc(e.message));
-  } finally {
-    $('arSave').disabled = false;
-  }
-});
+/* O "Save cities" foi removido com o bloco "Other cities". */
 
-$('znSave').addEventListener('click', async function () {
-  hideMsgs();
-  var zones = qsa('#zoneList input:checked').map(function (i) { return i.value; });
-  if (!zones.length) return show($('znMsg'), null, 'Select at least one zone.');
-  $('znSave').disabled = true;
-  try {
-    var r = await api('/api/partner/zones', { zones: zones });
-    await refresh(r.state);
-    show($('arOk'), $('znMsg'), 'Zones saved.');
-  } catch (e) {
-    show($('znMsg'), null, esc(e.message));
-  } finally {
-    $('znSave').disabled = false;
-  }
-});
+/* O "Save zones" saiu com o cartão das service zones. */
 
 // ---------- pagamentos e perfil ----------
 function fillPayouts() {
