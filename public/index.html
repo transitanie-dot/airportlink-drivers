@@ -4749,15 +4749,16 @@ function renderRides() {
   if (/[?&]signup=1/.test(window.location.search)) $('siJoin').click();
 
   /**
-   * A recuperação primeiro.
+   * O email que vem no link, se vier.
    *
-   * Se a pessoa chegou de um link de recuperação, o que interessa
-   * é o formulário de nova palavra-passe — não preencher o email
-   * para ela carregar no "esqueci-me" outra vez.
+   * O botão "Set my password" traz ?forgot=alguem@exemplo.com. O
+   * preencherDoLink abre o formulário de palavra-passe com o
+   * email já lá.
+   *
+   * O tratarRecuperacao foi removido: tratava do link mágico do
+   * Supabase, que deixámos de usar.
    */
-  if (!(await tratarRecuperacao())) {
-    preencherDoLink();
-  }
+  preencherDoLink();
 
 })();
 
