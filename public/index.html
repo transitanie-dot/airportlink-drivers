@@ -3335,6 +3335,37 @@ function subscribeChat() {
  * parâmetro diz que a pessoa veio de um email a pedir resposta, e
  * deixá-la na página inicial obrigava-a a procurar o balão.
  */
+/**
+ * O email vem no endereço, quando chega de um email nosso.
+ *
+ * O botão "Set my password" traz ?forgot=alguem@exemplo.com.
+ * Preencher o campo poupa à pessoa escrever o endereço outra vez
+ * — e evita que escreva outro por engano, o que dá um "não
+ * encontrámos essa conta" sem explicação.
+ */
+function preencherDoLink() {
+  var q = new URLSearchParams(location.search);
+  var email = q.get('forgot');
+
+  if (!email) return;
+
+  var campo = $('siEmail');
+  if (campo && !campo.__missing) campo.value = email;
+
+  /**
+   * E diz-lhe o que fazer.
+   *
+   * Um campo preenchido sozinho, sem explicação, parece um erro
+   * do site. Uma linha resolve.
+   */
+  show($('siOk'), $('siErr'),
+    'Press "Forgot your password?" below and we will send you a link.');
+
+  // O endereço fica limpo: uma atualização não repete a mensagem.
+  history.replaceState({}, '', location.pathname);
+}
+
+
 function abrirChatDoLink() {
   if (!new URLSearchParams(location.search).get('chat')) return;
 
@@ -4457,6 +4488,9 @@ function renderRides() {
   // Depois de o ecrã estar montado, senão o clique não encontra
   // nada para clicar.
   if (/[?&]signup=1/.test(window.location.search)) $('siJoin').click();
+
+  // E o email, se vier de um link nosso.
+  preencherDoLink();
 
 })();
 
