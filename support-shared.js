@@ -87,7 +87,27 @@ export function createShared({
     // O empurrão a meio do prazo, que é o que mais reduz o
     // ignorar.
     rideOfferReminder: email.sendRideOfferReminder || (async () => {}),
-    verify: email.sendVerification || (async () => {}),
+    /**
+     * O email de confirmação.
+     *
+     * O "verify" apontava para sendVerification — uma função que
+     * NUNCA existiu. O fallback vazio resolvia em silêncio, e
+     * nenhum parceiro recebia o email.
+     *
+     * Sem email não entravam; sem entrar não enviavam documentos.
+     * Havia registos e nenhuma conta validada.
+     */
+    /**
+     * O email de confirmação de conta.
+     *
+     * Vai pela API principal, que gera o link com o Supabase e o
+     * envia pelo Resend. O emailclient.js faz o pedido.
+     */
+    verify: email.sendVerification || (async () => {
+      console.error('[notify] verify sem função configurada — '
+        + 'ninguém recebe o email de confirmação');
+      return { sent: false, reason: 'not-configured' };
+    }),
     // Sem função de escalada configurada, o aviso fica no registo.
     // O painel continua a mostrá-lo — o email é o segundo caminho,
     // para quando ninguém tem o painel aberto.
