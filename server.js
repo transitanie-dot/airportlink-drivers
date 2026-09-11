@@ -17,17 +17,23 @@ import { createClient } from '@supabase/supabase-js';
 import { createShared } from './support-shared.js';
 
 /**
- * Os avisos do Telegram.
+ * Os avisos do Telegram, pedidos à API principal.
  *
- * Vivem na API principal, mas o ficheiro é partilhado — as
- * variáveis de ambiente são as mesmas nos dois serviços.
+ * O telegram.js vive no repositório da API, não neste. Importá-lo
+ * daqui rebentava o arranque com ERR_MODULE_NOT_FOUND — e o
+ * serviço não subia de todo.
+ *
+ * O emailclient.js já sabe falar com a API principal para os
+ * emails; os avisos seguem o mesmo caminho. Uma cópia do
+ * telegram.js aqui seriam dois sítios a manter e duas verdades
+ * sobre o que se avisa.
  */
-import {
-  telegramNewChat,
-  telegramNewAccount,
-  telegramNewAgency,
-  telegramNewPartner
-} from './telegram.js';
+import { pedirAviso } from './emailclient.js';
+
+const telegramNewChat = (d) => pedirAviso('new_chat', d);
+const telegramNewAccount = (d) => pedirAviso('new_account', d);
+const telegramNewAgency = (d) => pedirAviso('new_agency', d);
+const telegramNewPartner = (d) => pedirAviso('new_partner', d);
 import { createPartnerRoutes } from './partners.js';
 import { createSupportRoutes } from './support.js';
 // Os emails são pedidos à API principal, onde o emailService vive.
