@@ -1335,6 +1335,38 @@ export function createPartnerRoutes({
       }
 
       /**
+       * Os idiomas, por código e de uma lista fechada.
+       *
+       * Eram texto livre: "Français", "french" e "FR" eram três
+       * coisas diferentes. O cliente escolhe de uma lista de
+       * códigos — en, pt, es — e os dois lados nunca batiam.
+       *
+       * O resultado era que a preferência de idioma do cliente,
+       * que vale 50 pontos na distribuição, não valia nada.
+       */
+      const IDIOMAS_VALIDOS = ['en', 'pt', 'es', 'fr', 'de', 'it',
+                               'nl', 'pl', 'ru', 'ar', 'zh'];
+
+      const idiomas = (Array.isArray(b.languages) ? b.languages : [])
+        .map((l) => String(l).trim().toLowerCase())
+        .filter((l) => IDIOMAS_VALIDOS.includes(l));
+
+      /**
+       * Pelo menos um, e é obrigatório.
+       *
+       * Um motorista sem idiomas fica sempre atrás de qualquer
+       * outro na distribuição — e o parceiro não percebe porquê.
+       * Melhor pedir aqui do que explicar depois.
+       */
+      if (!idiomas.length) {
+        return res.status(400).json({
+          error: 'Pick at least one language the driver speaks. ' +
+                 'It decides which rides reach them first.',
+          field_error: true
+        });
+      }
+
+      /**
        * O número do motorista é o que o cliente vê.
        *
        * Vai no SMS de "o seu motorista está a caminho", com o nome
@@ -1362,7 +1394,7 @@ export function createPartnerRoutes({
         phone: b.phone,
         email: b.email || null,
         date_of_birth: b.date_of_birth || null,
-        languages: Array.isArray(b.languages) ? b.languages : null,
+        languages: idiomas,
         updated_at: new Date().toISOString()
       };
 
