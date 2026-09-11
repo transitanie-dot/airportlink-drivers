@@ -222,7 +222,24 @@ export function createShared({
         supabase.from('document_requirements').select('*').eq('active', true).order('sort_order'),
         supabase.from('service_zones').select('*').eq('active', true).order('sort_order'),
         supabase.from('partner_compliance').select('*').eq('partner_id', userId).maybeSingle(),
-        supabase.from('airports').select('*').eq('active', true).order('city')
+        /**
+         * Só os aeroportos onde operamos.
+         *
+         * Filtrava por "active", que é uma coluna antiga. A que
+         * decide é "operational": é ela que a calculadora, o
+         * checkout e as páginas de SEO usam.
+         *
+         * Com a errada, o portal oferecia aeroportos onde não
+         * vendemos — e o parceiro registava-se lá a esperar por
+         * viagens que nunca chegavam.
+         *
+         * E só as colunas que o portal usa: os 440 aeroportos com
+         * tudo dentro eram 200 KB por cada carregamento.
+         */
+        supabase.from('airports')
+          .select('iata, city, country, tier')
+          .eq('operational', true)
+          .order('city')
       ]);
 
     const country = partner.data?.country || DEFAULT_COUNTRY;
@@ -237,6 +254,16 @@ export function createShared({
       requirements: requirementsFor(allRequirements, country),
       serviceZones: allZones.data || [],
       airports: airports.data || [],
+
+      /**
+       * Os nomes, por código.
+       *
+       * O dashboard mostra "DUB Dublin" em vez de "DUB". Um
+       * parceiro com doze aeroportos não reconhece doze códigos.
+       */
+      airportNames: Object.fromEntries(
+        (airports.data || []).map((a) => [a.iata, a.city])
+      ),
       compliance: compliance.data || null
     };
   }
