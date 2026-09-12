@@ -21,6 +21,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- O componente do telefone, servido pelo site principal.
+
+     Este portal nao tem pasta /assets/ — e um servico separado.
+     Apontar ao dominio do site evita manter duas copias do mesmo
+     ficheiro, que e como elas divergem. -->
+<script src="https://www.airportlink.app/assets/phone.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -823,6 +829,135 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
   background:var(--teal-soft,#E6F2F0)}
 
 .warn-text{color:var(--amber,#B45309);font-weight:500}
+
+/* ============================================================
+   CAMPO DE TELEFONE
+
+   Copiado do site.css do site principal. Este portal e um
+   servico separado e nao carrega esse ficheiro — mas carrega o
+   phone.js de la, e sem estas regras o componente desenhava-se
+   sem forma nenhuma.
+
+   Se mexeres no site.css, mexe aqui tambem.
+   ============================================================ */
+/* Antes do JS correr, o contentor mantém a linha de pé: sem isto o
+   campo saltava de posição ao carregar a página. */
+[data-phone-mount]{position:relative}
+[data-phone-mount] > select{width:100%}
+.phone-field{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);
+  align-items:center;height:52px;border-radius:15px;
+  border:1px solid var(--rule-strong);background:var(--field);
+  transition:border-color .15s ease,box-shadow .15s ease}
+/* A moldura reage ao foco do campo inteiro, não de cada peça: para
+   quem está a escrever, isto é um controlo só. */
+.phone-field:focus-within{border-color:var(--teal);box-shadow:0 0 0 4px rgba(15,118,110,.14)}
+.phone-pick{display:inline-flex;align-items:center;gap:6px;height:38px;
+  margin:0 0 0 6px;padding:0 9px;border:0;border-radius:10px;
+  background:transparent;cursor:pointer;white-space:nowrap;
+  transition:background .15s ease}
+.phone-pick:hover{background:var(--surface-2)}
+.phone-pick:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+.phone-pick svg{width:13px;height:13px;color:var(--muted);margin-left:1px}
+.phone-flag{font-size:17px;line-height:1}
+/* O Windows não traz a fonte das bandeiras e mostra as duas letras.
+   Escondemos o nosso ISO aí, para não ficar escrito duas vezes. */
+.phone-iso{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);
+  letter-spacing:.04em}
+/* Pequeno e discreto no botão: é uma referência, não o conteúdo. Na
+   lista do menu volta ao tamanho normal, porque lá é o que se
+   procura. */
+.phone-dial{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--muted)}
+
+/**
+ * O campo do número, sem moldura própria.
+ *
+ * O seletor tem de ser específico: as regras de cada página dão
+ * altura, moldura e cantos a todos os input[type="tel"], e ganham
+ * a uma regra de classe simples.
+ */
+.phone-field > input,
+.phone-field > input[type="tel"]{
+  height:50px;width:100%;border:0;border-left:1px solid var(--rule);
+  border-radius:0 15px 15px 0;background:transparent;
+  padding:0 15px;margin-left:6px;font-size:15px;outline:none;box-shadow:none}
+.phone-field > input:focus,
+.phone-field > input[type="tel"]:focus{border-color:var(--rule);box-shadow:none;outline:none}
+/* Os avisos pintam a caixa toda. */
+.phone-field.bad{border-color:var(--err-rule)}
+.phone-field.good{border-color:var(--teal)}
+
+.phone-menu{position:absolute;top:calc(100% + 6px);left:0;width:min(340px,100%);
+  background:var(--surface);border:1px solid var(--rule-strong);border-radius:18px;
+  box-shadow:0 18px 44px rgba(20,26,40,.18);z-index:60;display:none;overflow:hidden}
+html[data-theme="dark"] .phone-menu{box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.phone-menu.show{display:block}
+.phone-search{width:100%;height:46px;border:0;border-bottom:1px solid var(--rule);
+  background:var(--surface-2);padding:0 16px;font-size:14px;outline:none;border-radius:0}
+.phone-list{max-height:268px;overflow-y:auto;padding:6px}
+.phone-row{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+  padding:10px 12px;border:0;border-radius:11px;background:transparent;cursor:pointer;
+  color:var(--text);font-size:14px}
+.phone-row:hover{background:var(--surface-2)}
+.phone-row.on{background:var(--teal-soft)}
+.phone-row .phone-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.phone-row .phone-dial{color:var(--muted);font-size:12.5px}
+
+.phone-empty{padding:22px;text-align:center;color:var(--muted);font-size:13.5px}
+
+.phone-hint{margin-top:7px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.phone-hint.good{color:var(--ok-text)}
+.phone-hint.bad{color:var(--err-text)}
+
+/**
+ * ---------------------------------------------------------------
+ * A PÁGINA DE CHECKOUT TEM CSS PRÓPRIO
+ *
+ * O <style> dela vive no <head> e carrega DEPOIS deste ficheiro,
+ * por isso ganha sempre que a especificidade for igual. Lá os
+ * campos têm 48px e não 52, e há uma regra que pinta o botão do
+ * indicativo de vermelho quando o número está errado.
+ *
+ * Estas regras são mais específicas de propósito. É feio e é o
+ * que evita ter de mexer numa página de mil e quinhentas linhas
+ * por causa de dois valores.
+ * ---------------------------------------------------------------
+ */
+
+/* Os campos do checkout são de 48px. A caixa do telefone acompanha,
+   senão fica um campo mais alto do que os outros sete. */
+.f .phone-field{height:48px;border-radius:13px}
+.f .phone-field > input,
+.f .phone-field > input[type="tel"]{height:46px;border-radius:0 13px 13px 0}
+.f .phone-pick{height:36px}
+
+/**
+ * O erro pinta a moldura, não o botão.
+ *
+ * A regra da página punha fundo vermelho no seletor do indicativo,
+ * que agora não tem moldura nenhuma — ficava uma mancha de cor
+ * dentro do campo, sem dizer o que estava errado.
+ *
+ * O que diz é a moldura à volta de tudo, que é onde o problema
+ * está: o número.
+ */
+.f .phone-field.bad button.phone-pick{background:transparent;border:0}
+.f .phone-field.bad > input,
+.f .phone-field.bad > input[type="tel"]{border-color:var(--rule)}
+
+/**
+ * No telemóvel continua numa linha.
+ *
+ * Empilhava, e num ecrã estreito isso dava duas caixas do tamanho
+ * todo para um campo só. Com o indicativo pequeno, a linha inteira
+ * cabe à vontade em 320 pixels.
+ */
+@media (max-width:560px){
+  .phone-pick{padding:0 7px;gap:5px}
+  .phone-field > input,
+  .phone-field > input[type="tel"]{padding:0 12px}
+  .phone-menu{width:100%}
+}
+
 </style>
 </head>
 <body>
@@ -973,7 +1108,94 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
             <div class="help">This becomes your sign-in and where offers are sent.</div>
             <div class="err">Please enter a valid email address.</div></div>
           <div class="field"><label for="w1Phone">Phone</label>
-            <input id="w1Phone" type="tel" placeholder="+351 ...">
+            <!-- O indicativo num seletor com bandeira.
+                 Um parceiro espanhol via "+351 ..." e escrevia o numero
+                 espanhol com o indicativo portugues a frente. -->
+            <div data-phone-mount>
+              <select id="w1PhoneCode" aria-label="Country dialling code">
+                <option value="213">Algeria +213</option>
+                <option value="54">Argentina +54</option>
+                <option value="61">Australia +61</option>
+                <option value="43">Austria +43</option>
+                <option value="973">Bahrain +973</option>
+                <option value="32">Belgium +32</option>
+                <option value="55">Brazil +55</option>
+                <option value="359">Bulgaria +359</option>
+                <option value="1">Canada +1</option>
+                <option value="238">Cape Verde +238</option>
+                <option value="56">Chile +56</option>
+                <option value="86">China +86</option>
+                <option value="57">Colombia +57</option>
+                <option value="506">Costa Rica +506</option>
+                <option value="385">Croatia +385</option>
+                <option value="357">Cyprus +357</option>
+                <option value="420">Czechia +420</option>
+                <option value="45">Denmark +45</option>
+                <option value="1">Dominican Republic +1</option>
+                <option value="20">Egypt +20</option>
+                <option value="372">Estonia +372</option>
+                <option value="358">Finland +358</option>
+                <option value="33">France +33</option>
+                <option value="49">Germany +49</option>
+                <option value="30">Greece +30</option>
+                <option value="852">Hong Kong +852</option>
+                <option value="36">Hungary +36</option>
+                <option value="354">Iceland +354</option>
+                <option value="91">India +91</option>
+                <option value="62">Indonesia +62</option>
+                <option value="353">Ireland +353</option>
+                <option value="972">Israel +972</option>
+                <option value="39">Italy +39</option>
+                <option value="81">Japan +81</option>
+                <option value="962">Jordan +962</option>
+                <option value="254">Kenya +254</option>
+                <option value="965">Kuwait +965</option>
+                <option value="371">Latvia +371</option>
+                <option value="370">Lithuania +370</option>
+                <option value="352">Luxembourg +352</option>
+                <option value="60">Malaysia +60</option>
+                <option value="960">Maldives +960</option>
+                <option value="356">Malta +356</option>
+                <option value="52">Mexico +52</option>
+                <option value="212">Morocco +212</option>
+                <option value="31">Netherlands +31</option>
+                <option value="64">New Zealand +64</option>
+                <option value="234">Nigeria +234</option>
+                <option value="47">Norway +47</option>
+                <option value="968">Oman +968</option>
+                <option value="92">Pakistan +92</option>
+                <option value="507">Panama +507</option>
+                <option value="51">Peru +51</option>
+                <option value="63">Philippines +63</option>
+                <option value="48">Poland +48</option>
+                <option value="351">Portugal +351</option>
+                <option value="974">Qatar +974</option>
+                <option value="40">Romania +40</option>
+                <option value="7">Russia +7</option>
+                <option value="966">Saudi Arabia +966</option>
+                <option value="381">Serbia +381</option>
+                <option value="65">Singapore +65</option>
+                <option value="421">Slovakia +421</option>
+                <option value="386">Slovenia +386</option>
+                <option value="27">South Africa +27</option>
+                <option value="82">South Korea +82</option>
+                <option value="34">Spain +34</option>
+                <option value="94">Sri Lanka +94</option>
+                <option value="46">Sweden +46</option>
+                <option value="41">Switzerland +41</option>
+                <option value="886">Taiwan +886</option>
+                <option value="66">Thailand +66</option>
+                <option value="216">Tunisia +216</option>
+                <option value="90">Turkey +90</option>
+                <option value="380">Ukraine +380</option>
+                <option value="971">United Arab Emirates +971</option>
+                <option value="44">United Kingdom +44</option>
+                <option value="1">United States +1</option>
+                <option value="598">Uruguay +598</option>
+                <option value="84">Vietnam +84</option>
+              </select>
+              <input id="w1Phone" type="tel" inputmode="tel" autocomplete="tel">
+            </div>
             <div class="err">Please enter a phone number.</div></div>
           <div class="field"><label for="w1Emergency">Out-of-hours phone <span class="opt-tag">optional</span></label>
             <input id="w1Emergency" type="tel" placeholder="Someone we can reach outside office hours"></div>
@@ -1223,7 +1445,95 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
           <h2>Add a driver</h2>
           <div class="grid2">
             <div class="field"><label for="dvName">Full name</label><input id="dvName" type="text"></div>
-            <div class="field"><label for="dvPhone">Phone</label><input id="dvPhone" type="tel" placeholder="+351 ..."></div>
+            <div class="field"><label for="dvPhone">Phone</label>
+            <!-- O indicativo num seletor com bandeira.
+                 Um parceiro espanhol via "+351 ..." e escrevia o numero
+                 espanhol com o indicativo portugues a frente. -->
+            <div data-phone-mount>
+              <select id="dvPhoneCode" aria-label="Country dialling code">
+                <option value="213">Algeria +213</option>
+                <option value="54">Argentina +54</option>
+                <option value="61">Australia +61</option>
+                <option value="43">Austria +43</option>
+                <option value="973">Bahrain +973</option>
+                <option value="32">Belgium +32</option>
+                <option value="55">Brazil +55</option>
+                <option value="359">Bulgaria +359</option>
+                <option value="1">Canada +1</option>
+                <option value="238">Cape Verde +238</option>
+                <option value="56">Chile +56</option>
+                <option value="86">China +86</option>
+                <option value="57">Colombia +57</option>
+                <option value="506">Costa Rica +506</option>
+                <option value="385">Croatia +385</option>
+                <option value="357">Cyprus +357</option>
+                <option value="420">Czechia +420</option>
+                <option value="45">Denmark +45</option>
+                <option value="1">Dominican Republic +1</option>
+                <option value="20">Egypt +20</option>
+                <option value="372">Estonia +372</option>
+                <option value="358">Finland +358</option>
+                <option value="33">France +33</option>
+                <option value="49">Germany +49</option>
+                <option value="30">Greece +30</option>
+                <option value="852">Hong Kong +852</option>
+                <option value="36">Hungary +36</option>
+                <option value="354">Iceland +354</option>
+                <option value="91">India +91</option>
+                <option value="62">Indonesia +62</option>
+                <option value="353">Ireland +353</option>
+                <option value="972">Israel +972</option>
+                <option value="39">Italy +39</option>
+                <option value="81">Japan +81</option>
+                <option value="962">Jordan +962</option>
+                <option value="254">Kenya +254</option>
+                <option value="965">Kuwait +965</option>
+                <option value="371">Latvia +371</option>
+                <option value="370">Lithuania +370</option>
+                <option value="352">Luxembourg +352</option>
+                <option value="60">Malaysia +60</option>
+                <option value="960">Maldives +960</option>
+                <option value="356">Malta +356</option>
+                <option value="52">Mexico +52</option>
+                <option value="212">Morocco +212</option>
+                <option value="31">Netherlands +31</option>
+                <option value="64">New Zealand +64</option>
+                <option value="234">Nigeria +234</option>
+                <option value="47">Norway +47</option>
+                <option value="968">Oman +968</option>
+                <option value="92">Pakistan +92</option>
+                <option value="507">Panama +507</option>
+                <option value="51">Peru +51</option>
+                <option value="63">Philippines +63</option>
+                <option value="48">Poland +48</option>
+                <option value="351">Portugal +351</option>
+                <option value="974">Qatar +974</option>
+                <option value="40">Romania +40</option>
+                <option value="7">Russia +7</option>
+                <option value="966">Saudi Arabia +966</option>
+                <option value="381">Serbia +381</option>
+                <option value="65">Singapore +65</option>
+                <option value="421">Slovakia +421</option>
+                <option value="386">Slovenia +386</option>
+                <option value="27">South Africa +27</option>
+                <option value="82">South Korea +82</option>
+                <option value="34">Spain +34</option>
+                <option value="94">Sri Lanka +94</option>
+                <option value="46">Sweden +46</option>
+                <option value="41">Switzerland +41</option>
+                <option value="886">Taiwan +886</option>
+                <option value="66">Thailand +66</option>
+                <option value="216">Tunisia +216</option>
+                <option value="90">Turkey +90</option>
+                <option value="380">Ukraine +380</option>
+                <option value="971">United Arab Emirates +971</option>
+                <option value="44">United Kingdom +44</option>
+                <option value="1">United States +1</option>
+                <option value="598">Uruguay +598</option>
+                <option value="84">Vietnam +84</option>
+              </select>
+              <input id="dvPhone" type="tel" inputmode="tel" autocomplete="tel">
+            </div></div>
             <div class="field"><label for="dvEmail">Email <span class="opt-tag">optional</span></label><input id="dvEmail" type="email"></div>
             <!-- Os idiomas, de uma lista.
 
@@ -1394,7 +1704,95 @@ html[data-theme="dark"] .earn-row .due b{color:var(--amber)}
             <div class="field"><label for="stPostal">Postal code</label><input id="stPostal" type="text"></div>
             <div class="field"><label for="stContact">Contact name</label><input id="stContact" type="text"></div>
             <div class="field"><label for="stRole">Role</label><input id="stRole" type="text"></div>
-            <div class="field"><label for="stPhone">Phone</label><input id="stPhone" type="tel"></div>
+            <div class="field"><label for="stPhone">Phone</label>
+            <!-- O indicativo num seletor com bandeira.
+                 Um parceiro espanhol via "+351 ..." e escrevia o numero
+                 espanhol com o indicativo portugues a frente. -->
+            <div data-phone-mount>
+              <select id="stPhoneCode" aria-label="Country dialling code">
+                <option value="213">Algeria +213</option>
+                <option value="54">Argentina +54</option>
+                <option value="61">Australia +61</option>
+                <option value="43">Austria +43</option>
+                <option value="973">Bahrain +973</option>
+                <option value="32">Belgium +32</option>
+                <option value="55">Brazil +55</option>
+                <option value="359">Bulgaria +359</option>
+                <option value="1">Canada +1</option>
+                <option value="238">Cape Verde +238</option>
+                <option value="56">Chile +56</option>
+                <option value="86">China +86</option>
+                <option value="57">Colombia +57</option>
+                <option value="506">Costa Rica +506</option>
+                <option value="385">Croatia +385</option>
+                <option value="357">Cyprus +357</option>
+                <option value="420">Czechia +420</option>
+                <option value="45">Denmark +45</option>
+                <option value="1">Dominican Republic +1</option>
+                <option value="20">Egypt +20</option>
+                <option value="372">Estonia +372</option>
+                <option value="358">Finland +358</option>
+                <option value="33">France +33</option>
+                <option value="49">Germany +49</option>
+                <option value="30">Greece +30</option>
+                <option value="852">Hong Kong +852</option>
+                <option value="36">Hungary +36</option>
+                <option value="354">Iceland +354</option>
+                <option value="91">India +91</option>
+                <option value="62">Indonesia +62</option>
+                <option value="353">Ireland +353</option>
+                <option value="972">Israel +972</option>
+                <option value="39">Italy +39</option>
+                <option value="81">Japan +81</option>
+                <option value="962">Jordan +962</option>
+                <option value="254">Kenya +254</option>
+                <option value="965">Kuwait +965</option>
+                <option value="371">Latvia +371</option>
+                <option value="370">Lithuania +370</option>
+                <option value="352">Luxembourg +352</option>
+                <option value="60">Malaysia +60</option>
+                <option value="960">Maldives +960</option>
+                <option value="356">Malta +356</option>
+                <option value="52">Mexico +52</option>
+                <option value="212">Morocco +212</option>
+                <option value="31">Netherlands +31</option>
+                <option value="64">New Zealand +64</option>
+                <option value="234">Nigeria +234</option>
+                <option value="47">Norway +47</option>
+                <option value="968">Oman +968</option>
+                <option value="92">Pakistan +92</option>
+                <option value="507">Panama +507</option>
+                <option value="51">Peru +51</option>
+                <option value="63">Philippines +63</option>
+                <option value="48">Poland +48</option>
+                <option value="351">Portugal +351</option>
+                <option value="974">Qatar +974</option>
+                <option value="40">Romania +40</option>
+                <option value="7">Russia +7</option>
+                <option value="966">Saudi Arabia +966</option>
+                <option value="381">Serbia +381</option>
+                <option value="65">Singapore +65</option>
+                <option value="421">Slovakia +421</option>
+                <option value="386">Slovenia +386</option>
+                <option value="27">South Africa +27</option>
+                <option value="82">South Korea +82</option>
+                <option value="34">Spain +34</option>
+                <option value="94">Sri Lanka +94</option>
+                <option value="46">Sweden +46</option>
+                <option value="41">Switzerland +41</option>
+                <option value="886">Taiwan +886</option>
+                <option value="66">Thailand +66</option>
+                <option value="216">Tunisia +216</option>
+                <option value="90">Turkey +90</option>
+                <option value="380">Ukraine +380</option>
+                <option value="971">United Arab Emirates +971</option>
+                <option value="44">United Kingdom +44</option>
+                <option value="1">United States +1</option>
+                <option value="598">Uruguay +598</option>
+                <option value="84">Vietnam +84</option>
+              </select>
+              <input id="stPhone" type="tel" inputmode="tel" autocomplete="tel">
+            </div></div>
             <div class="field"><label for="stEmergency">Out-of-hours phone</label><input id="stEmergency" type="tel"></div>
             <div class="field"><label for="stEmail">Account email</label><input id="stEmail" type="email" disabled></div>
             <div class="field"><label for="stCountry">Country</label><input id="stCountry" type="text" disabled></div>
@@ -5005,6 +5403,28 @@ function renderRides() {
 
 })();
 
+
+
+/**
+ * Os campos de telefone do portal.
+ *
+ * Tres: o registo, o de cada motorista, e o do suporte. Cada um
+ * monta-se so se estiver no DOM — vivem em ecras diferentes.
+ *
+ * Sem isto ficava o placeholder "+351 ...", que diz a um parceiro
+ * espanhol que o formato e portugues.
+ */
+(function () {
+  if (!window.AirportlinkPhone) return;
+
+  [['w1PhoneCode', 'w1Phone'],
+   ['dvPhoneCode', 'dvPhone'],
+   ['stPhoneCode', 'stPhone']].forEach(function (par) {
+    if (document.getElementById(par[1])) {
+      window.AirportlinkPhone.mount({ select: par[0], input: par[1] });
+    }
+  });
+})();
 </script>
 
 </body>
