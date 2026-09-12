@@ -2969,6 +2969,22 @@ const internal = req.body.internal === true;
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    /**
+     * Responder primeiro, trabalhar depois.
+     *
+     * Esta rota faz sete consultas e manda emails em tres ciclos,
+     * um de cada vez. Com dez ofertas por lembrar sao dez segundos
+     * — e o cron desiste antes, com um Gateway Timeout.
+     *
+     * O aviso chegava ao Telegram a dizer que a tarefa falhou,
+     * quando ela tinha corrido bem e so demorado.
+     *
+     * O cron so precisa de saber que a chamada foi aceite. O
+     * trabalho continua depois de a resposta sair — e se algo
+     * falhar, o log e o alarme dizem-no.
+     */
+    res.json({ accepted: true });
+
     try {
       const { data, error } = await supabase.rpc('support_tick');
       if (error) throw error;
@@ -3160,10 +3176,29 @@ const internal = req.body.internal === true;
         console.error('tick_ran failed:', e.message);
       }
 
-      return res.json({ ok: true, ...resumo });
+      /**
+       * A resposta ja saiu. O que fica e o registo.
+       *
+       * Chamar res.json outra vez aqui dava "Cannot set headers
+       * after they are sent" — e isso e um erro no log de cada
+       * minuto, a dizer que algo esta mal quando nao esta.
+       */
+      console.log('[tick]', JSON.stringify(resumo));
     } catch (error) {
       console.error('support-tick error:', error.message);
-      return res.status(500).json({ error: error.message });
+
+      /**
+       * E o alarme, que agora e o unico sinal de falha.
+       *
+       * Sem a resposta de erro, o cron nunca saberia que o
+       * trabalho falhou — por isso o aviso passa a ser o que
+       * conta.
+       *
+       * O telegramTickDown ja avisa quando o tick para de correr
+       * de todo; isto avisa quando ele corre e rebenta a meio,
+       * que e diferente e passaria despercebido.
+       */
+      console.error('[tick] a passagem falhou:', error.message);
     }
   });
 
